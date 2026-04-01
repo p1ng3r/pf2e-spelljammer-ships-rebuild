@@ -1,28 +1,37 @@
-import { MODULE_ID, MODULE_TITLE, STATION_ROSTER } from "../config/constants.js";
+import { API_NAMESPACE, MODULE_ID, MODULE_TITLE, STATIONS } from "../config/constants.js";
 
-export class ShipManagementApp extends Application {
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: `${MODULE_ID}-ship-management`,
-      classes: [MODULE_ID, "ship-management-app"],
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
+  static DEFAULT_OPTIONS = {
+    id: `${MODULE_ID}-ship-management`,
+    classes: [MODULE_ID, "ship-management-app"],
+    tag: "section",
+    window: {
       title: `${MODULE_TITLE} | Ship Management`,
-      template: `modules/${MODULE_ID}/templates/app/ship-management-app.hbs`,
+      resizable: true,
+    },
+    position: {
       width: 640,
       height: 520,
-      resizable: true,
-    });
-  }
+    },
+  };
 
-  /** @override */
-  getData() {
-    const api = game?.[MODULE_ID] ?? null;
+  static PARTS = {
+    content: {
+      template: `modules/${MODULE_ID}/templates/app/ship-management-app.hbs`,
+    },
+  };
+
+  async _prepareContext() {
+    const api = game?.[API_NAMESPACE] ?? null;
     const shipState = api?.state?.getShipState?.() ?? null;
 
     return {
       moduleTitle: MODULE_TITLE,
       hasShipState: Boolean(shipState),
       shipState,
-      stationRoster: STATION_ROSTER,
+      stations: STATIONS,
     };
   }
 }

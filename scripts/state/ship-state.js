@@ -1,4 +1,4 @@
-import { STATION_ROSTER, TRAVEL_TERM } from "../config/constants.js";
+import { STATIONS, TRAVEL_TERM } from "../config/constants.js";
 
 /**
  * Create the initial shared ship state.
@@ -40,8 +40,8 @@ export function createDefaultShipState() {
 export function createDefaultStationAssignments() {
   const assignments = {};
 
-  for (const stationName of STATION_ROSTER) {
-    assignments[stationName] = {
+  for (const station of STATIONS) {
+    assignments[station.id] = {
       actorId: null,
       isNpcCrew: false,
     };

@@ -1,4 +1,4 @@
-import { MODULE_ID } from "../config/constants.js";
+import { API_NAMESPACE, MODULE_ID } from "../config/constants.js";
 import { createDefaultShipState } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
 
@@ -20,6 +20,7 @@ function resetState() {
 export function createModuleApi() {
   return {
     moduleId: MODULE_ID,
+    apiNamespace: API_NAMESPACE,
     state: {
       getShipState: () => ensureState(),
       resetShipState: () => resetState(),
@@ -27,7 +28,7 @@ export function createModuleApi() {
     ui: {
       openShipManagement: () => {
         const app = new ShipManagementApp();
-        app.render(true);
+        app.render({ force: true });
         return app;
       },
     },
@@ -36,6 +37,6 @@ export function createModuleApi() {
 
 export function attachModuleApi() {
   const api = createModuleApi();
-  game[MODULE_ID] = api;
+  game[API_NAMESPACE] = api;
   return api;
 }
