@@ -344,6 +344,15 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         })),
       };
     });
+    const arcflightTemplates = stateApi?.getArcflightTemplates?.(viewShipOptions) ?? [];
+    const arcflightTemplateViewModels = arcflightTemplates.map((template) => ({
+      ...template,
+      typeLabel: toReadableSlugLabel(template.type),
+      severityLabel: toReadableSlugLabel(template.severity),
+      recommendedStationLabel: stationLabelsById[template?.stationRules?.recommendedStation] ?? "Unassigned",
+      recommendedSkillLabel: skillLabelsByValue[template?.stationRules?.recommendedSkill] ??
+        toReadableSlugLabel(template?.stationRules?.recommendedSkill),
+    }));
     const travelTaskViewModels = travelTasks.map((task) => {
       const taskAttemptKey = `${String(task.recommendedStation ?? "").trim()}::task::${String(task.id ?? "").trim()}`;
       const capturedRollSummary = toCapturedRollSummary(
@@ -496,6 +505,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         showResolved: this.#showResolvedStationRequests,
         openCount: openStationRequestCount,
       },
+      arcflightTemplates: {
+        templates: arcflightTemplateViewModels,
+        hasTemplates: arcflightTemplateViewModels.length > 0,
+      },
       taskTypeOptions,
       checkTypeOptions,
       eventTypeOptions,
@@ -644,6 +657,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     for (const button of applyLatestEventRollButtons) {
       button.addEventListener("click", this.#onApplyLatestEventRollClick.bind(this));
     }
+
+    const spawnTemplateButtons = root.querySelectorAll("[data-action='spawn-arcflight-template']");
+    for (const button of spawnTemplateButtons) {
+      button.addEventListener("click", this.#onSpawnArcflightTemplateClick.bind(this));
+    }
   }
 
   async #onAssignStationActorClick(event) {
@@ -680,6 +698,21 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.clearStationActor?.(stationId, this.#getViewShipStateOptions());
+    }, event.currentTarget);
+  }
+
+  async #onSpawnArcflightTemplateClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const templateId = String(button?.dataset?.templateId ?? "").trim();
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!templateId || !stateApi) {
+      return;
+    }
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.spawnArcflightTemplateInstance?.(templateId, {}, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 

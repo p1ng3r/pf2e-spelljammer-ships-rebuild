@@ -812,6 +812,36 @@
         {{/if}}
       </section>
 
+      <section class="travel-maintenance">
+        <h4>Premade Arcflight Templates</h4>
+        {{#if arcflightTemplates.hasTemplates}}
+          <ul class="travel-record-list">
+            {{#each arcflightTemplates.templates as |template|}}
+              <li class="travel-record-row" data-arcflight-template-id="{{template.id}}">
+                <div class="travel-record-row__header">
+                  <strong>{{template.title}}</strong>
+                  <span class="travel-record-row__chips">
+                    <span class="travel-record-chip">Type: {{template.typeLabel}}</span>
+                    <span class="travel-record-chip">Severity: {{template.severityLabel}}</span>
+                  </span>
+                </div>
+                <div class="travel-record-row__meta-grid">
+                  <p><strong>Recommended Station:</strong> {{template.recommendedStationLabel}}</p>
+                  <p><strong>Recommended Skill:</strong> {{template.recommendedSkillLabel}}</p>
+                </div>
+                <div class="travel-record-row__actions">
+                  <button type="button" data-action="spawn-arcflight-template" data-template-id="{{template.id}}">
+                    Spawn
+                  </button>
+                </div>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No premade Arcflight templates available.</em></p>
+        {{/if}}
+      </section>
+
       <p>This UI remains intentionally minimal and reads from the shared API/state layer.</p>
     </article>
   {{else}}
