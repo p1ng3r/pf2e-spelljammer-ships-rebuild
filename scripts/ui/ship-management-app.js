@@ -70,7 +70,7 @@ function getEffectiveAttemptValue(attemptedValue, recommendedValue) {
 }
 
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
-  #pendingBodyScrollTop = null;
+  #pendingBodyScrollState = null;
 
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-ship-management`,
@@ -161,6 +161,31 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
       return accumulator;
     }, {});
+    const travelEventViewModels = travelEvents.map((travelEvent) => {
+      const stationAttemptValue = getEffectiveAttemptValue(
+        travelEvent.attemptedByStation,
+        travelEvent.recommendedStation,
+      );
+      const skillAttemptValue = getEffectiveAttemptValue(travelEvent.attemptedSkill, travelEvent.recommendedSkill);
+
+      return {
+        ...travelEvent,
+        statusLabel: toReadableSlugLabel(travelEvent.status ?? "open"),
+        eventTypeLabel: toReadableSlugLabel(travelEvent.eventType),
+        checkTypeLabel: toReadableSlugLabel(travelEvent.checkType),
+        recommendedStationLabel: stationLabelsById[travelEvent.recommendedStation] ?? null,
+        recommendedSkillLabel: skillLabelsByValue[travelEvent.recommendedSkill] ??
+          toReadableSlugLabel(travelEvent.recommendedSkill),
+        attemptedByStationLabel: stationLabelsById[travelEvent.attemptedByStation] ?? null,
+        attemptedSkillLabel: skillLabelsByValue[travelEvent.attemptedSkill] ??
+          toReadableSlugLabel(travelEvent.attemptedSkill),
+        effectiveAttemptedByStation: stationAttemptValue.value,
+        effectiveAttemptedSkill: skillAttemptValue.value,
+        attemptUsesRecommendedDefaults:
+          stationAttemptValue.usesRecommendedDefault || skillAttemptValue.usesRecommendedDefault,
+        linkedTaskTitle: travelTasksById[travelEvent.linkedTaskId]?.title ?? null,
+      };
+    });
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -190,15 +215,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         hasTasks: travelTasks.length > 0,
       },
       travelEvents: {
-        events: travelEvents.map((travelEvent) => ({
-          ...travelEvent,
-          eventTypeLabel: toReadableSlugLabel(travelEvent.eventType),
-          checkTypeLabel: toReadableSlugLabel(travelEvent.checkType),
-          recommendedStationLabel: stationLabelsById[travelEvent.recommendedStation] ?? null,
-          recommendedSkillLabel: skillLabelsByValue[travelEvent.recommendedSkill] ??
-            toReadableSlugLabel(travelEvent.recommendedSkill),
-          linkedTaskTitle: travelTasksById[travelEvent.linkedTaskId]?.title ?? null,
-        })),
+        events: travelEventViewModels,
         hasEvents: travelEvents.length > 0,
       },
       taskTypeOptions,
@@ -226,6 +243,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     this.#restoreBodyScrollPosition(root);
     this.#hydrateTravelTaskAttemptInputs(root);
+    this.#hydrateTravelEventAttemptInputs(root);
 
     const advanceDayButton = root.querySelector("[data-action='advance-day']");
     advanceDayButton?.addEventListener("click", this.#onAdvanceDayClick.bind(this));
@@ -267,6 +285,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       button.addEventListener("click", this.#onResolveTravelEventClick.bind(this));
     }
 
+    const attemptEventButtons = root.querySelectorAll("[data-action='attempt-travel-event']");
+    for (const button of attemptEventButtons) {
+      button.addEventListener("click", this.#onAttemptTravelEventClick.bind(this));
+    }
+
     const createTaskFromEventButtons = root.querySelectorAll("[data-action='create-task-from-event']");
     for (const button of createTaskFromEventButtons) {
       button.addEventListener("click", this.#onCreateTaskFromEventClick.bind(this));
@@ -278,7 +301,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const stateApi = game?.[API_NAMESPACE]?.state;
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi?.advanceTravelDay?.();
-    });
+    }, event.currentTarget);
   }
 
   async #onPostureChange(event) {
@@ -295,7 +318,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       } else {
         await stateApi.updateTravelState?.({ posture });
       }
-    });
+    }, event.currentTarget);
   }
 
   async #onRouteLegSubmit(event) {
@@ -331,7 +354,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       } else {
         await stateApi.updateTravelState?.({ legDistance, legProgressMax });
       }
-    });
+    }, event.currentTarget);
   }
 
   async #onResetLegProgressClick(event) {
@@ -347,7 +370,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         legProgress: 0,
         daysIntoCurrentLeg: 0,
       });
-    });
+    }, event.currentTarget);
   }
 
   async #onMaintenanceIssueSubmit(event) {
@@ -387,7 +410,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         recommendedSkill,
         notes,
       });
-    });
+    }, event.currentTarget);
 
     form.reset();
   }
@@ -427,7 +450,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         source: "manual",
         status: "open",
       });
-    });
+    }, event.currentTarget);
 
     form.reset();
   }
@@ -444,7 +467,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.resolveMaintenanceIssue?.(issueId);
-    });
+    }, event.currentTarget);
   }
 
   async #onAttemptTravelTaskClick(event) {
@@ -472,7 +495,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         attemptedByStation: attemptedByStation || null,
         attemptedSkill: attemptedSkill || null,
       });
-    });
+    }, event.currentTarget);
   }
 
   async #onResolveTravelTaskClick(event) {
@@ -487,7 +510,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.resolveTravelTask?.(taskId);
-    });
+    }, event.currentTarget);
   }
 
   async #onTravelEventSubmit(event) {
@@ -529,9 +552,37 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         notes,
         source: "manual",
       });
-    });
+    }, event.currentTarget);
 
     form.reset();
+  }
+
+  async #onAttemptTravelEventClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const eventId = button?.dataset?.eventId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!eventId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-travel-event-id]");
+    const summaryInput = row?.querySelector("[name='travelEventAttemptSummary']");
+    const attemptedByStationInput = row?.querySelector("[name='travelEventAttemptedByStation']");
+    const attemptedSkillInput = row?.querySelector("[name='travelEventAttemptedSkill']");
+    const lastAttemptSummary = String(summaryInput?.value ?? "").trim();
+    const attemptedByStation = String(attemptedByStationInput?.value ?? "").trim();
+    const attemptedSkill = String(attemptedSkillInput?.value ?? "").trim().toLowerCase();
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.attemptTravelEvent?.(eventId, {
+        lastAttemptSummary,
+        summary: lastAttemptSummary || undefined,
+        attemptedByStation: attemptedByStation || null,
+        attemptedSkill: attemptedSkill || null,
+      });
+    }, event.currentTarget);
   }
 
   async #onResolveTravelEventClick(event) {
@@ -546,7 +597,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.resolveTravelEvent?.(eventId);
-    });
+    }, event.currentTarget);
   }
 
   async #onCreateTaskFromEventClick(event) {
@@ -561,11 +612,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.createTravelTaskFromEvent?.(eventId);
-    });
+    }, event.currentTarget);
   }
 
-  async #rerenderWithPreservedBodyScroll(action) {
-    this.#pendingBodyScrollTop = this.#getBodyScrollContainer()?.scrollTop ?? 0;
+  async #rerenderWithPreservedBodyScroll(action, sourceElement = null) {
+    this.#pendingBodyScrollState = this.#captureBodyScrollState(sourceElement);
     await action?.();
     this.render({ force: true });
   }
@@ -574,20 +625,66 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     return root?.querySelector(".ship-management-body") ?? null;
   }
 
+  #captureBodyScrollState(sourceElement) {
+    const scrollContainer = this.#getBodyScrollContainer();
+    if (!scrollContainer) {
+      return null;
+    }
+
+    const state = {
+      scrollTop: scrollContainer.scrollTop ?? 0,
+      anchorSelector: null,
+      anchorOffsetTop: null,
+    };
+
+    const anchorRow = sourceElement?.closest?.("[data-travel-task-id], [data-travel-event-id]");
+    if (!anchorRow?.dataset) {
+      return state;
+    }
+
+    const taskId = String(anchorRow.dataset.travelTaskId ?? "").trim();
+    if (taskId) {
+      state.anchorSelector = `[data-travel-task-id="${taskId}"]`;
+      state.anchorOffsetTop = anchorRow.offsetTop - scrollContainer.scrollTop;
+      return state;
+    }
+
+    const eventId = String(anchorRow.dataset.travelEventId ?? "").trim();
+    if (eventId) {
+      state.anchorSelector = `[data-travel-event-id="${eventId}"]`;
+      state.anchorOffsetTop = anchorRow.offsetTop - scrollContainer.scrollTop;
+    }
+
+    return state;
+  }
+
   #restoreBodyScrollPosition(root) {
-    if (!Number.isFinite(this.#pendingBodyScrollTop)) {
+    if (!this.#pendingBodyScrollState) {
       return;
     }
 
-    const scrollTop = this.#pendingBodyScrollTop;
-    this.#pendingBodyScrollTop = null;
+    const pendingScrollState = this.#pendingBodyScrollState;
+    this.#pendingBodyScrollState = null;
     const scrollContainer = this.#getBodyScrollContainer(root);
     if (!scrollContainer) {
       return;
     }
 
     requestAnimationFrame(() => {
-      scrollContainer.scrollTop = scrollTop;
+      if (pendingScrollState.anchorSelector && Number.isFinite(pendingScrollState.anchorOffsetTop)) {
+        const anchorRow = scrollContainer.querySelector(pendingScrollState.anchorSelector);
+        if (anchorRow) {
+          scrollContainer.scrollTop = Math.max(0, anchorRow.offsetTop - pendingScrollState.anchorOffsetTop);
+          return;
+        }
+      }
+
+      scrollContainer.scrollTop = pendingScrollState.scrollTop ?? 0;
+      requestAnimationFrame(() => {
+        if (Number.isFinite(pendingScrollState.scrollTop)) {
+          scrollContainer.scrollTop = pendingScrollState.scrollTop;
+        }
+      });
     });
   }
 
@@ -598,6 +695,24 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       const attemptedSkill = String(row.dataset.effectiveAttemptedSkill ?? "").trim();
       const attemptedByStationSelect = row.querySelector("[name='travelTaskAttemptedByStation']");
       const attemptedSkillSelect = row.querySelector("[name='travelTaskAttemptedSkill']");
+
+      if (attemptedByStationSelect) {
+        attemptedByStationSelect.value = attemptedByStation;
+      }
+
+      if (attemptedSkillSelect) {
+        attemptedSkillSelect.value = attemptedSkill;
+      }
+    }
+  }
+
+  #hydrateTravelEventAttemptInputs(root) {
+    const eventRows = root.querySelectorAll("[data-travel-event-id]");
+    for (const row of eventRows) {
+      const attemptedByStation = String(row.dataset.effectiveAttemptedByStation ?? "").trim();
+      const attemptedSkill = String(row.dataset.effectiveAttemptedSkill ?? "").trim();
+      const attemptedByStationSelect = row.querySelector("[name='travelEventAttemptedByStation']");
+      const attemptedSkillSelect = row.querySelector("[name='travelEventAttemptedSkill']");
 
       if (attemptedByStationSelect) {
         attemptedByStationSelect.value = attemptedByStation;
