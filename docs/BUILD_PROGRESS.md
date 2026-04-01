@@ -1,10 +1,10 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
+Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output.
 
 ## Current Branch Focus
-Deliver a small Arcflight UX consistency + manual outcome-tag pass across tasks/issues/events, keeping compact Ship Management flow intact.
+Deliver a small Arcflight UX consistency + manual outcome-tag pass across tasks/issues/events, keeping compact Ship Management flow intact and now separating GM/internal text from explicit player-safe public briefing text.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -219,6 +219,18 @@ Deliver a small Arcflight UX consistency + manual outcome-tag pass across tasks/
     - **Save DC**
     - **Create Task**
   - **Save Outcome** now writes both freeform outcome text (`resultSummary`) and manual `outcomeTag`.
+- Arcflight explicit player-safe public briefing pass added:
+  - Shared Arcflight record state now includes explicit player-facing fields on all three record types:
+    - travel events: `publicSummary`, `publicOutcome`
+    - maintenance issues: `publicSummary`, `publicOutcome`
+    - travel tasks: `publicSummary`, `publicOutcome`
+  - New public fields are normalized as optional text and remain backward-compatible with existing records that do not include them.
+  - Event-linked task creation now carries forward public briefing text when present.
+  - Ship Management app now provides compact GM-side inline/public editing for all three record types:
+    - add forms include optional **Players See: Summary/Outcome**
+    - row-level **Save Outcome** updates both GM/internal outcome text and player-safe public briefing text
+  - Player Arcflight View now renders only explicit public briefing fields for situation/problem/response summaries and outcomes.
+  - Player Arcflight View no longer falls back to internal notes/summaries/attempt metadata for public display, using safe fallback copy when public text is blank.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:

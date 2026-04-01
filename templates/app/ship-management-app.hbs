@@ -172,6 +172,14 @@
             <input type="text" name="travelTaskSummary" placeholder="Quick notes for table handling" />
           </label>
           <label>
+            <span>Players See: Summary</span>
+            <input type="text" name="travelTaskPublicSummary" placeholder="Player-safe briefing summary" />
+          </label>
+          <label>
+            <span>Players See: Outcome</span>
+            <input type="text" name="travelTaskPublicOutcome" placeholder="Player-safe outcome text" />
+          </label>
+          <label>
             <span>DC</span>
             <input type="number" name="travelTaskDc" min="1" step="1" placeholder="Ex: 18" />
           </label>
@@ -202,6 +210,7 @@
                   <p><strong>DC:</strong> {{#if task.dcLabel}}{{task.dcLabel}}{{else}}Not set{{/if}}</p>
                 </div>
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{task.outcomeSummaryLabel}}</p>
+                <p class="travel-record-row__summary"><strong>Players See:</strong> {{#if task.publicSummary}}{{task.publicSummary}}{{else}}No public details yet.{{/if}} / {{#if task.publicOutcome}}{{task.publicOutcome}}{{else}}Outcome still uncertain.{{/if}}</p>
                 <div class="travel-task-attempt-controls">
                   <label>
                     <span>By Station</span>
@@ -252,6 +261,24 @@
                     name="travelTaskOutcomeSummary"
                     value="{{task.resultSummary}}"
                     placeholder="Editable GM outcome text"
+                  />
+                </label>
+                <label>
+                  <span>Players See: Summary</span>
+                  <input
+                    type="text"
+                    name="travelTaskPublicSummary"
+                    value="{{task.publicSummary}}"
+                    placeholder="Player-safe summary text"
+                  />
+                </label>
+                <label>
+                  <span>Players See: Outcome</span>
+                  <input
+                    type="text"
+                    name="travelTaskPublicOutcome"
+                    value="{{task.publicOutcome}}"
+                    placeholder="Player-safe outcome text"
                   />
                 </label>
                 <label>
@@ -344,6 +371,14 @@
             <input type="text" name="issueNotes" placeholder="Optional table notes" />
           </label>
           <label>
+            <span>Players See: Summary</span>
+            <input type="text" name="issuePublicSummary" placeholder="Player-safe issue summary" />
+          </label>
+          <label>
+            <span>Players See: Outcome</span>
+            <input type="text" name="issuePublicOutcome" placeholder="Player-safe outcome text" />
+          </label>
+          <label>
             <span>DC</span>
             <input type="number" name="issueDc" min="1" step="1" placeholder="Ex: 18" />
           </label>
@@ -378,6 +413,7 @@
                   <p><strong>DC:</strong> {{#if issue.dcLabel}}{{issue.dcLabel}}{{else}}Not set{{/if}}</p>
                 </div>
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{issue.outcomeSummaryLabel}}</p>
+                <p class="travel-record-row__summary"><strong>Players See:</strong> {{#if issue.publicSummary}}{{issue.publicSummary}}{{else}}No public details yet.{{/if}} / {{#if issue.publicOutcome}}{{issue.publicOutcome}}{{else}}Outcome still uncertain.{{/if}}</p>
                 <label>
                   <span>DC</span>
                   <input
@@ -396,6 +432,24 @@
                     name="maintenanceIssueOutcomeSummary"
                     value="{{issue.resultSummary}}"
                     placeholder="Editable GM outcome text"
+                  />
+                </label>
+                <label>
+                  <span>Players See: Summary</span>
+                  <input
+                    type="text"
+                    name="maintenanceIssuePublicSummary"
+                    value="{{issue.publicSummary}}"
+                    placeholder="Player-safe summary text"
+                  />
+                </label>
+                <label>
+                  <span>Players See: Outcome</span>
+                  <input
+                    type="text"
+                    name="maintenanceIssuePublicOutcome"
+                    value="{{issue.publicOutcome}}"
+                    placeholder="Player-safe outcome text"
                   />
                 </label>
                 <label>
@@ -499,6 +553,14 @@
             <span>Notes</span>
             <input type="text" name="travelEventNotes" placeholder="Optional GM notes" />
           </label>
+          <label>
+            <span>Players See: Summary</span>
+            <input type="text" name="travelEventPublicSummary" placeholder="Player-safe event summary" />
+          </label>
+          <label>
+            <span>Players See: Outcome</span>
+            <input type="text" name="travelEventPublicOutcome" placeholder="Player-safe outcome text" />
+          </label>
           <button type="submit">Add Event</button>
         </form>
 
@@ -529,6 +591,7 @@
                 </div>
                 <p class="travel-record-row__summary"><strong>Attempt Summary:</strong> {{event.attemptSummaryLabel}}</p>
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{event.outcomeSummaryLabel}}</p>
+                <p class="travel-record-row__summary"><strong>Players See:</strong> {{#if event.publicSummary}}{{event.publicSummary}}{{else}}No public details yet.{{/if}} / {{#if event.publicOutcome}}{{event.publicOutcome}}{{else}}Outcome still uncertain.{{/if}}</p>
                 <div class="travel-task-attempt-controls travel-record-row__attempt-controls">
                   <label>
                     <span>By Station</span>
@@ -568,6 +631,24 @@
                     name="travelEventOutcomeSummary"
                     value="{{event.resultSummary}}"
                     placeholder="Editable GM outcome text"
+                  />
+                </label>
+                <label>
+                  <span>Players See: Summary</span>
+                  <input
+                    type="text"
+                    name="travelEventPublicSummary"
+                    value="{{event.publicSummary}}"
+                    placeholder="Player-safe summary text"
+                  />
+                </label>
+                <label>
+                  <span>Players See: Outcome</span>
+                  <input
+                    type="text"
+                    name="travelEventPublicOutcome"
+                    value="{{event.publicOutcome}}"
+                    placeholder="Player-safe outcome text"
                   />
                 </label>
                 <label>

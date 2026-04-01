@@ -167,6 +167,11 @@ function normalizeTaskNotes(value) {
   return notes || null;
 }
 
+function normalizePublicBriefingText(value) {
+  const text = normalizeIssueText(value, "");
+  return text || null;
+}
+
 function normalizeOutcomeTag(value) {
   const outcomeTag = normalizeIssueText(value, "none").toLowerCase();
   const allowedOutcomeTags = ["none", "success", "failure", "mixed", "unresolved"];
@@ -203,6 +208,8 @@ function createMaintenanceIssue(issueOrPartial = {}) {
     recommendedSkill: normalizeRecommendedSkill(issueOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(issueOrPartial.notes),
     resultSummary: normalizeTaskNotes(issueOrPartial.resultSummary),
+    publicSummary: normalizePublicBriefingText(issueOrPartial.publicSummary),
+    publicOutcome: normalizePublicBriefingText(issueOrPartial.publicOutcome),
     outcomeTag: normalizeOutcomeTag(issueOrPartial.outcomeTag),
   };
 }
@@ -223,10 +230,12 @@ function createTravelTask(taskOrPartial = {}) {
     recommendedSkill: normalizeRecommendedSkill(taskOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(taskOrPartial.notes),
     summary: normalizeTaskNotes(taskOrPartial.summary),
+    publicSummary: normalizePublicBriefingText(taskOrPartial.publicSummary),
     lastAttemptSummary: normalizeTaskNotes(taskOrPartial.lastAttemptSummary),
     attemptedByStation: normalizeRecommendedStation(taskOrPartial.attemptedByStation),
     attemptedSkill: normalizeRecommendedSkill(taskOrPartial.attemptedSkill),
     resultSummary: normalizeTaskNotes(taskOrPartial.resultSummary),
+    publicOutcome: normalizePublicBriefingText(taskOrPartial.publicOutcome),
     outcomeTag: normalizeOutcomeTag(taskOrPartial.outcomeTag),
   };
 }
@@ -250,10 +259,12 @@ function createTravelEvent(eventOrPartial = {}) {
     dc: normalizeOptionalDc(eventOrPartial.dc),
     notes: normalizeTaskNotes(eventOrPartial.notes),
     summary: normalizeTaskNotes(eventOrPartial.summary),
+    publicSummary: normalizePublicBriefingText(eventOrPartial.publicSummary),
     lastAttemptSummary: normalizeTaskNotes(eventOrPartial.lastAttemptSummary),
     attemptedByStation: normalizeRecommendedStation(eventOrPartial.attemptedByStation),
     attemptedSkill: normalizeRecommendedSkill(eventOrPartial.attemptedSkill),
     resultSummary: normalizeTaskNotes(eventOrPartial.resultSummary),
+    publicOutcome: normalizePublicBriefingText(eventOrPartial.publicOutcome),
     outcomeTag: normalizeOutcomeTag(eventOrPartial.outcomeTag),
     linkedTaskId,
     hasLinkedTask: Boolean(linkedTaskId),
@@ -713,7 +724,9 @@ export function createTravelTaskFromEvent(index, eventId, taskOptions = {}, opti
     recommendedStation: taskOptions?.recommendedStation ?? sourceEvent.recommendedStation,
     recommendedSkill: taskOptions?.recommendedSkill ?? sourceEvent.recommendedSkill,
     summary: taskOptions?.summary ?? sourceEvent.summary ?? sourceEvent.notes,
+    publicSummary: taskOptions?.publicSummary ?? sourceEvent.publicSummary,
     notes: taskOptions?.notes ?? sourceEvent.notes,
+    publicOutcome: taskOptions?.publicOutcome ?? sourceEvent.publicOutcome,
     source: taskOptions?.source ?? "event-linked",
     status: "open",
   };
