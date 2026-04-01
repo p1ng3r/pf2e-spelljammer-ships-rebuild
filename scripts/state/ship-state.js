@@ -1,4 +1,5 @@
 import { STATIONS, TRAVEL_TERM } from "../config/constants.js";
+import { ARCFLIGHT_STARTER_TEMPLATES, ARCFLIGHT_TEMPLATE_TYPES } from "../content/arcflight-templates.js";
 
 export const DEFAULT_SHARED_SHIP_ID = "shared-default";
 export const PF2E_CORE_SKILLS = Object.freeze([
@@ -48,6 +49,25 @@ export const MANUAL_OUTCOME_TAGS = Object.freeze([
   { value: "mixed", label: "Mixed" },
   { value: "unresolved", label: "Unresolved" },
 ]);
+
+export const ARCFLIGHT_EFFECT_TYPES = Object.freeze([
+  "adjustResource",
+  "adjustArcflightValue",
+  "resolveSelf",
+  "setStatus",
+  "spawnTemplate",
+  "addLogEntry",
+]);
+
+const ARCFLIGHT_TEMPLATE_OUTCOME_KEYS = Object.freeze([
+  "criticalSuccess",
+  "success",
+  "failure",
+  "criticalFailure",
+]);
+
+const ARCFLIGHT_LOG_ENTRY_MAX = 5;
+
 
 function cloneData(data) {
   if (typeof globalThis.structuredClone === "function") {
@@ -259,6 +279,343 @@ function createStationRollAttempt(attemptOrPartial = {}) {
   };
 }
 
+function normalizeArcflightTemplateType(value) {
+  const templateType = normalizeIssueText(value, "task").toLowerCase();
+  return ARCFLIGHT_TEMPLATE_TYPES.includes(templateType) ? templateType : "task";
+}
+
+function normalizeArcflightEffectType(value) {
+  const effectType = normalizeIssueText(value, "addLogEntry");
+  return ARCFLIGHT_EFFECT_TYPES.includes(effectType) ? effectType : "addLogEntry";
+}
+
+function normalizeArcflightEffect(effectOrPartial = {}) {
+  const effectType = normalizeArcflightEffectType(effectOrPartial?.type);
+  const normalizedEffect = {
+    type: effectType,
+  };
+
+  if (effectType === "adjustResource") {
+    normalizedEffect.key = normalizeIssueText(effectOrPartial.key, "").toLowerCase() || null;
+    normalizedEffect.mode = normalizeIssueText(effectOrPartial.mode, "add").toLowerCase();
+    normalizedEffect.value = Number.isFinite(Number(effectOrPartial.value)) ? Number(effectOrPartial.value) : 0;
+  }
+
+  if (effectType === "adjustArcflightValue") {
+    normalizedEffect.key = normalizeIssueText(effectOrPartial.key, "").trim() || null;
+    normalizedEffect.mode = normalizeIssueText(effectOrPartial.mode, "add").toLowerCase();
+    normalizedEffect.value = Number.isFinite(Number(effectOrPartial.value)) ? Number(effectOrPartial.value) : 0;
+  }
+
+  if (effectType === "setStatus") {
+    normalizedEffect.status = normalizeIssueText(effectOrPartial.status, "attempted").toLowerCase();
+  }
+
+  if (effectType === "spawnTemplate") {
+    normalizedEffect.templateId = normalizeIssueText(effectOrPartial.templateId, "") || null;
+  }
+
+  if (effectType === "addLogEntry") {
+    normalizedEffect.text = normalizeIssueText(effectOrPartial.text, "Arcflight entry logged.") || null;
+  }
+
+  return normalizedEffect;
+}
+
+function normalizeArcflightOutcome(outcomeOrPartial = {}) {
+  const effects = Array.isArray(outcomeOrPartial.effects) ? outcomeOrPartial.effects : [];
+  const followUps = Array.isArray(outcomeOrPartial.followUps) ? outcomeOrPartial.followUps : [];
+
+  return {
+    summary: normalizeIssueText(outcomeOrPartial.summary, "No outcome summary."),
+    effects: effects.map((effect) => normalizeArcflightEffect(effect)),
+    followUps: followUps.map((entry) => normalizeIssueText(entry, "")).filter(Boolean),
+    logEntry: normalizeTaskNotes(outcomeOrPartial.logEntry),
+  };
+}
+
+function normalizeResolutionTexts(value = {}) {
+  return {
+    criticalSuccess: normalizeIssueText(value.criticalSuccess, "Critical success."),
+    success: normalizeIssueText(value.success, "Success."),
+    failure: normalizeIssueText(value.failure, "Failure."),
+    criticalFailure: normalizeIssueText(value.criticalFailure, "Critical failure."),
+  };
+}
+
+export function createArcflightTemplate(templateOrPartial = {}) {
+  const templateType = normalizeArcflightTemplateType(templateOrPartial.type);
+  const fallbackId = `arcflight-template-${templateType}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const allowedAlternateStations = Array.isArray(templateOrPartial?.stationRules?.allowedAlternateStations)
+    ? templateOrPartial.stationRules.allowedAlternateStations
+    : [];
+
+  const outcomesInput = templateOrPartial.outcomes && typeof templateOrPartial.outcomes === "object"
+    ? templateOrPartial.outcomes
+    : {};
+
+  return {
+    id: normalizeIssueText(templateOrPartial.id, fallbackId),
+    type: templateType,
+    title: normalizeIssueText(templateOrPartial.title, "Untitled Arcflight Template"),
+    category: normalizeIssueText(templateOrPartial.category, "general"),
+    tags: (Array.isArray(templateOrPartial.tags) ? templateOrPartial.tags : [])
+      .map((tag) => normalizeIssueText(tag, "").toLowerCase())
+      .filter(Boolean),
+    severity: normalizeIssueSeverity(templateOrPartial.severity),
+    player: {
+      summary: normalizeIssueText(templateOrPartial?.player?.summary, "Arcflight situation in progress."),
+      risk: normalizeIssueText(templateOrPartial?.player?.risk, "Consequences depend on crew response."),
+      resolutionTexts: normalizeResolutionTexts(templateOrPartial?.player?.resolutionTexts ?? {}),
+    },
+    gm: {
+      notes: normalizeTaskNotes(templateOrPartial?.gm?.notes),
+    },
+    stationRules: {
+      recommendedStation: normalizeRecommendedStation(templateOrPartial?.stationRules?.recommendedStation),
+      recommendedSkill: normalizeRecommendedSkill(templateOrPartial?.stationRules?.recommendedSkill),
+      allowedAlternateStations: allowedAlternateStations
+        .map((stationId) => normalizeRecommendedStation(stationId))
+        .filter(Boolean),
+      offStationPenalty: Number.isFinite(Number(templateOrPartial?.stationRules?.offStationPenalty))
+        ? Math.floor(Number(templateOrPartial.stationRules.offStationPenalty))
+        : 0,
+      assistanceAllowed: Boolean(templateOrPartial?.stationRules?.assistanceAllowed),
+    },
+    check: {
+      dc: normalizeOptionalDc(templateOrPartial?.check?.dc),
+      checkType: normalizeCheckType(templateOrPartial?.check?.checkType),
+      publicDcVisible: Boolean(templateOrPartial?.check?.publicDcVisible),
+    },
+    outcomes: ARCFLIGHT_TEMPLATE_OUTCOME_KEYS.reduce((acc, key) => {
+      acc[key] = normalizeArcflightOutcome(outcomesInput[key]);
+      return acc;
+    }, {}),
+  };
+}
+
+function normalizeArcflightTemplateCollection(templates = []) {
+  const seenTemplateIds = new Set();
+  const normalizedTemplates = [];
+
+  for (const entry of templates) {
+    const normalizedTemplate = createArcflightTemplate(entry);
+    if (seenTemplateIds.has(normalizedTemplate.id)) {
+      continue;
+    }
+
+    seenTemplateIds.add(normalizedTemplate.id);
+    normalizedTemplates.push(normalizedTemplate);
+  }
+
+  return normalizedTemplates;
+}
+
+export function getArcflightTemplates(index, options = {}) {
+  const travelState = getTravelState(index, options);
+  if (!travelState) {
+    return normalizeArcflightTemplateCollection(ARCFLIGHT_STARTER_TEMPLATES);
+  }
+
+  const sourceTemplates = Array.isArray(travelState.templates) && travelState.templates.length
+    ? travelState.templates
+    : ARCFLIGHT_STARTER_TEMPLATES;
+
+  return normalizeArcflightTemplateCollection(sourceTemplates);
+}
+
+export function getArcflightTemplateById(index, templateId, options = {}) {
+  const normalizedTemplateId = normalizeIssueText(templateId, "");
+  if (!normalizedTemplateId) {
+    return null;
+  }
+
+  return getArcflightTemplates(index, options).find((template) => template.id === normalizedTemplateId) ?? null;
+}
+
+function createArcflightInstanceFromTemplate(template, instancePatch = {}) {
+  const fallbackId = `arcflight-instance-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
+  const templatePlayable = {
+    title: template.title,
+    severity: template.severity,
+    recommendedStation: template.stationRules.recommendedStation,
+    recommendedSkill: template.stationRules.recommendedSkill,
+    checkType: template.check.checkType,
+    dc: template.check.dc,
+    summary: template.player.summary,
+    notes: template.gm.notes,
+    source: "template",
+    sourceTemplateId: template.id,
+    sourceTemplateType: template.type,
+    sourceTemplateCategory: template.category,
+    sourceTemplateTags: template.tags,
+    sourceTemplateOutcomes: template.outcomes,
+    sourceTemplateRisk: template.player.risk,
+    sourceTemplateResolutionTexts: template.player.resolutionTexts,
+    publicSummary: template.player.summary,
+    publicOutcome: template.player.risk,
+  };
+
+  return {
+    id: normalizeIssueText(instancePatch.id, generatedId),
+    templateId: template.id,
+    templateType: template.type,
+    title: normalizeIssueText(instancePatch.title, templatePlayable.title),
+    status: normalizeTravelTaskStatus(instancePatch.status ?? "open"),
+    createdAt: Date.now(),
+    playable: {
+      ...templatePlayable,
+      ...instancePatch.playable,
+    },
+  };
+}
+
+export function spawnArcflightTemplateInstance(index, templateOrId, instancePatch = {}, options = {}) {
+  const template = typeof templateOrId === "string"
+    ? getArcflightTemplateById(index, templateOrId, options)
+    : createArcflightTemplate(templateOrId);
+
+  if (!template) {
+    return getShipState(index, options);
+  }
+
+  const instanceRecord = createArcflightInstanceFromTemplate(template, instancePatch);
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const templateInstances = Array.isArray(travelState.templateInstances) ? travelState.templateInstances : [];
+      const travelEvents = Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
+      const travelTasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
+      const maintenanceIssues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+
+      const nextTravelState = {
+        ...travelState,
+        templateInstances: [...templateInstances, instanceRecord],
+      };
+
+      if (template.type === "event") {
+        nextTravelState.travelEvents = [
+          ...travelEvents,
+          createTravelEvent({
+            id: instanceRecord.id,
+            title: instanceRecord.title,
+            severity: instanceRecord.playable.severity,
+            eventType: template.category,
+            status: instanceRecord.status,
+            source: instanceRecord.playable.source,
+            recommendedStation: instanceRecord.playable.recommendedStation,
+            recommendedSkill: instanceRecord.playable.recommendedSkill,
+            checkType: instanceRecord.playable.checkType,
+            dc: instanceRecord.playable.dc,
+            summary: instanceRecord.playable.summary,
+            notes: instanceRecord.playable.notes,
+            publicSummary: instanceRecord.playable.publicSummary,
+            publicOutcome: instanceRecord.playable.publicOutcome,
+          }),
+        ];
+      }
+
+      if (template.type === "issue") {
+        nextTravelState.maintenanceIssues = [
+          ...maintenanceIssues,
+          createMaintenanceIssue({
+            id: instanceRecord.id,
+            title: instanceRecord.title,
+            severity: instanceRecord.playable.severity,
+            status: "open",
+            source: instanceRecord.playable.source,
+            taskType: template.category,
+            checkType: instanceRecord.playable.checkType,
+            dc: instanceRecord.playable.dc,
+            recommendedStation: instanceRecord.playable.recommendedStation,
+            recommendedSkill: instanceRecord.playable.recommendedSkill,
+            notes: instanceRecord.playable.notes,
+            publicSummary: instanceRecord.playable.publicSummary,
+            publicOutcome: instanceRecord.playable.publicOutcome,
+          }),
+        ];
+      }
+
+      if (template.type === "task") {
+        nextTravelState.travelTasks = [
+          ...travelTasks,
+          createTravelTask({
+            id: instanceRecord.id,
+            title: instanceRecord.title,
+            status: instanceRecord.status,
+            source: instanceRecord.playable.source,
+            taskType: template.category,
+            checkType: instanceRecord.playable.checkType,
+            dc: instanceRecord.playable.dc,
+            recommendedStation: instanceRecord.playable.recommendedStation,
+            recommendedSkill: instanceRecord.playable.recommendedSkill,
+            summary: instanceRecord.playable.summary,
+            notes: instanceRecord.playable.notes,
+            publicSummary: instanceRecord.playable.publicSummary,
+            publicOutcome: instanceRecord.playable.publicOutcome,
+          }),
+        ];
+      }
+
+      return nextTravelState;
+    },
+    options,
+  );
+}
+
+function normalizeArcflightLogEntry(entryOrPartial = {}) {
+  const fallbackId = `arcflight-log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
+
+  return {
+    id: normalizeIssueText(entryOrPartial.id, generatedId),
+    timestamp: Number.isFinite(Number(entryOrPartial.timestamp)) ? Number(entryOrPartial.timestamp) : Date.now(),
+    type: normalizeStationRequestSourceType(entryOrPartial.type),
+    sourceId: normalizeIssueText(entryOrPartial.sourceId, "") || null,
+    sourceTitle: normalizeIssueText(entryOrPartial.sourceTitle, "Arcflight"),
+    stationId: normalizeRecommendedStation(entryOrPartial.stationId),
+    actorId: normalizeIssueText(entryOrPartial.actorId, "") || null,
+    actorName: normalizeIssueText(entryOrPartial.actorName, "Unknown Actor"),
+    skill: normalizeRecommendedSkill(entryOrPartial.skill),
+    total: normalizeNullableNumber(entryOrPartial.total),
+    result: normalizeNullableDegree(entryOrPartial.result),
+    text: normalizeIssueText(entryOrPartial.text, "Arcflight log entry."),
+  };
+}
+
+function trimArcflightLogEntries(entries = []) {
+  return entries.slice(Math.max(0, entries.length - ARCFLIGHT_LOG_ENTRY_MAX));
+}
+
+export function getArcflightLogEntries(index, options = {}) {
+  const travelState = getTravelState(index, options);
+  if (!travelState) {
+    return [];
+  }
+
+  const entries = Array.isArray(travelState.logEntries) ? travelState.logEntries : [];
+  return trimArcflightLogEntries(entries);
+}
+
+export function addArcflightLogEntry(index, entryOrPartial = {}, options = {}) {
+  const nextEntry = normalizeArcflightLogEntry(entryOrPartial);
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const logEntries = Array.isArray(travelState.logEntries) ? travelState.logEntries : [];
+      return {
+        ...travelState,
+        logEntries: trimArcflightLogEntries([...logEntries, nextEntry]),
+      };
+    },
+    options,
+  );
+}
+
 function createMaintenanceIssue(issueOrPartial = {}) {
   const fallbackId = `issue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
@@ -380,6 +737,9 @@ function createDefaultArcflightState() {
     travelEvents: [],
     stationRequests: [],
     stationRollAttempts: [],
+    templates: normalizeArcflightTemplateCollection(ARCFLIGHT_STARTER_TEMPLATES),
+    templateInstances: [],
+    logEntries: [],
     maintenancePressure: 0,
     maintenanceIssues: [],
     encounterPressure: 0,

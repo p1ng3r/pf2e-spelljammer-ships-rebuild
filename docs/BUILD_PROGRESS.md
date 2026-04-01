@@ -595,3 +595,43 @@ Keep Arcflight focused and incremental:
   - `extractDegreeFromRollData(...)`
 - Shared station roll attempt write path is unchanged in shape (`total`, `degree`, etc.) but now receives pre-extracted values rather than re-parsing a potentially message-shaped object.
 - Chat output and player Roll Check behavior are preserved; adjudication and Apply Latest Roll remain manual-first.
+
+## Arcflight premade template foundation pass (2026-04-01)
+- Added a unified Arcflight premade template schema and normalization path for template types:
+  - `event`
+  - `task`
+  - `issue`
+- Added starter authored premade templates in code:
+  - `issue-coil-drift`
+  - `task-reroute-power`
+  - `event-astral-squall`
+- Added shared-state template helpers:
+  - `state.getArcflightTemplates(options?)`
+  - `state.getArcflightTemplateById(templateId, options?)`
+  - `state.createArcflightTemplate(templateOrPartial)`
+  - `state.spawnArcflightTemplateInstance(templateOrId, instancePatch?, options?)`
+- Added spawn behavior that creates live ship-specific records in existing shared Arcflight collections:
+  - event templates -> `arcflight.travelEvents[]`
+  - task templates -> `arcflight.travelTasks[]`
+  - issue templates -> `arcflight.maintenanceIssues[]`
+- Added bounded Arcflight log support in shared state:
+  - `arcflight.logEntries[]`
+  - `state.getArcflightLogEntries(options?)`
+  - `state.addArcflightLogEntry(entryOrPartial, options?)`
+- Log entries are now trimmed to only the newest 5 entries whenever entries are read/written through shared-state helpers.
+- Scope remains manual/data-driven:
+  - no random generation
+  - no compendium browser UI
+  - no automatic DC resolution
+  - no automatic effect executor
+
+## Arcflight premade spawn player-field integration fix pass (2026-04-01)
+- Root cause fixed: premade template spawn wrote GM/internal live-record text fields (`summary`, `notes`, and for issues `resultSummary`) but did not explicitly populate player-facing live-record fields consumed by the current Player Arcflight view (`publicSummary`, `publicOutcome`).
+- Spawn mapping now explicitly sets player-safe fields from template player text:
+  - `template.player.summary` -> spawned record `publicSummary`
+  - `template.player.risk` -> spawned record `publicOutcome`
+- Corrected spawned record mapping for all premade template types:
+  - event templates
+  - task templates
+  - issue templates
+- Issue spawn behavior now avoids using `resultSummary` as initial player-facing text; player-facing text is carried in `publicSummary`/`publicOutcome` while existing GM flow fields (`summary`, `notes`, etc.) remain intact where applicable.
