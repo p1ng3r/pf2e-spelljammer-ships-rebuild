@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the Arcflight event UX polish slice: denser Events rows plus clearer manual attempt/outcome wording while keeping current event behaviors intact.
+Deliver a small Arcflight event-DC fix pass on top of resolved visibility/outcome editing, keeping compact Ship Management flow intact.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -172,6 +172,30 @@ Deliver the Arcflight event UX polish slice: denser Events rows plus clearer man
     - falls back to `Resolved manually by GM.` for resolved events with no custom result summary
     - otherwise shows `No outcome recorded yet.`
   - Attempt input copy was tightened from broad "Attempt / Result Summary" to focused "Attempt Notes" for cleaner manual flow.
+- Arcflight resolved visibility + manual outcome editing pass added:
+  - Added compact GM-facing **Show Resolved** toggles for:
+    - travel tasks
+    - maintenance issues
+    - travel events
+  - Default list behavior still emphasizes open records, with resolved items hidden unless toggled on.
+  - Added `includeResolved` option support to shared-state list helpers:
+    - `getTravelTasks({ includeResolved: true })`
+    - `getMaintenanceIssues({ includeResolved: true })`
+    - `getTravelEvents({ includeResolved: true })`
+  - Maintenance issue resolve behavior now marks issue status as `resolved` instead of removing the record, enabling optional review in the same lightweight list.
+  - Added lightweight manual outcome editing controls in-row (no new Attempt Check required) for:
+    - travel tasks (`resultSummary` via `updateTravelTask`)
+    - maintenance issues (`resultSummary` via `updateMaintenanceIssue`)
+    - travel events (`resultSummary` via `updateTravelEvent`)
+  - Existing Attempt Check, Resolve, and Create Task from Event flows remain in place and unchanged in scope.
+  - Shared rerender scroll-preservation behavior remains used for the new toggle and outcome-save actions.
+- Arcflight event manual DC field fix pass added:
+  - Travel event shared state now stores explicit manual numeric DC via `dc` (nullable).
+  - Event creation form now accepts optional DC input.
+  - Event rows now display DC clearly in compact metadata.
+  - Event rows now include inline editable DC input + **Save DC** action.
+  - DC editing remains manual-only and does not require Attempt Check.
+  - No automatic DC math and no roll automation were added.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -189,7 +213,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `Reset Leg Progress` in-app action zeroes `legProgress` and `daysIntoCurrentLeg` while keeping destination and leg target values intact.
 - `state.addMaintenanceIssue(...)` appends a simple open maintenance issue (`id`, `title`, `severity`, `status`, `source`) to Arcflight shared state.
 - `state.getMaintenanceIssues()` returns currently open maintenance issues.
-- `state.resolveMaintenanceIssue(issueId)` removes/resolves a selected issue from the list.
+- `state.resolveMaintenanceIssue(issueId)` marks a selected issue `resolved` (hidden by default, visible with Show Resolved toggle).
 - In-app Maintenance controls support manual issue creation and one-click issue resolution.
 - `state.addTravelTask(...)` appends a simple open travel task to Arcflight shared state.
 - `state.getTravelTasks()` returns currently open travel tasks.
@@ -209,7 +233,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
   - Travel-task rows now hydrate Attempt Check select inputs from those effective values, reducing duplicate GM data entry in the common case.
   - Manual override behavior is unchanged: GM can still change attempted station/skill before clicking **Attempt Check**.
   - Rerender behavior remains stable: selected attempted values continue to display correctly after inline actions, and scroll preservation remains unchanged.
-- `state.addTravelEvent(...)` appends a simple open travel event placeholder (`id`, `title`, `severity`, `eventType`, `status`, `recommendedStation`, `recommendedSkill`, `checkType`, `notes`, `summary`) to Arcflight shared state.
+- `state.addTravelEvent(...)` appends a simple open travel event placeholder (`id`, `title`, `severity`, `eventType`, `status`, `recommendedStation`, `recommendedSkill`, `checkType`, `dc`, `notes`, `summary`) to Arcflight shared state.
 - `state.getTravelEvents()` returns currently open travel events.
 - `state.resolveTravelEvent(eventId)` marks an event as resolved and removes it from the open-events readout.
 - In-app Events controls support manual event creation and one-click event resolution.
@@ -218,6 +242,9 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.attemptTravelEvent(eventId, { attemptedByStation, attemptedSkill, lastAttemptSummary })` marks an event `attempted` and persists manual attempt metadata.
 - In-app event rows support compact manual **Attempt Check** and **Resolve** actions with shared scroll-safe rerender behavior.
 - In-app event rows now present denser scan-friendly metadata while preserving existing manual action flow and state linkage behavior.
+- `state.addTravelEvent({ dc })` stores optional manual event DC when provided.
+- `state.updateTravelEvent(eventId, { dc })` allows manual event DC edits without a new Attempt Check.
+- In-app event rows display and persist manual DC through inline **Save DC**.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -230,6 +257,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Travel-task Attempt Check attribution now defaults from recommended station/skill when attempted values are unset, while preserving the state distinction between recommendation and actual attempt metadata.
 - Travel events are now tracked as a separate manual placeholder list in the same shared Arcflight state model used by travel tasks and maintenance issues.
 - Travel events and travel tasks remain separate objects with only lightweight event-to-task linking metadata (`linkedTaskId`, `hasLinkedTask`).
+- Resolved tasks/issues/events remain in shared Arcflight state and can be viewed on demand through compact per-section toggles.
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
@@ -245,15 +273,15 @@ Keep Arcflight focused and incremental:
 - table-test whether event-to-task linkage defaults are sufficient or need small per-click override options
 - table-test whether open/attempted/resolved status flow is sufficient before adding archive/history UX
 - continue deferring automation-heavy subsystems (rolling, event generation, deep maintenance simulation)
+- table-test whether default-hidden resolved toggles feel compact enough at the table or should move to header micro-controls
 
 ## Known Issues / Cleanup
 - Decide whether sector naming should use `currentSector` in parallel with `currentHex` or stay hex-only for now.
 - Keep pressure fields as placeholders until core travel loop behavior is table-tested.
-- Decide later whether resolved issues should be archived instead of removed after the first playable validation loop.
-- Decide later whether resolved travel tasks should be shown via a compact archive toggle.
+- Keep resolved visibility toggle behavior lightweight and avoid introducing a separate archive/history subsystem.
 - Decide later whether to allow optional multi-task follow-ups per event behind an explicit GM setting.
 - Keep app UX intentionally lightweight until travel loop behavior is validated.
-- Continue table-testing whether to display resolved events behind a compact archive toggle later.
+- Continue table-testing whether resolved-toggle labels and placement are clear in fast-play GM usage.
 
 ## Pass History
 - **Foundation shell pass**: module scaffolding, constants/config, and initial API surface.
@@ -274,3 +302,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight event-linked task workflow pass**: lightweight event/task relationship fields + `createTravelTaskFromEvent` helper + compact per-event **Create Task** UI action.
 - **Arcflight event attempt + scroll-stability pass**: centralized anchor-aware scroll restoration for inline event/task actions plus manual event Attempt Check status/metadata scaffold.
 - **Arcflight event compact-row wording polish pass**: denser Events row layout and clearer manual Attempt Summary vs Outcome readout text.
+- **Arcflight resolved visibility + manual outcome editing pass**: compact per-section Show Resolved toggles plus direct row-level outcome text editing for tasks/issues/events without requiring a new Attempt Check.

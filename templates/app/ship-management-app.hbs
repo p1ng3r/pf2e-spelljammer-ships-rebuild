@@ -110,9 +110,18 @@
 
       <section class="travel-maintenance">
         <h5>Travel Tasks / Maintenance Tasks</h5>
-        <p><strong>Open Travel Tasks:</strong> {{travelTasks.tasks.length}}</p>
-        <p><strong>Open Issues:</strong> {{maintenance.issues.length}}</p>
-        <p><strong>Open Events:</strong> {{travelEvents.events.length}}</p>
+        <p><strong>Open Travel Tasks:</strong> {{travelTasks.openCount}}</p>
+        <p><strong>Open Issues:</strong> {{maintenance.openCount}}</p>
+        <p><strong>Open Events:</strong> {{travelEvents.openCount}}</p>
+        <label>
+          <input
+            type="checkbox"
+            data-action="toggle-resolved-visibility"
+            data-group="travel-tasks"
+            {{#if travelTasks.showResolved}}checked{{/if}}
+          />
+          <span>Show Resolved Tasks</span>
+        </label>
 
         <form data-action="travel-task-form">
           <label>
@@ -216,8 +225,20 @@
                     placeholder="Manual attempt notes"
                   />
                 </label>
+                <label>
+                  <span>Outcome</span>
+                  <input
+                    type="text"
+                    name="travelTaskOutcomeSummary"
+                    value="{{task.resultSummary}}"
+                    placeholder="Editable GM outcome text"
+                  />
+                </label>
                 <button type="button" data-action="attempt-travel-task" data-task-id="{{task.id}}">
                   Attempt Check
+                </button>
+                <button type="button" data-action="save-travel-task-outcome" data-task-id="{{task.id}}">
+                  Save Outcome
                 </button>
                 <button type="button" data-action="resolve-travel-task" data-task-id="{{task.id}}">
                   Resolve
@@ -291,16 +312,38 @@
           </label>
           <button type="submit">Add Issue</button>
         </form>
+        <label>
+          <input
+            type="checkbox"
+            data-action="toggle-resolved-visibility"
+            data-group="maintenance-issues"
+            {{#if maintenance.showResolved}}checked{{/if}}
+          />
+          <span>Show Resolved Issues</span>
+        </label>
 
         {{#if maintenance.hasIssues}}
           <ul>
             {{#each maintenance.issues as |issue|}}
-              <li>
+              <li data-maintenance-issue-id="{{issue.id}}">
                 <strong>{{issue.title}}</strong>
                 <span>({{issue.severity}})</span>
+                <span>- <strong>Status:</strong> {{issue.statusLabel}}</span>
                 <span>- {{issue.taskTypeLabel}} / {{issue.checkTypeLabel}}</span>
                 <span>- {{#if issue.recommendedStationLabel}}{{issue.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
                 <span>- {{#if issue.recommendedSkill}}{{issue.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
+                <label>
+                  <span>Outcome</span>
+                  <input
+                    type="text"
+                    name="maintenanceIssueOutcomeSummary"
+                    value="{{issue.resultSummary}}"
+                    placeholder="Editable GM outcome text"
+                  />
+                </label>
+                <button type="button" data-action="save-maintenance-issue-outcome" data-issue-id="{{issue.id}}">
+                  Save Outcome
+                </button>
                 <button type="button" data-action="resolve-maintenance-issue" data-issue-id="{{issue.id}}">
                   Resolve
                 </button>
@@ -312,6 +355,15 @@
         {{/if}}
 
         <h5>Events</h5>
+        <label>
+          <input
+            type="checkbox"
+            data-action="toggle-resolved-visibility"
+            data-group="travel-events"
+            {{#if travelEvents.showResolved}}checked{{/if}}
+          />
+          <span>Show Resolved Events</span>
+        </label>
         <form data-action="travel-event-form">
           <label>
             <span>Event Title</span>
@@ -341,6 +393,10 @@
                 <option value="{{checkType.value}}">{{checkType.label}}</option>
               {{/each}}
             </select>
+          </label>
+          <label>
+            <span>DC</span>
+            <input type="number" name="travelEventDc" min="1" step="1" placeholder="Ex: 18" />
           </label>
           <label>
             <span>Recommended Station</span>
@@ -396,6 +452,7 @@
                 </div>
                 <div class="travel-event-row__meta-grid">
                   <p><strong>Recommended:</strong> {{#if event.recommendedStationLabel}}{{event.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.recommendedSkill}}{{event.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                  <p><strong>DC:</strong> {{#if event.dcLabel}}{{event.dcLabel}}{{else}}Not set{{/if}}</p>
                   <p><strong>Attempted:</strong> {{#if event.attemptedByStationLabel}}{{event.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.attemptedSkill}}{{event.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>Linked Task:</strong> {{#if event.hasLinkedTask}}{{#if event.linkedTaskTitle}}{{event.linkedTaskTitle}}{{else}}<code>{{event.linkedTaskId}}</code>{{/if}}{{else}}None{{/if}}</p>
                 </div>
@@ -433,9 +490,35 @@
                     placeholder="Manual attempt details"
                   />
                 </label>
+                <label>
+                  <span>Outcome</span>
+                  <input
+                    type="text"
+                    name="travelEventOutcomeSummary"
+                    value="{{event.resultSummary}}"
+                    placeholder="Editable GM outcome text"
+                  />
+                </label>
+                <label>
+                  <span>DC</span>
+                  <input
+                    type="number"
+                    name="travelEventDc"
+                    min="1"
+                    step="1"
+                    value="{{event.dcLabel}}"
+                    placeholder="Event DC"
+                  />
+                </label>
                 <div class="travel-event-row__actions">
                   <button type="button" data-action="attempt-travel-event" data-event-id="{{event.id}}">
                     Attempt Check
+                  </button>
+                  <button type="button" data-action="save-travel-event-outcome" data-event-id="{{event.id}}">
+                    Save Outcome
+                  </button>
+                  <button type="button" data-action="save-travel-event-dc" data-event-id="{{event.id}}">
+                    Save DC
                   </button>
                   <button
                     type="button"

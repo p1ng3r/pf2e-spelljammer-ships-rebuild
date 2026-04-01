@@ -160,6 +160,19 @@ function normalizeTaskNotes(value) {
   return notes || null;
 }
 
+function normalizeOptionalDc(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return Math.floor(numericValue);
+}
+
 function createMaintenanceIssue(issueOrPartial = {}) {
   const fallbackId = `issue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
@@ -175,6 +188,7 @@ function createMaintenanceIssue(issueOrPartial = {}) {
     recommendedStation: normalizeRecommendedStation(issueOrPartial.recommendedStation),
     recommendedSkill: normalizeRecommendedSkill(issueOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(issueOrPartial.notes),
+    resultSummary: normalizeTaskNotes(issueOrPartial.resultSummary),
   };
 }
 
@@ -216,6 +230,7 @@ function createTravelEvent(eventOrPartial = {}) {
     recommendedStation: normalizeRecommendedStation(eventOrPartial.recommendedStation),
     recommendedSkill: normalizeRecommendedSkill(eventOrPartial.recommendedSkill),
     checkType: normalizeCheckType(eventOrPartial.checkType),
+    dc: normalizeOptionalDc(eventOrPartial.dc),
     notes: normalizeTaskNotes(eventOrPartial.notes),
     summary: normalizeTaskNotes(eventOrPartial.summary),
     lastAttemptSummary: normalizeTaskNotes(eventOrPartial.lastAttemptSummary),
@@ -470,6 +485,10 @@ export function getMaintenanceIssues(index, options = {}) {
   }
 
   const issues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+  if (options.includeResolved) {
+    return issues;
+  }
+
   return issues.filter((issue) => normalizeIssueStatus(issue?.status) !== "resolved");
 }
 
@@ -480,6 +499,10 @@ export function getTravelTasks(index, options = {}) {
   }
 
   const tasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
+  if (options.includeResolved) {
+    return tasks;
+  }
+
   return tasks.filter((task) => normalizeTravelTaskStatus(task?.status) !== "resolved");
 }
 
@@ -555,6 +578,10 @@ export function getTravelEvents(index, options = {}) {
   }
 
   const events = Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
+  if (options.includeResolved) {
+    return events;
+  }
+
   return events.filter((travelEvent) => normalizeTravelEventStatus(travelEvent?.status) !== "resolved");
 }
 
@@ -777,7 +804,16 @@ export function resolveMaintenanceIssue(index, issueId, options = {}) {
       const maintenanceIssues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
       return {
         ...travelState,
-        maintenanceIssues: maintenanceIssues.filter((issue) => issue?.id !== normalizedIssueId),
+        maintenanceIssues: maintenanceIssues.map((issue) => {
+          if (issue?.id !== normalizedIssueId) {
+            return issue;
+          }
+
+          return createMaintenanceIssue({
+            ...issue,
+            status: "resolved",
+          });
+        }),
       };
     },
     options,
