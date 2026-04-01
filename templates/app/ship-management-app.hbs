@@ -120,19 +120,42 @@
           </label>
           <label>
             <span>Task Type</span>
-            <input type="text" name="travelTaskType" placeholder="travel" />
+            <select name="travelTaskType">
+              {{#each taskTypeOptions as |taskType|}}
+                <option value="{{taskType.value}}">{{taskType.label}}</option>
+              {{/each}}
+            </select>
           </label>
           <label>
             <span>Check Type</span>
-            <input type="text" name="travelTaskCheckType" placeholder="skill" />
+            <select name="travelTaskCheckType">
+              {{#each checkTypeOptions as |checkType|}}
+                <option value="{{checkType.value}}">{{checkType.label}}</option>
+              {{/each}}
+            </select>
           </label>
           <label>
             <span>Recommended Station</span>
-            <input type="text" name="travelTaskRecommendedStation" placeholder="Ex: Sightmaster" />
+            <select name="travelTaskRecommendedStation">
+              <option value="">Unassigned</option>
+              {{#each stationOptions as |station|}}
+                <option value="{{station.value}}">{{station.label}}</option>
+              {{/each}}
+            </select>
           </label>
           <label>
             <span>Recommended Skill</span>
-            <input type="text" name="travelTaskRecommendedSkill" placeholder="Ex: Survival" />
+            <select name="travelTaskRecommendedSkill">
+              <option value="">None</option>
+              {{#each skillOptions as |skill|}}
+                <option value="{{skill.value}}">{{skill.label}}</option>
+              {{/each}}
+              <option value="{{customSkillOption}}">Custom</option>
+            </select>
+          </label>
+          <label>
+            <span>Custom Skill (Optional)</span>
+            <input type="text" name="travelTaskRecommendedSkillCustom" placeholder="Ex: sailing-lore" />
           </label>
           <label>
             <span>Summary</span>
@@ -146,9 +169,9 @@
             {{#each travelTasks.tasks as |task|}}
               <li>
                 <strong>{{task.title}}</strong>
-                <span>({{task.taskType}} / {{task.checkType}})</span>
-                <span>- {{#if task.recommendedStation}}{{task.recommendedStation}}{{else}}Unassigned{{/if}}</span>
-                <span>- {{#if task.recommendedSkill}}{{task.recommendedSkill}}{{else}}No skill set{{/if}}</span>
+                <span>({{task.taskTypeLabel}} / {{task.checkTypeLabel}})</span>
+                <span>- {{#if task.recommendedStationLabel}}{{task.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
+                <span>- {{#if task.recommendedSkill}}{{task.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
               </li>
             {{/each}}
           </ul>
@@ -172,15 +195,45 @@
           </label>
           <label>
             <span>Task Type</span>
-            <input type="text" name="issueTaskType" placeholder="maintenance" />
+            <select name="issueTaskType">
+              <option value="maintenance" selected>Maintenance</option>
+              <option value="travel">Travel</option>
+              <option value="navigation">Navigation</option>
+              <option value="engineering">Engineering</option>
+              <option value="repair">Repair</option>
+              <option value="general">General</option>
+            </select>
+          </label>
+          <label>
+            <span>Check Type</span>
+            <select name="issueCheckType">
+              {{#each checkTypeOptions as |checkType|}}
+                <option value="{{checkType.value}}">{{checkType.label}}</option>
+              {{/each}}
+            </select>
           </label>
           <label>
             <span>Recommended Station</span>
-            <input type="text" name="issueRecommendedStation" placeholder="Ex: Aetherwright" />
+            <select name="issueRecommendedStation">
+              <option value="">Unassigned</option>
+              {{#each stationOptions as |station|}}
+                <option value="{{station.value}}">{{station.label}}</option>
+              {{/each}}
+            </select>
           </label>
           <label>
             <span>Recommended Skill</span>
-            <input type="text" name="issueRecommendedSkill" placeholder="Ex: Crafting" />
+            <select name="issueRecommendedSkill">
+              <option value="">None</option>
+              {{#each skillOptions as |skill|}}
+                <option value="{{skill.value}}">{{skill.label}}</option>
+              {{/each}}
+              <option value="{{customSkillOption}}">Custom</option>
+            </select>
+          </label>
+          <label>
+            <span>Custom Skill (Optional)</span>
+            <input type="text" name="issueRecommendedSkillCustom" placeholder="Ex: engineering-lore" />
           </label>
           <label>
             <span>Notes</span>
@@ -195,8 +248,9 @@
               <li>
                 <strong>{{issue.title}}</strong>
                 <span>({{issue.severity}})</span>
-                <span>- {{#if issue.recommendedStation}}{{issue.recommendedStation}}{{else}}Unassigned{{/if}}</span>
-                <span>- {{#if issue.recommendedSkill}}{{issue.recommendedSkill}}{{else}}No skill set{{/if}}</span>
+                <span>- {{issue.taskTypeLabel}} / {{issue.checkTypeLabel}}</span>
+                <span>- {{#if issue.recommendedStationLabel}}{{issue.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
+                <span>- {{#if issue.recommendedSkill}}{{issue.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
                 <button type="button" data-action="resolve-maintenance-issue" data-issue-id="{{issue.id}}">
                   Resolve
                 </button>

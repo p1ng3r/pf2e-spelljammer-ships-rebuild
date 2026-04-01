@@ -1,6 +1,38 @@
 import { STATIONS, TRAVEL_TERM } from "../config/constants.js";
 
 export const DEFAULT_SHARED_SHIP_ID = "shared-default";
+export const PF2E_CORE_SKILLS = Object.freeze([
+  { value: "acrobatics", label: "Acrobatics" },
+  { value: "arcana", label: "Arcana" },
+  { value: "athletics", label: "Athletics" },
+  { value: "crafting", label: "Crafting" },
+  { value: "deception", label: "Deception" },
+  { value: "diplomacy", label: "Diplomacy" },
+  { value: "intimidation", label: "Intimidation" },
+  { value: "medicine", label: "Medicine" },
+  { value: "nature", label: "Nature" },
+  { value: "occultism", label: "Occultism" },
+  { value: "performance", label: "Performance" },
+  { value: "religion", label: "Religion" },
+  { value: "society", label: "Society" },
+  { value: "stealth", label: "Stealth" },
+  { value: "survival", label: "Survival" },
+  { value: "thievery", label: "Thievery" },
+]);
+export const CREW_TASK_TYPES = Object.freeze([
+  { value: "travel", label: "Travel" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "navigation", label: "Navigation" },
+  { value: "engineering", label: "Engineering" },
+  { value: "repair", label: "Repair" },
+  { value: "general", label: "General" },
+]);
+export const CREW_CHECK_TYPES = Object.freeze([
+  { value: "skill", label: "Skill" },
+  { value: "lore", label: "Lore" },
+  { value: "save", label: "Save" },
+  { value: "other", label: "Other" },
+]);
 
 function cloneData(data) {
   if (typeof globalThis.structuredClone === "function") {
@@ -79,12 +111,17 @@ function normalizeRecommendedStation(value) {
     (station) => station.id.toLowerCase() === normalizedInput || station.label.toLowerCase() === normalizedInput,
   );
 
-  return stationMatch?.label ?? null;
+  return stationMatch?.id ?? null;
 }
 
 function normalizeRecommendedSkill(value) {
-  const skill = normalizeIssueText(value, "");
-  return skill || null;
+  const skill = normalizeIssueText(value, "").toLowerCase();
+  if (!skill) {
+    return null;
+  }
+
+  const knownSkill = PF2E_CORE_SKILLS.find((entry) => entry.value === skill);
+  return knownSkill?.value ?? skill;
 }
 
 function normalizeTaskNotes(value) {

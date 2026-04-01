@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the first Arcflight crew-check scaffold pass so travel and maintenance tasks can carry station/skill guidance without adding roll automation.
+Deliver an Arcflight crew-check polish pass that replaces free-text recommendation entry with compact controlled selects while keeping manual task/issue creation.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -58,6 +58,17 @@ Deliver the first Arcflight crew-check scaffold pass so travel and maintenance t
     - manual travel task add form
     - manual maintenance issue add form with optional station/skill/task fields
     - open-item rows display recommended station + skill for table adjudication
+- Arcflight crew-check polish pass added:
+  - Travel task and maintenance issue forms now use compact select controls for:
+    - task type
+    - check type
+    - recommended station (locked rebuild roster)
+    - recommended skill (PF2E core skills)
+  - Optional minimal custom-skill text fields were added for unusual future cases.
+  - Shared-state normalization now stores stable ids/slugs:
+    - `recommendedStation` stores station id (`captain`, `aetherwright`, etc.)
+    - `recommendedSkill` stores lowercase PF2E skill slug (or custom lowercase slug text)
+  - In-app list display now resolves readable labels from stable stored values.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -81,12 +92,15 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.getTravelTasks()` returns currently open travel tasks.
 - `state.setMaintenanceIssueTask(issueId, taskPatch)` updates only task/check recommendation metadata for an issue.
 - In-app task controls support manual station/skill recommendations while issue resolution remains manual.
+- Travel Task and Maintenance Issue forms accept recommended station/skill/task/check values through select controls instead of free text.
+- Added tasks/issues persist stable station ids and skill slugs in shared state while displaying readable labels in the app.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
 - Travel day advancement still uses placeholder progress/pressure behavior.
 - Maintenance pressure remains a separate placeholder value from explicit maintenance issue entries.
 - Travel and maintenance records now carry lightweight crew-check recommendation metadata only (no automated rolling).
+- Crew-check recommendation entry is now select-driven for cleaner GM data entry and reduced typo cleanup.
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
@@ -96,7 +110,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 
 ## Next Recommended Pass
 Keep Arcflight focused and incremental:
-- table-test whether recommended station/skill fields are sufficient for GM adjudication before adding check execution helpers
+- table-test whether select-driven station/skill/task/check fields are sufficient for GM adjudication before adding check execution helpers
 - add minimal completion/archive handling for travel tasks if table use needs history visibility
 - continue deferring automation-heavy subsystems (rolling, event generation, deep maintenance simulation)
 
@@ -118,3 +132,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight compact UX pass**: scroll-friendly app body, denser travel summary layout, and in-app Reset Leg Progress action.
 - **Arcflight maintenance placeholder pass**: shared maintenance issue list + simple API helpers + compact Ship Management maintenance controls.
 - **Arcflight crew-check scaffold pass**: travel task list + maintenance task metadata + compact station/skill guidance readout in Ship Management.
+- **Arcflight crew-check polish pass**: compact select controls for station/skill/task/check metadata with stable station-id and skill-slug storage.

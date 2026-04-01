@@ -1,8 +1,10 @@
 import { API_NAMESPACE, MODULE_ID, MODULE_TITLE, STATIONS } from "../config/constants.js";
+import { CREW_CHECK_TYPES, CREW_TASK_TYPES, PF2E_CORE_SKILLS } from "../state/ship-state.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 const DEFAULT_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
+const CUSTOM_SKILL_OPTION = "custom";
 
 function toLabel(posture) {
   return posture
@@ -18,6 +20,25 @@ function parsePositiveNumber(value, fallback) {
   }
 
   return numericValue;
+}
+
+function toReadableSlugLabel(value) {
+  if (!value) {
+    return "None";
+  }
+
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function resolveSkillValue(selectedSkill, customSkill) {
+  if (selectedSkill === CUSTOM_SKILL_OPTION) {
+    return String(customSkill ?? "").trim().toLowerCase();
+  }
+
+  return String(selectedSkill ?? "").trim().toLowerCase();
 }
 
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
@@ -61,6 +82,24 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       (Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : []);
     const travelTasks = stateApi?.getTravelTasks?.() ??
       (Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : []);
+    const stationOptions = STATIONS.map((station) => ({ value: station.id, label: station.label }));
+    const skillOptions = PF2E_CORE_SKILLS.map((skill) => ({ value: skill.value, label: skill.label }));
+    const taskTypeOptions = CREW_TASK_TYPES.map((taskType) => ({
+      value: taskType.value,
+      label: taskType.label,
+    }));
+    const checkTypeOptions = CREW_CHECK_TYPES.map((checkType) => ({
+      value: checkType.value,
+      label: checkType.label,
+    }));
+    const stationLabelsById = STATIONS.reduce((accumulator, station) => {
+      accumulator[station.id] = station.label;
+      return accumulator;
+    }, {});
+    const skillLabelsByValue = PF2E_CORE_SKILLS.reduce((accumulator, skill) => {
+      accumulator[skill.value] = skill.label;
+      return accumulator;
+    }, {});
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -76,13 +115,30 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         legComplete,
       },
       maintenance: {
-        issues: maintenanceIssues,
+        issues: maintenanceIssues.map((issue) => ({
+          ...issue,
+          taskTypeLabel: toReadableSlugLabel(issue.taskType),
+          checkTypeLabel: toReadableSlugLabel(issue.checkType),
+          recommendedStationLabel: stationLabelsById[issue.recommendedStation] ?? null,
+          recommendedSkillLabel: skillLabelsByValue[issue.recommendedSkill] ?? toReadableSlugLabel(issue.recommendedSkill),
+        })),
         hasIssues: maintenanceIssues.length > 0,
       },
       travelTasks: {
-        tasks: travelTasks,
+        tasks: travelTasks.map((task) => ({
+          ...task,
+          taskTypeLabel: toReadableSlugLabel(task.taskType),
+          checkTypeLabel: toReadableSlugLabel(task.checkType),
+          recommendedStationLabel: stationLabelsById[task.recommendedStation] ?? null,
+          recommendedSkillLabel: skillLabelsByValue[task.recommendedSkill] ?? toReadableSlugLabel(task.recommendedSkill),
+        })),
         hasTasks: travelTasks.length > 0,
       },
+      taskTypeOptions,
+      checkTypeOptions,
+      stationOptions,
+      skillOptions,
+      customSkillOption: CUSTOM_SKILL_OPTION,
       actorContext: {
         actorId: linkedActorId,
         actorName: linkedActor?.name ?? null,
@@ -213,8 +269,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const title = String(formData.get("issueTitle") ?? "").trim();
     const severity = String(formData.get("issueSeverity") ?? "minor").trim();
     const recommendedStation = String(formData.get("issueRecommendedStation") ?? "").trim();
-    const recommendedSkill = String(formData.get("issueRecommendedSkill") ?? "").trim();
+    const recommendedSkill = resolveSkillValue(
+      formData.get("issueRecommendedSkill"),
+      formData.get("issueRecommendedSkillCustom"),
+    );
     const taskType = String(formData.get("issueTaskType") ?? "maintenance").trim();
+    const checkType = String(formData.get("issueCheckType") ?? "skill").trim();
     const notes = String(formData.get("issueNotes") ?? "").trim();
 
     if (!title) {
@@ -227,7 +287,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       source: "manual",
       status: "open",
       taskType,
-      checkType: "skill",
+      checkType,
       recommendedStation,
       recommendedSkill,
       notes,
@@ -251,7 +311,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const taskType = String(formData.get("travelTaskType") ?? "travel").trim();
     const checkType = String(formData.get("travelTaskCheckType") ?? "skill").trim();
     const recommendedStation = String(formData.get("travelTaskRecommendedStation") ?? "").trim();
-    const recommendedSkill = String(formData.get("travelTaskRecommendedSkill") ?? "").trim();
+    const recommendedSkill = resolveSkillValue(
+      formData.get("travelTaskRecommendedSkill"),
+      formData.get("travelTaskRecommendedSkillCustom"),
+    );
     const summary = String(formData.get("travelTaskSummary") ?? "").trim();
 
     if (!title) {
