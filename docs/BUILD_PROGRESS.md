@@ -1,10 +1,10 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. The current implementation has completed the initial foundation and actor-integration milestones and is ready to begin the first voyage scaffolding pass.
+Active rebuild in progress. The first Arcflight travel scaffold vertical slice is now in place on top of the clean foundation.
 
 ## Current Branch Focus
-Stabilize and document the clean foundation so future passes can safely build Arcflight travel mechanics without reworking core state or app wiring.
+Establish a minimal, shared-state Arcflight travel loop that the Ship Management app can display and the module API can advance one day at a time.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -16,6 +16,9 @@ Stabilize and document the clean foundation so future passes can safely build Ar
 - Station ids normalized to consistent kebab-case where needed.
 - Actor context display improved in Ship Management.
 - Invalid actor launch now fails gracefully.
+- Arcflight travel scaffold added to the shared ship state.
+- Travel API helpers added: read, update, and advance-day.
+- Ship Management now shows a minimal Arcflight Travel section.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -25,22 +28,28 @@ Confirmed in prior implementation passes:
 - Vehicle actor integration works for **Courier Sloop Test Ship**.
 - Invalid actor launch returns `null` and shows a user-facing error instead of breaking flow.
 
+This pass is foundation-only and ready for in-Foundry validation of:
+- `state.getTravelState()` reads
+- `state.updateTravelState(...)` writes
+- `state.advanceTravelDay()` daily progression increments
+- Travel section rendering in Ship Management
+
 ## Current State of the Module
-- No real travel mechanics yet.
+- Arcflight now has a minimal shared-state travel scaffold.
+- Travel day advancement updates placeholder progress and pressure values.
+- No travel randomization or encounter tables yet.
 - No real combat mechanics yet.
 - No upgrades/cargo/reputation systems yet.
-- Current focus has been establishing a clean foundation and solid actor integration.
 
 ## Next Recommended Pass
-Implement the first **Arcflight** travel scaffold as a small vertical slice:
-- add minimal travel state fields to the shared ship state
-- add a basic travel panel/section in Ship Management
-- implement one simple day/hex progress action
-
-Keep scope small and avoid combat work in this pass.
+Build the next Arcflight slice while keeping scope tight:
+- add a lightweight route leg definition (still placeholder-level)
+- add one explicit user action path from the app to advance a day
+- begin validating posture/progress effects without adding heavy subsystem bookkeeping
 
 ## Known Issues / Cleanup
-- Confirm final naming consistency for any remaining station-id references as new travel features are added.
+- Decide whether sector naming should use `currentSector` in parallel with `currentHex` or stay hex-only for now.
+- Keep pressure fields as placeholders until core travel loop behavior is table-tested.
 - Keep app UX intentionally lightweight until travel loop behavior is validated.
 
 ## Pass History
@@ -49,3 +58,4 @@ Keep scope small and avoid combat work in this pass.
 - **State/API refinement pass**: shared ship-state and API cleanup.
 - **Vehicle integration pass**: PF2E vehicle actor hook-up and launch path.
 - **Polish pass**: station id normalization, actor context display improvements, graceful invalid actor handling.
+- **Arcflight scaffold pass**: minimal travel state model, travel API helpers, and Ship Management travel readout.

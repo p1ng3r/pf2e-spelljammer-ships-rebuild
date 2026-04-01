@@ -28,6 +28,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const stateApi = api?.state ?? null;
     const actorApi = api?.actors ?? null;
     const shipState = stateApi?.getActiveShipState?.() ?? null;
+    const travelState = stateApi?.getTravelState?.() ?? shipState?.arcflight ?? null;
     const linkedActorId = shipState?.identity?.actorId ?? null;
     const linkedActor = linkedActorId ? actorApi?.resolveActor?.(linkedActorId) ?? null : null;
 
@@ -35,6 +36,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       moduleTitle: MODULE_TITLE,
       hasShipState: Boolean(shipState),
       shipState,
+      travelState,
       stations: STATIONS,
       activeShipId: stateApi?.getActiveShipId?.() ?? null,
       actorContext: {
