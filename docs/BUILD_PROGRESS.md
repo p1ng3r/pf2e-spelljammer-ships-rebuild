@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the next Arcflight travel-task UX polish slice by defaulting Attempt Check attribution inputs from recommendation metadata while preserving manual override.
+Deliver the first GM-built Arcflight event placeholder slice so voyage events can be tracked with the same structured scaffold style as travel tasks and maintenance issues.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -96,6 +96,28 @@ Deliver the next Arcflight travel-task UX polish slice by defaulting Attempt Che
     - `attemptedSkill`
     - `lastAttemptSummary`
   - Travel task rows now display readable attempted-by station/skill labels while persisting stable ids/slugs.
+- Arcflight travel-event placeholder pass added:
+  - Shared Arcflight travel state now includes a lightweight `travelEvents` list.
+  - Travel event records now support structured placeholder fields:
+    - `title`
+    - `severity`
+    - `eventType`
+    - `status`
+    - `recommendedStation`
+    - `recommendedSkill`
+    - `checkType`
+    - `notes`
+    - `summary`
+  - Added explicit event helpers in shared state/API:
+    - `getTravelEvents(options?)`
+    - `addTravelEvent(eventOrPartial, options?)`
+    - `updateTravelEvent(eventId, eventPatch, options?)`
+    - `resolveTravelEvent(eventId, options?)`
+  - Ship Management now includes a compact GM-facing **Events** section with:
+    - manual add-event form using select controls for severity/type/check/station/skill
+    - compact list of current open events
+    - per-event manual **Resolve** action
+  - Events remain manual placeholders only; no random generation or roll execution added.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -133,6 +155,10 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
   - Travel-task rows now hydrate Attempt Check select inputs from those effective values, reducing duplicate GM data entry in the common case.
   - Manual override behavior is unchanged: GM can still change attempted station/skill before clicking **Attempt Check**.
   - Rerender behavior remains stable: selected attempted values continue to display correctly after inline actions, and scroll preservation remains unchanged.
+- `state.addTravelEvent(...)` appends a simple open travel event placeholder (`id`, `title`, `severity`, `eventType`, `status`, `recommendedStation`, `recommendedSkill`, `checkType`, `notes`, `summary`) to Arcflight shared state.
+- `state.getTravelEvents()` returns currently open travel events.
+- `state.resolveTravelEvent(eventId)` marks an event as resolved and removes it from the open-events readout.
+- In-app Events controls support manual event creation and one-click event resolution.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -143,9 +169,11 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Travel tasks now also support lightweight manual attempt/result tracking with explicit status progression.
 - Travel-task manual Attempt Check now captures who attempted a check (station + skill) in compact row-level controls.
 - Travel-task Attempt Check attribution now defaults from recommended station/skill when attempted values are unset, while preserving the state distinction between recommendation and actual attempt metadata.
+- Travel events are now tracked as a separate manual placeholder list in the same shared Arcflight state model used by travel tasks and maintenance issues.
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
+- Travel events are manual placeholders only (no procedural generation yet).
 - No travel randomization or encounter tables yet.
 - No real combat mechanics yet.
 - No upgrades/cargo/reputation systems yet.
@@ -178,3 +206,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight crew-check polish pass**: compact select controls for station/skill/task/check metadata with stable station-id and skill-slug storage.
 - **Arcflight travel-task attempt/resolve scaffold pass**: manual travel-task Attempt Check + Resolve controls with lightweight attempted-status tracking.
 - **Arcflight travel-task UX pass**: scroll-position preservation for inline rerenders plus compact attempted-by station/skill capture in Attempt Check flow.
+- **Arcflight travel-event placeholder pass**: manual shared-state event list + state/API event helpers + compact Ship Management Events controls.

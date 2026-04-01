@@ -15,6 +15,10 @@ import {
   updateTravelTask,
   attemptTravelTask,
   resolveTravelTask,
+  getTravelEvents,
+  addTravelEvent,
+  updateTravelEvent,
+  resolveTravelEvent,
   getMaintenanceIssues,
   addMaintenanceIssue,
   updateMaintenanceIssue,
@@ -178,6 +182,11 @@ export function createModuleApi() {
       attemptTravelTask: (taskId, attemptPatch, options) =>
         attemptTravelTask(shipStateIndex, taskId, attemptPatch, options),
       resolveTravelTask: (taskId, options) => resolveTravelTask(shipStateIndex, taskId, options),
+      getTravelEvents: (options) => getTravelEvents(shipStateIndex, options),
+      addTravelEvent: (eventOrPartial, options) => addTravelEvent(shipStateIndex, eventOrPartial, options),
+      updateTravelEvent: (eventId, eventPatch, options) =>
+        updateTravelEvent(shipStateIndex, eventId, eventPatch, options),
+      resolveTravelEvent: (eventId, options) => resolveTravelEvent(shipStateIndex, eventId, options),
       getMaintenanceIssues: (options) => getMaintenanceIssues(shipStateIndex, options),
       addMaintenanceIssue: (issueOrPartial, options) =>
         addMaintenanceIssue(shipStateIndex, issueOrPartial, options),

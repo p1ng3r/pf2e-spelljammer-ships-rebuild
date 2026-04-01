@@ -1,5 +1,10 @@
 import { API_NAMESPACE, MODULE_ID, MODULE_TITLE, STATIONS } from "../config/constants.js";
-import { CREW_CHECK_TYPES, CREW_TASK_TYPES, PF2E_CORE_SKILLS } from "../state/ship-state.js";
+import {
+  CREW_CHECK_TYPES,
+  CREW_TASK_TYPES,
+  PF2E_CORE_SKILLS,
+  TRAVEL_EVENT_TYPES,
+} from "../state/ship-state.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -107,6 +112,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       (Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : []);
     const travelTasks = stateApi?.getTravelTasks?.() ??
       (Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : []);
+    const travelEvents = stateApi?.getTravelEvents?.() ??
+      (Array.isArray(travelState?.travelEvents) ? travelState.travelEvents : []);
     const stationOptions = STATIONS.map((station) => ({ value: station.id, label: station.label }));
     const skillOptions = PF2E_CORE_SKILLS.map((skill) => ({ value: skill.value, label: skill.label }));
     const taskTypeOptions = CREW_TASK_TYPES.map((taskType) => ({
@@ -116,6 +123,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const checkTypeOptions = CREW_CHECK_TYPES.map((checkType) => ({
       value: checkType.value,
       label: checkType.label,
+    }));
+    const eventTypeOptions = TRAVEL_EVENT_TYPES.map((eventType) => ({
+      value: eventType.value,
+      label: eventType.label,
     }));
     const stationLabelsById = STATIONS.reduce((accumulator, station) => {
       accumulator[station.id] = station.label;
@@ -171,8 +182,20 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         tasks: travelTaskViewModels,
         hasTasks: travelTasks.length > 0,
       },
+      travelEvents: {
+        events: travelEvents.map((travelEvent) => ({
+          ...travelEvent,
+          eventTypeLabel: toReadableSlugLabel(travelEvent.eventType),
+          checkTypeLabel: toReadableSlugLabel(travelEvent.checkType),
+          recommendedStationLabel: stationLabelsById[travelEvent.recommendedStation] ?? null,
+          recommendedSkillLabel: skillLabelsByValue[travelEvent.recommendedSkill] ??
+            toReadableSlugLabel(travelEvent.recommendedSkill),
+        })),
+        hasEvents: travelEvents.length > 0,
+      },
       taskTypeOptions,
       checkTypeOptions,
+      eventTypeOptions,
       stationOptions,
       skillOptions,
       customSkillOption: CUSTOM_SKILL_OPTION,
@@ -213,6 +236,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const addTravelTaskForm = root.querySelector("[data-action='travel-task-form']");
     addTravelTaskForm?.addEventListener("submit", this.#onTravelTaskSubmit.bind(this));
+    const addTravelEventForm = root.querySelector("[data-action='travel-event-form']");
+    addTravelEventForm?.addEventListener("submit", this.#onTravelEventSubmit.bind(this));
 
     const resolveIssueButtons = root.querySelectorAll("[data-action='resolve-maintenance-issue']");
     for (const button of resolveIssueButtons) {
@@ -227,6 +252,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const resolveTaskButtons = root.querySelectorAll("[data-action='resolve-travel-task']");
     for (const button of resolveTaskButtons) {
       button.addEventListener("click", this.#onResolveTravelTaskClick.bind(this));
+    }
+
+    const resolveEventButtons = root.querySelectorAll("[data-action='resolve-travel-event']");
+    for (const button of resolveEventButtons) {
+      button.addEventListener("click", this.#onResolveTravelEventClick.bind(this));
     }
   }
 
@@ -444,6 +474,65 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.resolveTravelTask?.(taskId);
+    });
+  }
+
+  async #onTravelEventSubmit(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!form || !stateApi) {
+      return;
+    }
+
+    const formData = new FormData(form);
+    const title = String(formData.get("travelEventTitle") ?? "").trim();
+    const severity = String(formData.get("travelEventSeverity") ?? "minor").trim();
+    const eventType = String(formData.get("travelEventType") ?? "other").trim();
+    const checkType = String(formData.get("travelEventCheckType") ?? "skill").trim();
+    const recommendedStation = String(formData.get("travelEventRecommendedStation") ?? "").trim();
+    const recommendedSkill = resolveSkillValue(
+      formData.get("travelEventRecommendedSkill"),
+      formData.get("travelEventRecommendedSkillCustom"),
+    );
+    const summary = String(formData.get("travelEventSummary") ?? "").trim();
+    const notes = String(formData.get("travelEventNotes") ?? "").trim();
+
+    if (!title) {
+      return;
+    }
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.addTravelEvent?.({
+        title,
+        severity,
+        eventType,
+        status: "open",
+        recommendedStation,
+        recommendedSkill,
+        checkType,
+        summary,
+        notes,
+        source: "manual",
+      });
+    });
+
+    form.reset();
+  }
+
+  async #onResolveTravelEventClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const eventId = button?.dataset?.eventId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!eventId || !stateApi) {
+      return;
+    }
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.resolveTravelEvent?.(eventId);
     });
   }
 

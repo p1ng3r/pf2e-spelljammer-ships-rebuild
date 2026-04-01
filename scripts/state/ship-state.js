@@ -33,6 +33,14 @@ export const CREW_CHECK_TYPES = Object.freeze([
   { value: "save", label: "Save" },
   { value: "other", label: "Other" },
 ]);
+export const TRAVEL_EVENT_TYPES = Object.freeze([
+  { value: "hazard", label: "Hazard" },
+  { value: "encounter", label: "Encounter" },
+  { value: "faction", label: "Faction" },
+  { value: "navigation", label: "Navigation" },
+  { value: "anomaly", label: "Anomaly" },
+  { value: "other", label: "Other" },
+]);
 
 function cloneData(data) {
   if (typeof globalThis.structuredClone === "function") {
@@ -92,6 +100,18 @@ function normalizeTravelTaskStatus(value) {
   const status = normalizeIssueText(value, "open").toLowerCase();
   const allowedStatuses = ["open", "attempted", "resolved"];
   return allowedStatuses.includes(status) ? status : "open";
+}
+
+function normalizeTravelEventStatus(value) {
+  const status = normalizeIssueText(value, "open").toLowerCase();
+  const allowedStatuses = ["open", "resolved"];
+  return allowedStatuses.includes(status) ? status : "open";
+}
+
+function normalizeTravelEventType(value) {
+  const eventType = normalizeIssueText(value, "other").toLowerCase();
+  const allowedEventTypes = ["hazard", "encounter", "faction", "navigation", "anomaly", "other"];
+  return allowedEventTypes.includes(eventType) ? eventType : "other";
 }
 
 function normalizeTaskType(value, fallback = "general") {
@@ -175,6 +195,25 @@ function createTravelTask(taskOrPartial = {}) {
   };
 }
 
+function createTravelEvent(eventOrPartial = {}) {
+  const fallbackId = `travel-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
+
+  return {
+    id: normalizeIssueText(eventOrPartial.id, generatedId),
+    title: normalizeIssueText(eventOrPartial.title, "General Arcflight Event"),
+    severity: normalizeIssueSeverity(eventOrPartial.severity),
+    eventType: normalizeTravelEventType(eventOrPartial.eventType),
+    status: normalizeTravelEventStatus(eventOrPartial.status),
+    source: normalizeIssueText(eventOrPartial.source, "manual"),
+    recommendedStation: normalizeRecommendedStation(eventOrPartial.recommendedStation),
+    recommendedSkill: normalizeRecommendedSkill(eventOrPartial.recommendedSkill),
+    checkType: normalizeCheckType(eventOrPartial.checkType),
+    notes: normalizeTaskNotes(eventOrPartial.notes),
+    summary: normalizeTaskNotes(eventOrPartial.summary),
+  };
+}
+
 export function isTravelLegComplete(travelState) {
   const legProgressMax = normalizePositiveNumber(travelState?.legProgressMax, 0);
   if (legProgressMax <= 0) {
@@ -197,6 +236,7 @@ function createDefaultArcflightState() {
     progressPerDay: 1,
     legProgress: 0,
     travelTasks: [],
+    travelEvents: [],
     maintenancePressure: 0,
     maintenanceIssues: [],
     encounterPressure: 0,
@@ -493,6 +533,65 @@ export function attemptTravelTask(index, taskId, attemptPatch = {}, options = {}
 
 export function resolveTravelTask(index, taskId, options = {}) {
   return updateTravelTask(index, taskId, { status: "resolved" }, options);
+}
+
+export function getTravelEvents(index, options = {}) {
+  const travelState = getTravelState(index, options);
+  if (!travelState) {
+    return [];
+  }
+
+  const events = Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
+  return events.filter((travelEvent) => normalizeTravelEventStatus(travelEvent?.status) !== "resolved");
+}
+
+export function addTravelEvent(index, eventOrPartial = {}, options = {}) {
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const travelEvents = Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
+      const nextEvent = createTravelEvent(eventOrPartial);
+
+      return {
+        ...travelState,
+        travelEvents: [...travelEvents, nextEvent],
+      };
+    },
+    options,
+  );
+}
+
+export function updateTravelEvent(index, eventId, eventPatch = {}, options = {}) {
+  const normalizedEventId = normalizeIssueText(eventId, "");
+  if (!normalizedEventId) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const travelEvents = Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
+      return {
+        ...travelState,
+        travelEvents: travelEvents.map((travelEvent) => {
+          if (travelEvent?.id !== normalizedEventId) {
+            return travelEvent;
+          }
+
+          return createTravelEvent({
+            ...travelEvent,
+            ...eventPatch,
+            id: travelEvent.id,
+          });
+        }),
+      };
+    },
+    options,
+  );
+}
+
+export function resolveTravelEvent(index, eventId, options = {}) {
+  return updateTravelEvent(index, eventId, { status: "resolved" }, options);
 }
 
 export function addMaintenanceIssue(index, issueOrPartial = {}, options = {}) {
