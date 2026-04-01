@@ -386,6 +386,26 @@
                 <span>- {{#if event.recommendedStationLabel}}{{event.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
                 <span>- {{#if event.recommendedSkill}}{{event.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
                 <span>- {{#if event.summary}}{{event.summary}}{{else}}No summary{{/if}}</span>
+                {{#if event.hasLinkedTask}}
+                  <span>
+                    - Linked Task:
+                    {{#if event.linkedTaskTitle}}
+                      {{event.linkedTaskTitle}}
+                    {{else}}
+                      <code>{{event.linkedTaskId}}</code>
+                    {{/if}}
+                  </span>
+                {{else}}
+                  <span>- Linked Task: None</span>
+                {{/if}}
+                <button
+                  type="button"
+                  data-action="create-task-from-event"
+                  data-event-id="{{event.id}}"
+                  {{#if event.hasLinkedTask}}disabled{{/if}}
+                >
+                  Create Task
+                </button>
                 <button type="button" data-action="resolve-travel-event" data-event-id="{{event.id}}">
                   Resolve
                 </button>

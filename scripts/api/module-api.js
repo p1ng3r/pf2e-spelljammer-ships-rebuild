@@ -19,6 +19,8 @@ import {
   addTravelEvent,
   updateTravelEvent,
   resolveTravelEvent,
+  linkTravelEventToTask,
+  createTravelTaskFromEvent,
   getMaintenanceIssues,
   addMaintenanceIssue,
   updateMaintenanceIssue,
@@ -187,6 +189,10 @@ export function createModuleApi() {
       updateTravelEvent: (eventId, eventPatch, options) =>
         updateTravelEvent(shipStateIndex, eventId, eventPatch, options),
       resolveTravelEvent: (eventId, options) => resolveTravelEvent(shipStateIndex, eventId, options),
+      linkTravelEventToTask: (eventId, taskId, options) =>
+        linkTravelEventToTask(shipStateIndex, eventId, taskId, options),
+      createTravelTaskFromEvent: (eventId, taskOptions, options) =>
+        createTravelTaskFromEvent(shipStateIndex, eventId, taskOptions, options),
       getMaintenanceIssues: (options) => getMaintenanceIssues(shipStateIndex, options),
       addMaintenanceIssue: (issueOrPartial, options) =>
         addMaintenanceIssue(shipStateIndex, issueOrPartial, options),

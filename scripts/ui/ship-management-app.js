@@ -154,6 +154,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         attemptUsesRecommendedDefaults: stationAttemptValue.usesRecommendedDefault || skillAttemptValue.usesRecommendedDefault,
       };
     });
+    const travelTasksById = travelTasks.reduce((accumulator, task) => {
+      if (task?.id) {
+        accumulator[task.id] = task;
+      }
+
+      return accumulator;
+    }, {});
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -190,6 +197,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
           recommendedStationLabel: stationLabelsById[travelEvent.recommendedStation] ?? null,
           recommendedSkillLabel: skillLabelsByValue[travelEvent.recommendedSkill] ??
             toReadableSlugLabel(travelEvent.recommendedSkill),
+          linkedTaskTitle: travelTasksById[travelEvent.linkedTaskId]?.title ?? null,
         })),
         hasEvents: travelEvents.length > 0,
       },
@@ -257,6 +265,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const resolveEventButtons = root.querySelectorAll("[data-action='resolve-travel-event']");
     for (const button of resolveEventButtons) {
       button.addEventListener("click", this.#onResolveTravelEventClick.bind(this));
+    }
+
+    const createTaskFromEventButtons = root.querySelectorAll("[data-action='create-task-from-event']");
+    for (const button of createTaskFromEventButtons) {
+      button.addEventListener("click", this.#onCreateTaskFromEventClick.bind(this));
     }
   }
 
@@ -533,6 +546,21 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.resolveTravelEvent?.(eventId);
+    });
+  }
+
+  async #onCreateTaskFromEventClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const eventId = button?.dataset?.eventId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!eventId || !stateApi) {
+      return;
+    }
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.createTravelTaskFromEvent?.(eventId);
     });
   }
 

@@ -114,6 +114,11 @@ function normalizeTravelEventType(value) {
   return allowedEventTypes.includes(eventType) ? eventType : "other";
 }
 
+function normalizeLinkedTaskId(value) {
+  const linkedTaskId = normalizeIssueText(value, "");
+  return linkedTaskId || null;
+}
+
 function normalizeTaskType(value, fallback = "general") {
   const taskType = normalizeIssueText(value, fallback).toLowerCase();
   const allowedTaskTypes = ["general", "travel", "maintenance", "repair", "navigation", "engineering"];
@@ -199,6 +204,8 @@ function createTravelEvent(eventOrPartial = {}) {
   const fallbackId = `travel-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
 
+  const linkedTaskId = normalizeLinkedTaskId(eventOrPartial.linkedTaskId);
+
   return {
     id: normalizeIssueText(eventOrPartial.id, generatedId),
     title: normalizeIssueText(eventOrPartial.title, "General Arcflight Event"),
@@ -211,6 +218,8 @@ function createTravelEvent(eventOrPartial = {}) {
     checkType: normalizeCheckType(eventOrPartial.checkType),
     notes: normalizeTaskNotes(eventOrPartial.notes),
     summary: normalizeTaskNotes(eventOrPartial.summary),
+    linkedTaskId,
+    hasLinkedTask: Boolean(linkedTaskId),
   };
 }
 
@@ -592,6 +601,88 @@ export function updateTravelEvent(index, eventId, eventPatch = {}, options = {})
 
 export function resolveTravelEvent(index, eventId, options = {}) {
   return updateTravelEvent(index, eventId, { status: "resolved" }, options);
+}
+
+export function linkTravelEventToTask(index, eventId, taskId, options = {}) {
+  const normalizedTaskId = normalizeLinkedTaskId(taskId);
+  if (!normalizedTaskId) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelEvent(
+    index,
+    eventId,
+    {
+      linkedTaskId: normalizedTaskId,
+      hasLinkedTask: true,
+    },
+    options,
+  );
+}
+
+export function createTravelTaskFromEvent(index, eventId, taskOptions = {}, options = {}) {
+  const normalizedEventId = normalizeIssueText(eventId, "");
+  if (!normalizedEventId) {
+    return getShipState(index, options);
+  }
+
+  const travelState = getTravelState(index, options);
+  const travelEvents = Array.isArray(travelState?.travelEvents) ? travelState.travelEvents : [];
+  const sourceEvent = travelEvents.find((travelEvent) => travelEvent?.id === normalizedEventId);
+  if (!sourceEvent) {
+    return getShipState(index, options);
+  }
+
+  if (sourceEvent.linkedTaskId) {
+    const allowDuplicate = Boolean(taskOptions?.allowDuplicateLinkedTask);
+    if (!allowDuplicate) {
+      return getShipState(index, options);
+    }
+  }
+
+  const taskTitle = normalizeIssueText(taskOptions?.title, `${sourceEvent.title} Response Task`);
+  const travelTaskPatch = {
+    title: taskTitle,
+    taskType: taskOptions?.taskType ?? normalizeTaskType(sourceEvent.eventType, "travel"),
+    checkType: taskOptions?.checkType ?? sourceEvent.checkType,
+    recommendedStation: taskOptions?.recommendedStation ?? sourceEvent.recommendedStation,
+    recommendedSkill: taskOptions?.recommendedSkill ?? sourceEvent.recommendedSkill,
+    summary: taskOptions?.summary ?? sourceEvent.summary ?? sourceEvent.notes,
+    notes: taskOptions?.notes ?? sourceEvent.notes,
+    source: taskOptions?.source ?? "event-linked",
+    status: "open",
+  };
+
+  const nextTask = createTravelTask(travelTaskPatch);
+
+  return updateTravelState(
+    index,
+    (currentTravelState) => {
+      const currentTravelTasks = Array.isArray(currentTravelState.travelTasks)
+        ? currentTravelState.travelTasks
+        : [];
+      const currentTravelEvents = Array.isArray(currentTravelState.travelEvents)
+        ? currentTravelState.travelEvents
+        : [];
+
+      return {
+        ...currentTravelState,
+        travelTasks: [...currentTravelTasks, nextTask],
+        travelEvents: currentTravelEvents.map((travelEvent) => {
+          if (travelEvent?.id !== normalizedEventId) {
+            return travelEvent;
+          }
+
+          return createTravelEvent({
+            ...travelEvent,
+            linkedTaskId: nextTask.id,
+            hasLinkedTask: true,
+          });
+        }),
+      };
+    },
+    options,
+  );
 }
 
 export function addMaintenanceIssue(index, issueOrPartial = {}, options = {}) {
