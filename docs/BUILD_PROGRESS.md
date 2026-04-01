@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output.
 
 ## Current Branch Focus
-Deliver a small Arcflight live-refresh UX pass so open GM/player Arcflight windows automatically update when shared ship state changes.
+Deliver a small Arcflight station interaction vertical slice: preserve GM Ship Management scroll position on external live refresh and add first player station-briefing skill-roll action.
 
 ## Completed So Far
 - Arcflight live-refresh UX pass added:
@@ -469,3 +469,19 @@ Keep Arcflight focused and incremental:
 - Live refresh behavior is preserved:
   - GM status edits emit the same shared ship-state update hook path used by Arcflight windows.
   - Player Arcflight Station Briefings update request-state labels live (`Requested`, `In progress`, `Handled`) when GM changes status.
+
+## Arcflight station roll + external scroll stability pass (2026-04-01)
+- Fixed Ship Management external live-refresh scroll jump with centralized anchor capture improvements:
+  - external refresh capture now falls back to the first visible travel/issue/event/request row when no source element exists.
+  - anchor capture now includes maintenance issue rows (`data-maintenance-issue-id`) in addition to task/event/request rows.
+  - restore remains centralized and anchor-relative where possible, with existing raw `scrollTop` fallback behavior preserved.
+- Added first player-facing station briefing roll action:
+  - Station Briefings now show **Recommended check** and a **Roll Check** action per item.
+  - Roll action uses structured prompt data (`stationId`, `sourceType`, `sourceId`, `recommendedSkill`) from the station briefing item.
+  - Acting character resolves from shared ship-state station assignment (`shipState.crew.stations[stationId].actorId`).
+  - If station assignment or actor resolution is missing, the player gets a clear warning and no crash occurs.
+  - Successful rolls post to chat with readable context (station, acting character, prompt title, skill, source type).
+- Scope intentionally stays manual/lightweight:
+  - no automated success/failure adjudication
+  - no auto-resolution of linked tasks/events/issues
+  - existing station request flow and GM inbox behavior are preserved.
