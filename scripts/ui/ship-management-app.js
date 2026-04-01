@@ -141,6 +141,35 @@ function toCapturedRollSummary(attempt, stationLabelsById, skillLabelsByValue) {
     : `Player roll: ${actorName} (${stationLabel}) rolled ${skillLabel} ${totalLabel}.`;
 }
 
+function toAppliedPlayerRollLine(attempt, skillLabelsByValue) {
+  if (!attempt) {
+    return null;
+  }
+
+  const actorName = toSentenceOrFallback(attempt.actorName, "Unknown Actor");
+  const skillLabel = skillLabelsByValue[attempt.skill] ?? toReadableSlugLabel(attempt.skill);
+  const totalLabel = Number.isFinite(Number(attempt.total)) ? Math.floor(Number(attempt.total)) : "?";
+  return `Player roll applied: ${actorName} rolled ${skillLabel} ${totalLabel}.`;
+}
+
+function appendSummaryLine(existingValue, lineToAppend) {
+  const line = String(lineToAppend ?? "").trim();
+  if (!line) {
+    return String(existingValue ?? "").trim() || null;
+  }
+
+  const existing = String(existingValue ?? "").trim();
+  if (!existing) {
+    return line;
+  }
+
+  if (existing.includes(line)) {
+    return existing;
+  }
+
+  return `${existing}\n${line}`;
+}
+
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #pendingBodyScrollState = null;
   #showResolvedTravelTasks = false;
@@ -600,6 +629,21 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     for (const button of clearStationActorButtons) {
       button.addEventListener("click", this.#onClearStationActorClick.bind(this));
     }
+
+    const applyLatestTaskRollButtons = root.querySelectorAll("[data-action='apply-latest-task-roll']");
+    for (const button of applyLatestTaskRollButtons) {
+      button.addEventListener("click", this.#onApplyLatestTaskRollClick.bind(this));
+    }
+
+    const applyLatestIssueRollButtons = root.querySelectorAll("[data-action='apply-latest-issue-roll']");
+    for (const button of applyLatestIssueRollButtons) {
+      button.addEventListener("click", this.#onApplyLatestIssueRollClick.bind(this));
+    }
+
+    const applyLatestEventRollButtons = root.querySelectorAll("[data-action='apply-latest-event-roll']");
+    for (const button of applyLatestEventRollButtons) {
+      button.addEventListener("click", this.#onApplyLatestEventRollClick.bind(this));
+    }
   }
 
   async #onAssignStationActorClick(event) {
@@ -898,6 +942,58 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }, event.currentTarget);
   }
 
+  async #onApplyLatestTaskRollClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const taskId = String(button?.dataset?.taskId ?? "").trim();
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!taskId || !stateApi) {
+      return;
+    }
+
+    const viewShipOptions = this.#getViewShipStateOptions();
+    const travelTasks = stateApi.getTravelTasks?.({ ...viewShipOptions, includeResolved: true }) ?? [];
+    const task = travelTasks.find((entry) => entry?.id === taskId) ?? null;
+    const stationId = String(task?.recommendedStation ?? "").trim();
+    if (!task || !stationId) {
+      ui.notifications?.warn("No recommended station is set for this task.");
+      return;
+    }
+
+    const latestAttempt = stateApi.getLatestStationRollAttempt?.(
+      {
+        stationId,
+        sourceType: "task",
+        sourceId: taskId,
+      },
+      viewShipOptions,
+    );
+    if (!latestAttempt) {
+      ui.notifications?.warn("No captured player roll is available for this task yet.");
+      return;
+    }
+
+    const skillLabelsByValue = PF2E_CORE_SKILLS.reduce((accumulator, skill) => {
+      accumulator[skill.value] = skill.label;
+      return accumulator;
+    }, {});
+    const appliedLine = toAppliedPlayerRollLine(latestAttempt, skillLabelsByValue);
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateTravelTask?.(
+        taskId,
+        {
+          attemptedByStation: stationId,
+          attemptedSkill: latestAttempt.skill ?? null,
+          lastAttemptSummary: appendSummaryLine(task?.lastAttemptSummary, appliedLine),
+          resultSummary: appendSummaryLine(task?.resultSummary, appliedLine),
+        },
+        viewShipOptions,
+      );
+    }, event.currentTarget);
+  }
+
   async #onTravelEventSubmit(event) {
     event.preventDefault();
 
@@ -1021,6 +1117,58 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }, event.currentTarget);
   }
 
+  async #onApplyLatestEventRollClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const eventId = String(button?.dataset?.eventId ?? "").trim();
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!eventId || !stateApi) {
+      return;
+    }
+
+    const viewShipOptions = this.#getViewShipStateOptions();
+    const travelEvents = stateApi.getTravelEvents?.({ ...viewShipOptions, includeResolved: true }) ?? [];
+    const travelEvent = travelEvents.find((entry) => entry?.id === eventId) ?? null;
+    const stationId = String(travelEvent?.recommendedStation ?? "").trim();
+    if (!travelEvent || !stationId) {
+      ui.notifications?.warn("No recommended station is set for this event.");
+      return;
+    }
+
+    const latestAttempt = stateApi.getLatestStationRollAttempt?.(
+      {
+        stationId,
+        sourceType: "event",
+        sourceId: eventId,
+      },
+      viewShipOptions,
+    );
+    if (!latestAttempt) {
+      ui.notifications?.warn("No captured player roll is available for this event yet.");
+      return;
+    }
+
+    const skillLabelsByValue = PF2E_CORE_SKILLS.reduce((accumulator, skill) => {
+      accumulator[skill.value] = skill.label;
+      return accumulator;
+    }, {});
+    const appliedLine = toAppliedPlayerRollLine(latestAttempt, skillLabelsByValue);
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateTravelEvent?.(
+        eventId,
+        {
+          attemptedByStation: stationId,
+          attemptedSkill: latestAttempt.skill ?? null,
+          lastAttemptSummary: appendSummaryLine(travelEvent?.lastAttemptSummary, appliedLine),
+          resultSummary: appendSummaryLine(travelEvent?.resultSummary, appliedLine),
+        },
+        viewShipOptions,
+      );
+    }, event.currentTarget);
+  }
+
   async #onSaveTravelEventDcClick(event) {
     event.preventDefault();
 
@@ -1126,6 +1274,55 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       await stateApi.updateMaintenanceIssue?.(issueId, {
         dc,
       });
+    }, event.currentTarget);
+  }
+
+  async #onApplyLatestIssueRollClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const issueId = String(button?.dataset?.issueId ?? "").trim();
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!issueId || !stateApi) {
+      return;
+    }
+
+    const viewShipOptions = this.#getViewShipStateOptions();
+    const maintenanceIssues = stateApi.getMaintenanceIssues?.({ ...viewShipOptions, includeResolved: true }) ?? [];
+    const issue = maintenanceIssues.find((entry) => entry?.id === issueId) ?? null;
+    const stationId = String(issue?.recommendedStation ?? "").trim();
+    if (!issue || !stationId) {
+      ui.notifications?.warn("No recommended station is set for this issue.");
+      return;
+    }
+
+    const latestAttempt = stateApi.getLatestStationRollAttempt?.(
+      {
+        stationId,
+        sourceType: "issue",
+        sourceId: issueId,
+      },
+      viewShipOptions,
+    );
+    if (!latestAttempt) {
+      ui.notifications?.warn("No captured player roll is available for this issue yet.");
+      return;
+    }
+
+    const skillLabelsByValue = PF2E_CORE_SKILLS.reduce((accumulator, skill) => {
+      accumulator[skill.value] = skill.label;
+      return accumulator;
+    }, {});
+    const appliedLine = toAppliedPlayerRollLine(latestAttempt, skillLabelsByValue);
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateMaintenanceIssue?.(
+        issueId,
+        {
+          resultSummary: appendSummaryLine(issue?.resultSummary, appliedLine),
+        },
+        viewShipOptions,
+      );
     }, event.currentTarget);
   }
 
