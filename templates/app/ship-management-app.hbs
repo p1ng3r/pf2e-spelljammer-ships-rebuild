@@ -113,6 +113,61 @@
         <p><strong>Open Travel Tasks:</strong> {{travelTasks.openCount}}</p>
         <p><strong>Open Issues:</strong> {{maintenance.openCount}}</p>
         <p><strong>Open Events:</strong> {{travelEvents.openCount}}</p>
+        <p><strong>Open Station Requests:</strong> {{stationRequests.openCount}}</p>
+        <h5>Station Requests (GM Inbox)</h5>
+        <label>
+          <input
+            type="checkbox"
+            data-action="toggle-resolved-visibility"
+            data-group="station-requests"
+            {{#if stationRequests.showResolved}}checked{{/if}}
+          />
+          <span>Show Resolved Requests</span>
+        </label>
+        {{#if stationRequests.hasRequests}}
+          <ul class="travel-record-list">
+            {{#each stationRequests.requests as |request|}}
+              <li class="travel-record-row" data-station-request-id="{{request.id}}">
+                <div class="travel-record-row__header">
+                  <strong>{{request.title}}</strong>
+                  <span class="travel-record-row__chips">
+                    <span class="travel-record-chip">Station: {{request.stationLabel}}</span>
+                    <span class="travel-record-chip">Source: {{request.sourceTypeLabel}}</span>
+                    <span class="travel-record-chip">Status: {{request.statusLabel}}</span>
+                  </span>
+                </div>
+                <p class="travel-record-row__summary"><strong>Request:</strong> {{request.requestTextLabel}}</p>
+                <p class="travel-record-row__summary"><strong>Summary:</strong> {{request.summaryLabel}}</p>
+                <label>
+                  <span>Status</span>
+                  <select name="stationRequestStatus">
+                    {{#each request.statusOptions as |status|}}
+                      <option value="{{status.value}}" {{#if status.selected}}selected{{/if}}>
+                        {{status.label}}
+                      </option>
+                    {{/each}}
+                  </select>
+                </label>
+                <div class="travel-record-row__actions">
+                  <button type="button" data-action="save-station-request-status" data-request-id="{{request.id}}">
+                    Save Status
+                  </button>
+                  <button
+                    type="button"
+                    data-action="advance-station-request-status"
+                    data-request-id="{{request.id}}"
+                    data-next-status="{{request.nextStatus}}"
+                    {{#unless request.canAdvanceStatus}}disabled{{/unless}}
+                  >
+                    Advance to {{request.nextStatusLabel}}
+                  </button>
+                </div>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No station requests logged.</em></p>
+        {{/if}}
         <label>
           <input
             type="checkbox"

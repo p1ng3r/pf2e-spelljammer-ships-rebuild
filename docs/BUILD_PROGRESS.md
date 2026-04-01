@@ -448,3 +448,24 @@ Keep Arcflight focused and incremental:
   - no `outcomeTag`
   - no `linkedTaskId` / `hasLinkedTask`
   - no internal notes or backend-only jargon
+
+## Arcflight GM station request inbox pass (2026-04-01)
+- Added shared-state/API station request update helper:
+  - `state.updateStationRequest(requestId, requestPatch, options?)`
+- Ship Management now includes a compact GM-facing **Station Requests (GM Inbox)** section.
+- GM inbox uses the existing shared `stationRequests` records and keeps status flow manual-only:
+  - `requested` -> `active` -> `resolved`
+- Station request rows now show compact GM context:
+  - station
+  - title
+  - source type
+  - current status
+  - request text
+  - summary
+- GM controls added per row:
+  - status select + **Save Status**
+  - **Advance to \<next status\>** for quick lifecycle progression
+- Resolved station requests are hidden by default and shown via **Show Resolved Requests** toggle.
+- Live refresh behavior is preserved:
+  - GM status edits emit the same shared ship-state update hook path used by Arcflight windows.
+  - Player Arcflight Station Briefings update request-state labels live (`Requested`, `In progress`, `Handled`) when GM changes status.

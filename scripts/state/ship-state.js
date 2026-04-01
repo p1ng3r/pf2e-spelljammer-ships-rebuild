@@ -853,6 +853,35 @@ export function addStationRequest(index, requestOrPartial = {}, options = {}) {
   );
 }
 
+export function updateStationRequest(index, requestId, requestPatch = {}, options = {}) {
+  const normalizedRequestId = normalizeIssueText(requestId, "");
+  if (!normalizedRequestId) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const stationRequests = Array.isArray(travelState.stationRequests) ? travelState.stationRequests : [];
+      return {
+        ...travelState,
+        stationRequests: stationRequests.map((request) => {
+          if (request?.id !== normalizedRequestId) {
+            return request;
+          }
+
+          return createStationRequest({
+            ...request,
+            ...requestPatch,
+            id: request.id,
+          });
+        }),
+      };
+    },
+    options,
+  );
+}
+
 export function updateMaintenanceIssue(index, issueId, issuePatch = {}, options = {}) {
   const normalizedIssueId = normalizeIssueText(issueId, "");
   if (!normalizedIssueId) {
