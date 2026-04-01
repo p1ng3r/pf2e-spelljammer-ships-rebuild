@@ -377,6 +377,19 @@ Keep Arcflight focused and incremental:
 - Existing event DC behavior is preserved and unchanged.
 - DC behavior remains manual-only (no automated DC math and no roll execution).
 
+## Ship Management station assignment actor-select persistence follow-up pass (2026-04-01)
+- Root cause (remaining PR #33-only bug): station assignment click handling resolved row context via `button.closest("[data-station-id]")` while the action button itself also carried `data-station-id`.
+- In that DOM shape, `closest(...)` could resolve to the button instead of the station row, so row-scoped actor select lookup could fail and produce an empty actor id on **Assign / Save**.
+- Ship Management assignment handling now resolves row scope explicitly with `.travel-record-row[data-station-id]` before reading the actor select value.
+- Added a safe row-scoped select lookup fallback (`select[name='stationAssignedActorId']` then `[name='stationAssignedActorId']`) to keep the fix minimal and resilient.
+- Existing viewed-ship context behavior from the prior pass remains unchanged:
+  - explicit per-window viewed ship id context
+  - explicit `{ shipId }` state helper options
+  - viewed-ship live-refresh filtering
+- Existing shared-state model remains unchanged:
+  - `shipState.crew.stations[stationId].actorId`
+  - `shipState.crew.stations[stationId].isNpcCrew`
+
 
 ## Ship Management station assignment persistence fix pass (2026-04-01)
 - Root cause: Ship Management station assignment actions (`Assign / Save`, `Clear`) depended on implicit active-ship context when calling state helpers, so in multi-ship/multi-window runtime use they could write to the wrong ship state while the UI row still reflected a different ship context.

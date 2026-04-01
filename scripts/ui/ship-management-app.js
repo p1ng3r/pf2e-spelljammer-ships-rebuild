@@ -535,8 +535,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
-    const row = button.closest("[data-station-id]");
-    const actorSelect = row?.querySelector("[name='stationAssignedActorId']");
+    const row = button.closest(".travel-record-row[data-station-id]");
+    const actorSelect =
+      row?.querySelector("select[name='stationAssignedActorId']") ??
+      row?.querySelector("[name='stationAssignedActorId']") ??
+      null;
     const assignedActorId = String(actorSelect?.value ?? "").trim();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
