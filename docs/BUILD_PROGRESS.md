@@ -413,6 +413,33 @@ Keep Arcflight focused and incremental:
 - Ship Management now surfaces the latest captured player roll summary for matching source rows (task/event/issue) using existing compact row summary areas.
 - Adjudication remains fully manual; no automatic success/failure or DC resolution was added.
 
+## Arcflight GM apply-latest-player-roll pass (2026-04-01)
+- Ship Management task/event/issue rows now include a compact GM action:
+  - **Apply Latest Roll**
+- Clicking **Apply Latest Roll** now looks up the latest captured player station roll for that row's source context using:
+  - `stationId` (from row `recommendedStation`)
+  - `sourceType` (`task` | `event` | `issue`)
+  - `sourceId` (row id)
+- Apply behavior remains manual-first and lightweight:
+  - no DC comparison
+  - no automatic success/failure or degree resolution
+  - no auto-resolve status changes
+- Applied roll mapping in this pass:
+  - task rows:
+    - set `attemptedByStation` to recommended station
+    - set `attemptedSkill` from captured roll skill
+    - append a readable applied-roll line to `lastAttemptSummary` and `resultSummary`
+  - event rows:
+    - set `attemptedByStation` to recommended station
+    - set `attemptedSkill` from captured roll skill
+    - append a readable applied-roll line to `lastAttemptSummary` and `resultSummary`
+  - maintenance issue rows:
+    - append a readable applied-roll line to `resultSummary`
+- Applied summary text format:
+  - `Player roll applied: <actor name> rolled <skill> <total>.`
+- Existing GM-entered text is preserved by appending (with duplicate-line guard) rather than replacing where possible.
+- If no matching captured roll is found (or no recommended station is set), Ship Management now fails gracefully with a clear GM warning notification.
+
 
 ## Ship Management station assignment persistence fix pass (2026-04-01)
 - Root cause: Ship Management station assignment actions (`Assign / Save`, `Clear`) depended on implicit active-ship context when calling state helpers, so in multi-ship/multi-window runtime use they could write to the wrong ship state while the UI row still reflected a different ship context.
