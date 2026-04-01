@@ -32,6 +32,9 @@ import {
   getStationRequests,
   addStationRequest,
   updateStationRequest,
+  getStationRollAttempts,
+  getLatestStationRollAttempt,
+  recordStationRollAttempt,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
@@ -360,6 +363,12 @@ export function createModuleApi() {
         (requestId, requestPatch, options) =>
           updateStationRequest(shipStateIndex, requestId, requestPatch, options),
         { source: "updateStationRequest" },
+      ),
+      getStationRollAttempts: (options) => getStationRollAttempts(shipStateIndex, options),
+      getLatestStationRollAttempt: (filter, options) => getLatestStationRollAttempt(shipStateIndex, filter, options),
+      recordStationRollAttempt: wrapStateMutation(
+        (attemptOrPartial, options) => recordStationRollAttempt(shipStateIndex, attemptOrPartial, options),
+        { source: "recordStationRollAttempt" },
       ),
       setTravelPosture,
       travelPostures: TRAVEL_POSTURES,
