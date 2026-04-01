@@ -36,7 +36,27 @@
       <p><strong>Level:</strong> {{shipState.identity.level}}</p>
 
       <h4>Travel (Arcflight)</h4>
-      <p><strong>Posture:</strong> {{travelState.posture}}</p>
+      <section class="travel-controls">
+        <h5>Travel Controls</h5>
+        <p class="travel-controls__current-posture">
+          <strong>Current Posture:</strong>
+          <span class="travel-controls__posture-pill">{{travelState.posture}}</span>
+        </p>
+        <div class="travel-controls__actions">
+          <button type="button" data-action="advance-day">Advance Day</button>
+          <label>
+            <span>Posture</span>
+            <select data-action="set-posture">
+              {{#each postureOptions as |posture|}}
+                <option value="{{posture.value}}" {{#if posture.selected}}selected{{/if}}>
+                  {{posture.label}}
+                </option>
+              {{/each}}
+            </select>
+          </label>
+        </div>
+      </section>
+
       <p><strong>Days Elapsed:</strong> {{travelState.daysElapsed}}</p>
       <p><strong>Current Hex:</strong>
         {{#if travelState.currentHex}}

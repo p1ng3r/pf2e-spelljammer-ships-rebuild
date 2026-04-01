@@ -1,10 +1,10 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. The first Arcflight travel scaffold vertical slice is now in place on top of the clean foundation.
+Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Establish a minimal, shared-state Arcflight travel loop that the Ship Management app can display and the module API can advance one day at a time.
+Deliver the first in-app Arcflight controls by wiring day advancement and posture selection through the shared API/state model.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -19,6 +19,10 @@ Establish a minimal, shared-state Arcflight travel loop that the Ship Management
 - Arcflight travel scaffold added to the shared ship state.
 - Travel API helpers added: read, update, and advance-day.
 - Ship Management now shows a minimal Arcflight Travel section.
+- Ship Management now includes Arcflight travel controls:
+  - **Advance Day** button wired to shared travel day progression.
+  - **Posture selector** with placeholder options (`cautious`, `standard`, `hard-push`, `silent-running`).
+  - Current posture display in the app travel controls.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -28,24 +32,25 @@ Confirmed in prior implementation passes:
 - Vehicle actor integration works for **Courier Sloop Test Ship**.
 - Invalid actor launch returns `null` and shows a user-facing error instead of breaking flow.
 
-This pass is foundation-only and ready for in-Foundry validation of:
-- `state.getTravelState()` reads
-- `state.updateTravelState(...)` writes
-- `state.advanceTravelDay()` daily progression increments
-- Travel section rendering in Ship Management
+This pass is a light vertical slice and is ready for in-Foundry validation of:
+- `state.getTravelState()` reads in-app.
+- `state.updateTravelState(...)` posture writes.
+- `state.advanceTravelDay()` day progression increments from the app button.
+- App refresh behavior after each travel control interaction.
 
 ## Current State of the Module
-- Arcflight now has a minimal shared-state travel scaffold.
-- Travel day advancement updates placeholder progress and pressure values.
+- Arcflight uses a single shared-state travel model.
+- Travel day advancement still uses placeholder progress/pressure behavior.
+- Travel posture now supports simple state changes via app control.
 - No travel randomization or encounter tables yet.
 - No real combat mechanics yet.
 - No upgrades/cargo/reputation systems yet.
 
 ## Next Recommended Pass
-Build the next Arcflight slice while keeping scope tight:
-- add a lightweight route leg definition (still placeholder-level)
-- add one explicit user action path from the app to advance a day
-- begin validating posture/progress effects without adding heavy subsystem bookkeeping
+Keep Arcflight focused and incremental:
+- add one light route-leg placeholder for destination-facing flow
+- surface a concise travel summary/status strip in-app
+- start table-testing posture implications before adding mechanics
 
 ## Known Issues / Cleanup
 - Decide whether sector naming should use `currentSector` in parallel with `currentHex` or stay hex-only for now.
@@ -59,3 +64,4 @@ Build the next Arcflight slice while keeping scope tight:
 - **Vehicle integration pass**: PF2E vehicle actor hook-up and launch path.
 - **Polish pass**: station id normalization, actor context display improvements, graceful invalid actor handling.
 - **Arcflight scaffold pass**: minimal travel state model, travel API helpers, and Ship Management travel readout.
+- **Arcflight controls pass**: in-app Advance Day and posture controls wired through shared API/state.

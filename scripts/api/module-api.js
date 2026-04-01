@@ -14,6 +14,8 @@ import { ShipManagementApp } from "../ui/ship-management-app.js";
 
 let shipStateIndex = createEmptyShipStateIndex();
 
+const TRAVEL_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
+
 function initializeDefaultShipState() {
   return initializeShipState(shipStateIndex, { shipId: DEFAULT_SHARED_SHIP_ID });
 }
@@ -120,6 +122,14 @@ export function createModuleApi() {
     }
   };
 
+  const setTravelPosture = (posture, options) => {
+    if (!TRAVEL_POSTURES.includes(posture)) {
+      throw new Error(`${MODULE_ID} | Invalid Arcflight posture: "${posture}".`);
+    }
+
+    return updateTravelState(shipStateIndex, { posture }, options);
+  };
+
   return {
     moduleId: MODULE_ID,
     apiNamespace: API_NAMESPACE,
@@ -146,6 +156,8 @@ export function createModuleApi() {
       updateTravelState: (updaterOrPartial, options) =>
         updateTravelState(shipStateIndex, updaterOrPartial, options),
       advanceTravelDay: (options) => advanceTravelDay(shipStateIndex, options),
+      setTravelPosture,
+      travelPostures: TRAVEL_POSTURES,
 
       getActiveShipId,
       setActiveShipId,

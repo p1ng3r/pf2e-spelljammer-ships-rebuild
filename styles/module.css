@@ -1,1 +1,38 @@
 /* PF2E Spelljammer Ships Rebuild */
+
+.ship-management-app .travel-controls {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.ship-management-app .travel-controls h5 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.ship-management-app .travel-controls__current-posture {
+  margin: 0 0 0.5rem;
+}
+
+.ship-management-app .travel-controls__posture-pill {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  text-transform: lowercase;
+}
+
+.ship-management-app .travel-controls__actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ship-management-app .travel-controls__actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
