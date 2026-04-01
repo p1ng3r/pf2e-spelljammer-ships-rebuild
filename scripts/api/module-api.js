@@ -29,6 +29,7 @@ import {
   resolveMaintenanceIssue,
   getStationRequests,
   addStationRequest,
+  updateStationRequest,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
@@ -344,6 +345,11 @@ export function createModuleApi() {
       addStationRequest: wrapStateMutation(
         (requestOrPartial, options) => addStationRequest(shipStateIndex, requestOrPartial, options),
         { source: "addStationRequest" },
+      ),
+      updateStationRequest: wrapStateMutation(
+        (requestId, requestPatch, options) =>
+          updateStationRequest(shipStateIndex, requestId, requestPatch, options),
+        { source: "updateStationRequest" },
       ),
       setTravelPosture,
       travelPostures: TRAVEL_POSTURES,

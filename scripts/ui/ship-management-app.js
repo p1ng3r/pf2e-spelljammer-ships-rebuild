@@ -11,6 +11,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 const DEFAULT_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
 const CUSTOM_SKILL_OPTION = "custom";
+const STATION_REQUEST_STATUS_FLOW = Object.freeze(["requested", "active", "resolved"]);
 
 function toLabel(posture) {
   return posture
@@ -112,6 +113,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   #showResolvedTravelTasks = false;
   #showResolvedMaintenanceIssues = false;
   #showResolvedTravelEvents = false;
+  #showResolvedStationRequests = false;
   #shipStateUpdatedHookId = null;
   #refreshTimeoutId = null;
   #ignoreNextLiveRefreshCount = 0;
@@ -160,12 +162,16 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       (Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : []);
     const travelEvents = stateApi?.getTravelEvents?.({ includeResolved: this.#showResolvedTravelEvents }) ??
       (Array.isArray(travelState?.travelEvents) ? travelState.travelEvents : []);
+    const stationRequests = stateApi?.getStationRequests?.({ includeResolved: this.#showResolvedStationRequests }) ??
+      (Array.isArray(travelState?.stationRequests) ? travelState.stationRequests : []);
     const allMaintenanceIssues = Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : [];
     const allTravelTasks = Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : [];
     const allTravelEvents = Array.isArray(travelState?.travelEvents) ? travelState.travelEvents : [];
+    const allStationRequests = Array.isArray(travelState?.stationRequests) ? travelState.stationRequests : [];
     const openMaintenanceIssueCount = allMaintenanceIssues.filter((issue) => issue?.status !== "resolved").length;
     const openTravelTaskCount = allTravelTasks.filter((task) => task?.status !== "resolved").length;
     const openTravelEventCount = allTravelEvents.filter((travelEvent) => travelEvent?.status !== "resolved").length;
+    const openStationRequestCount = allStationRequests.filter((request) => request?.status !== "resolved").length;
     const stationOptions = STATIONS.map((station) => ({ value: station.id, label: station.label }));
     const skillOptions = PF2E_CORE_SKILLS.map((skill) => ({ value: skill.value, label: skill.label }));
     const taskTypeOptions = CREW_TASK_TYPES.map((taskType) => ({
@@ -192,6 +198,32 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       accumulator[skill.value] = skill.label;
       return accumulator;
     }, {});
+    const stationRequestViewModels = stationRequests.map((request) => {
+      const currentStatus = String(request?.status ?? "requested").trim().toLowerCase();
+      const nextStatus = STATION_REQUEST_STATUS_FLOW[
+        Math.min(
+          STATION_REQUEST_STATUS_FLOW.indexOf(currentStatus) + 1,
+          STATION_REQUEST_STATUS_FLOW.length - 1,
+        )
+      ];
+
+      return {
+        ...request,
+        statusLabel: toReadableSlugLabel(currentStatus),
+        sourceTypeLabel: toReadableSlugLabel(request?.sourceType ?? "task"),
+        stationLabel: stationLabelsById[request?.stationId] ?? "Unassigned",
+        requestTextLabel: toSentenceOrFallback(request?.requestText, "No request text provided."),
+        summaryLabel: toSentenceOrFallback(request?.summary, "No summary provided."),
+        canAdvanceStatus: currentStatus !== "resolved",
+        nextStatus,
+        nextStatusLabel: toReadableSlugLabel(nextStatus),
+        statusOptions: STATION_REQUEST_STATUS_FLOW.map((statusValue) => ({
+          value: statusValue,
+          label: toReadableSlugLabel(statusValue),
+          selected: statusValue === currentStatus,
+        })),
+      };
+    });
     const travelTaskViewModels = travelTasks.map((task) => {
       const stationAttemptValue = getEffectiveAttemptValue(task.attemptedByStation, task.recommendedStation);
       const skillAttemptValue = getEffectiveAttemptValue(task.attemptedSkill, task.recommendedSkill);
@@ -308,6 +340,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         showResolved: this.#showResolvedTravelEvents,
         openCount: openTravelEventCount,
       },
+      stationRequests: {
+        requests: stationRequestViewModels,
+        hasRequests: stationRequests.length > 0,
+        showResolved: this.#showResolvedStationRequests,
+        openCount: openStationRequestCount,
+      },
       taskTypeOptions,
       checkTypeOptions,
       eventTypeOptions,
@@ -420,6 +458,16 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const saveIssueDcButtons = root.querySelectorAll("[data-action='save-maintenance-issue-dc']");
     for (const button of saveIssueDcButtons) {
       button.addEventListener("click", this.#onSaveMaintenanceIssueDcClick.bind(this));
+    }
+
+    const saveStationRequestStatusButtons = root.querySelectorAll("[data-action='save-station-request-status']");
+    for (const button of saveStationRequestStatusButtons) {
+      button.addEventListener("click", this.#onSaveStationRequestStatusClick.bind(this));
+    }
+
+    const advanceStationRequestStatusButtons = root.querySelectorAll("[data-action='advance-station-request-status']");
+    for (const button of advanceStationRequestStatusButtons) {
+      button.addEventListener("click", this.#onAdvanceStationRequestStatusClick.bind(this));
     }
   }
 
@@ -924,6 +972,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       this.#showResolvedMaintenanceIssues = checked;
     } else if (group === "travel-events") {
       this.#showResolvedTravelEvents = checked;
+    } else if (group === "station-requests") {
+      this.#showResolvedStationRequests = checked;
     } else {
       return;
     }
@@ -959,7 +1009,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       anchorOffsetTop: null,
     };
 
-    const anchorRow = sourceElement?.closest?.("[data-travel-task-id], [data-travel-event-id]");
+    const anchorRow = sourceElement?.closest?.(
+      "[data-travel-task-id], [data-travel-event-id], [data-station-request-id]",
+    );
     if (!anchorRow?.dataset) {
       return state;
     }
@@ -974,6 +1026,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const eventId = String(anchorRow.dataset.travelEventId ?? "").trim();
     if (eventId) {
       state.anchorSelector = `[data-travel-event-id="${eventId}"]`;
+      state.anchorOffsetTop = anchorRow.offsetTop - scrollContainer.scrollTop;
+      return state;
+    }
+
+    const requestId = String(anchorRow.dataset.stationRequestId ?? "").trim();
+    if (requestId) {
+      state.anchorSelector = `[data-station-request-id="${requestId}"]`;
       state.anchorOffsetTop = anchorRow.offsetTop - scrollContainer.scrollTop;
     }
 
@@ -1044,6 +1103,41 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         attemptedSkillSelect.value = attemptedSkill;
       }
     }
+  }
+
+  async #onSaveStationRequestStatusClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const requestId = button?.dataset?.requestId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!requestId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-station-request-id]");
+    const statusInput = row?.querySelector("[name='stationRequestStatus']");
+    const status = String(statusInput?.value ?? "requested").trim().toLowerCase();
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateStationRequest?.(requestId, { status });
+    }, event.currentTarget);
+  }
+
+  async #onAdvanceStationRequestStatusClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const requestId = button?.dataset?.requestId ?? "";
+    const nextStatus = String(button?.dataset?.nextStatus ?? "active").trim().toLowerCase();
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!requestId || !stateApi) {
+      return;
+    }
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateStationRequest?.(requestId, { status: nextStatus });
+    }, event.currentTarget);
   }
 
   #ensureLiveRefreshSubscription() {
