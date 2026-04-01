@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver a small Arcflight event-DC fix pass on top of resolved visibility/outcome editing, keeping compact Ship Management flow intact.
+Deliver a small Arcflight UX consistency + manual outcome-tag pass across tasks/issues/events, keeping compact Ship Management flow intact.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -196,6 +196,29 @@ Deliver a small Arcflight event-DC fix pass on top of resolved visibility/outcom
   - Event rows now include inline editable DC input + **Save DC** action.
   - DC editing remains manual-only and does not require Attempt Check.
   - No automatic DC math and no roll automation were added.
+- Arcflight outcome-tag + row consistency pass added:
+  - Shared Arcflight record state now includes a lightweight manual `outcomeTag` for:
+    - travel tasks
+    - maintenance issues
+    - travel events
+  - `outcomeTag` uses controlled manual-only values:
+    - `none`
+    - `success`
+    - `failure`
+    - `mixed`
+    - `unresolved`
+  - Ship Management row presentation is now more consistent across tasks/issues/events:
+    - shared compact row containers
+    - aligned status/meta chips
+    - aligned metadata blocks
+    - aligned outcome presentation
+  - Existing workflows were preserved:
+    - **Attempt Check**
+    - **Resolve**
+    - **Save Outcome**
+    - **Save DC**
+    - **Create Task**
+  - **Save Outcome** now writes both freeform outcome text (`resultSummary`) and manual `outcomeTag`.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -258,12 +281,14 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Travel events are now tracked as a separate manual placeholder list in the same shared Arcflight state model used by travel tasks and maintenance issues.
 - Travel events and travel tasks remain separate objects with only lightweight event-to-task linking metadata (`linkedTaskId`, `hasLinkedTask`).
 - Resolved tasks/issues/events remain in shared Arcflight state and can be viewed on demand through compact per-section toggles.
+- Travel tasks/issues/events now support manual outcome tag tracking (`outcomeTag`) alongside freeform outcome/result text (`resultSummary`).
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
 - Travel events are manual placeholders only (no procedural generation yet).
 - Event-to-task linking remains lightweight and GM-directed (no archive graph, no relationship engine).
 - Event attempt flow is manual-only (no DC math and no roll execution yet).
+- Outcome tag assignment is manual-only and does not perform automated success/failure determination.
 - No travel randomization or encounter tables yet.
 - No real combat mechanics yet.
 - No upgrades/cargo/reputation systems yet.
@@ -303,3 +328,5 @@ Keep Arcflight focused and incremental:
 - **Arcflight event attempt + scroll-stability pass**: centralized anchor-aware scroll restoration for inline event/task actions plus manual event Attempt Check status/metadata scaffold.
 - **Arcflight event compact-row wording polish pass**: denser Events row layout and clearer manual Attempt Summary vs Outcome readout text.
 - **Arcflight resolved visibility + manual outcome editing pass**: compact per-section Show Resolved toggles plus direct row-level outcome text editing for tasks/issues/events without requiring a new Attempt Check.
+- **Arcflight event manual DC field fix pass**: manual event DC create/edit support with compact row display and inline **Save DC** action.
+- **Arcflight outcome-tag + row consistency pass**: consistent compact row language for tasks/issues/events plus manual editable outcome tags (`none`, `success`, `failure`, `mixed`, `unresolved`) alongside freeform outcome text.
