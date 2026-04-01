@@ -104,7 +104,7 @@ function normalizeTravelTaskStatus(value) {
 
 function normalizeTravelEventStatus(value) {
   const status = normalizeIssueText(value, "open").toLowerCase();
-  const allowedStatuses = ["open", "resolved"];
+  const allowedStatuses = ["open", "attempted", "resolved"];
   return allowedStatuses.includes(status) ? status : "open";
 }
 
@@ -218,6 +218,10 @@ function createTravelEvent(eventOrPartial = {}) {
     checkType: normalizeCheckType(eventOrPartial.checkType),
     notes: normalizeTaskNotes(eventOrPartial.notes),
     summary: normalizeTaskNotes(eventOrPartial.summary),
+    lastAttemptSummary: normalizeTaskNotes(eventOrPartial.lastAttemptSummary),
+    attemptedByStation: normalizeRecommendedStation(eventOrPartial.attemptedByStation),
+    attemptedSkill: normalizeRecommendedSkill(eventOrPartial.attemptedSkill),
+    resultSummary: normalizeTaskNotes(eventOrPartial.resultSummary),
     linkedTaskId,
     hasLinkedTask: Boolean(linkedTaskId),
   };
@@ -601,6 +605,22 @@ export function updateTravelEvent(index, eventId, eventPatch = {}, options = {})
 
 export function resolveTravelEvent(index, eventId, options = {}) {
   return updateTravelEvent(index, eventId, { status: "resolved" }, options);
+}
+
+export function attemptTravelEvent(index, eventId, attemptPatch = {}, options = {}) {
+  return updateTravelEvent(
+    index,
+    eventId,
+    {
+      status: "attempted",
+      lastAttemptSummary: attemptPatch.lastAttemptSummary,
+      attemptedByStation: attemptPatch.attemptedByStation,
+      attemptedSkill: attemptPatch.attemptedSkill,
+      resultSummary: attemptPatch.resultSummary,
+      summary: attemptPatch.summary,
+    },
+    options,
+  );
 }
 
 export function linkTravelEventToTask(index, eventId, taskId, options = {}) {

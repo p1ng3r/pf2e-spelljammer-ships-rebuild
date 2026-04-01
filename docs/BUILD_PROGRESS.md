@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the Arcflight GM event-to-task linkage slice so an event can act as a compact narrative wrapper that creates one linked operational follow-up task.
+Deliver the Arcflight event UX stabilization slice: robust event-action scroll preservation plus the first manual event Attempt Check / Resolve flow.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -133,6 +133,30 @@ Deliver the Arcflight GM event-to-task linkage slice so an event can act as a co
     - summary/notes
   - Default behavior prevents duplicate linked-task creation for an event that already has a `linkedTaskId`.
   - Ship Management Events rows now include a compact **Create Task** action and lightweight linked-task status display.
+- Arcflight event attempt + scroll-stability pass added:
+  - Remaining event-action scroll jump was fixed with a centralized scroll-preservation upgrade in Ship Management:
+    - capture now stores both raw `scrollTop` and an optional row anchor (`data-travel-event-id` / `data-travel-task-id`) relative offset.
+    - restore now prefers anchor-based repositioning when possible (keeps the acted-on row stable even when list height changes), with a `scrollTop` fallback.
+    - fallback restoration now runs across a second animation frame to better survive layout settling.
+  - Event action handlers now use the shared preservation helper with source-element context, covering:
+    - **Create Task**
+    - **Attempt Check**
+    - **Resolve**
+    - and other inline actions routed through the same helper.
+  - Travel events now support a lightweight manual status flow:
+    - `open` -> `attempted` -> `resolved`
+  - Travel events now support lightweight attempt metadata:
+    - `lastAttemptSummary`
+    - `attemptedByStation`
+    - `attemptedSkill`
+    - `resultSummary`
+  - Added explicit event-attempt API helper:
+    - `attemptTravelEvent(eventId, attemptPatch, options?)`
+  - Ship Management Events rows now include compact manual controls:
+    - **Attempt Check**
+    - **Resolve**
+    - inline station/skill attribution selectors + compact attempt/result summary input
+  - Event attempt station/skill controls use the same roster + PF2E core skill options and store stable ids/slugs.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -176,6 +200,8 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - In-app Events controls support manual event creation and one-click event resolution.
 - `state.createTravelTaskFromEvent(eventId)` creates one linked follow-up travel task from an event using event-driven defaults.
 - Event rows display whether a linked task exists and disable **Create Task** when already linked.
+- `state.attemptTravelEvent(eventId, { attemptedByStation, attemptedSkill, lastAttemptSummary })` marks an event `attempted` and persists manual attempt metadata.
+- In-app event rows support compact manual **Attempt Check** and **Resolve** actions with shared scroll-safe rerender behavior.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -193,6 +219,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
 - Travel events are manual placeholders only (no procedural generation yet).
 - Event-to-task linking remains lightweight and GM-directed (no archive graph, no relationship engine).
+- Event attempt flow is manual-only (no DC math and no roll execution yet).
 - No travel randomization or encounter tables yet.
 - No real combat mechanics yet.
 - No upgrades/cargo/reputation systems yet.
@@ -210,6 +237,7 @@ Keep Arcflight focused and incremental:
 - Decide later whether resolved travel tasks should be shown via a compact archive toggle.
 - Decide later whether to allow optional multi-task follow-ups per event behind an explicit GM setting.
 - Keep app UX intentionally lightweight until travel loop behavior is validated.
+- Continue table-testing whether to display resolved events behind a compact archive toggle later.
 
 ## Pass History
 - **Foundation shell pass**: module scaffolding, constants/config, and initial API surface.
@@ -228,3 +256,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight travel-task UX pass**: scroll-position preservation for inline rerenders plus compact attempted-by station/skill capture in Attempt Check flow.
 - **Arcflight travel-event placeholder pass**: manual shared-state event list + state/API event helpers + compact Ship Management Events controls.
 - **Arcflight event-linked task workflow pass**: lightweight event/task relationship fields + `createTravelTaskFromEvent` helper + compact per-event **Create Task** UI action.
+- **Arcflight event attempt + scroll-stability pass**: centralized anchor-aware scroll restoration for inline event/task actions plus manual event Attempt Check status/metadata scaffold.

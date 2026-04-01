@@ -18,6 +18,7 @@ import {
   getTravelEvents,
   addTravelEvent,
   updateTravelEvent,
+  attemptTravelEvent,
   resolveTravelEvent,
   linkTravelEventToTask,
   createTravelTaskFromEvent,
@@ -188,6 +189,8 @@ export function createModuleApi() {
       addTravelEvent: (eventOrPartial, options) => addTravelEvent(shipStateIndex, eventOrPartial, options),
       updateTravelEvent: (eventId, eventPatch, options) =>
         updateTravelEvent(shipStateIndex, eventId, eventPatch, options),
+      attemptTravelEvent: (eventId, attemptPatch, options) =>
+        attemptTravelEvent(shipStateIndex, eventId, attemptPatch, options),
       resolveTravelEvent: (eventId, options) => resolveTravelEvent(shipStateIndex, eventId, options),
       linkTravelEventToTask: (eventId, taskId, options) =>
         linkTravelEventToTask(shipStateIndex, eventId, taskId, options),
