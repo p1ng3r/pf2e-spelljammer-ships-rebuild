@@ -377,6 +377,24 @@ Keep Arcflight focused and incremental:
 - Existing event DC behavior is preserved and unchanged.
 - DC behavior remains manual-only (no automated DC math and no roll execution).
 
+
+## Ship Management station assignment click-target follow-up fix (2026-04-01)
+- Root cause of remaining Assign / Save non-persistence: the click handler used `button.closest("[data-station-id]")` while the button itself also had `data-station-id`, so `closest(...)` returned the button element instead of the station row.
+- Because the handler searched for the actor select from that returned element, the select lookup resolved `null`, producing an empty `assignedActorId` and writing `null` back to state on every save attempt.
+- Fix: station assignment handler now resolves the container row with a row-scoped selector (`.travel-record-row[data-station-id]`) and keeps a station-id fallback query for the actor select.
+- Direct shared-state helper behavior remains valid; this pass is UI wiring only.
+
+## Ship Management station assignment persistence fix pass (2026-04-01)
+- Root cause: Ship Management station assignment actions (`Assign / Save`, `Clear`) depended on implicit active-ship context when calling state helpers, so in multi-ship/multi-window runtime use they could write to the wrong ship state while the UI row still reflected a different ship context.
+- Ship Management now captures and keeps a per-window viewed ship id (`#viewShipId`) and resolves UI data from that ship context instead of re-resolving from whichever ship is currently active globally.
+- Station assignment actions now pass explicit ship context to shared-state helpers:
+  - `assignStationActor(stationId, actorId, { shipId })`
+  - `clearStationActor(stationId, { shipId })`
+- Live-refresh filtering now keys off the window's viewed ship id rather than global active-ship id, preserving refresh behavior while preventing cross-ship refresh confusion.
+- Shared station assignment state path is unchanged:
+  - `shipState.crew.stations[stationId].actorId`
+  - `shipState.crew.stations[stationId].isNpcCrew`
+
 ## Player Arcflight read-only view pass (2026-04-01)
 - Added a separate player-facing Arcflight status app (`PlayerArcflightViewApp`) for PF2E vehicle-linked ship state.
 - Added API launcher/read helpers:
