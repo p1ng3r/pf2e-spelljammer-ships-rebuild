@@ -17,6 +17,13 @@ Hooks.once("ready", () => {
     }
 
     buttons.unshift({
+      label: "Arcflight",
+      class: "pf2e-spelljammer-ships-open-player-arcflight",
+      icon: "fas fa-compass",
+      onclick: () => api.ui.openPlayerArcflightView(actor),
+    });
+
+    buttons.unshift({
       label: "Ship Mgmt",
       class: "pf2e-spelljammer-ships-open-management",
       icon: "fas fa-ship",

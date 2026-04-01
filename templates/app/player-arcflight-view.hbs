@@ -1,0 +1,82 @@
+<section class="player-arcflight-view-content">
+  <header>
+    <h2>{{moduleTitle}}</h2>
+    <p>Player Arcflight Status</p>
+  </header>
+
+  {{#if hasShipState}}
+    <article class="player-arcflight-view-body">
+      <h3>{{shipName}}</h3>
+
+      <section>
+        <h4>Current Voyage State</h4>
+        <ul>
+          <li><strong>Status:</strong> {{voyage.statusText}}</li>
+          <li><strong>Arcflight Term:</strong> {{voyage.term}}</li>
+          <li><strong>Destination:</strong> {{voyage.destination}}</li>
+          <li><strong>Current Hex:</strong> {{voyage.currentHex}}</li>
+          <li><strong>Posture:</strong> {{voyage.posture}}</li>
+          <li><strong>Leg Progress:</strong> {{voyage.legProgressLabel}}</li>
+          <li><strong>Days Elapsed:</strong> {{voyage.daysElapsed}}</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Active Situations</h4>
+        {{#if activeSituations.length}}
+          <ul>
+            {{#each activeSituations as |situation|}}
+              <li>
+                <strong>{{situation.title}}</strong>
+                <p><strong>State:</strong> {{situation.statusText}} · {{situation.urgencyText}}</p>
+                <p><strong>Prompt:</strong> {{situation.promptText}}</p>
+                <p><strong>Summary:</strong> {{situation.summaryText}}</p>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No active situations right now.</em></p>
+        {{/if}}
+      </section>
+
+      <section>
+        <h4>Ship Problems</h4>
+        {{#if shipProblems.length}}
+          <ul>
+            {{#each shipProblems as |problem|}}
+              <li>
+                <strong>{{problem.title}}</strong>
+                <p><strong>State:</strong> {{problem.statusText}} · {{problem.urgencyText}}</p>
+                <p><strong>Prompt:</strong> {{problem.promptText}}</p>
+                <p><strong>Summary:</strong> {{problem.summaryText}}</p>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No unresolved ship problems right now.</em></p>
+        {{/if}}
+      </section>
+
+      <section>
+        <h4>Crew Responses Underway</h4>
+        {{#if crewResponses.length}}
+          <ul>
+            {{#each crewResponses as |response|}}
+              <li>
+                <strong>{{response.title}}</strong>
+                <p><strong>State:</strong> {{response.statusText}}</p>
+                <p><strong>Prompt:</strong> {{response.promptText}}</p>
+                <p><strong>Response:</strong> {{response.summaryText}}</p>
+                <p><strong>Risk / Consequence:</strong> {{response.riskText}}</p>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No crew responses underway.</em></p>
+        {{/if}}
+      </section>
+    </article>
+  {{else}}
+    <p>No ship state available.</p>
+  {{/if}}
+</section>
