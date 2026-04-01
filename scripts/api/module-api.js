@@ -30,6 +30,7 @@ import {
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
+import { PlayerArcflightViewApp } from "../ui/player-arcflight-view.js";
 
 let shipStateIndex = createEmptyShipStateIndex();
 
@@ -88,6 +89,28 @@ function getActorLaunchErrorMessage(error) {
   return error.message.slice(separatorIndex + 1).trim();
 }
 
+
+function resolveActorOrOptions(actorOrOptions) {
+  if (!actorOrOptions) {
+    return {};
+  }
+
+  if (typeof actorOrOptions === "string") {
+    return { actor: resolveActor(actorOrOptions) };
+  }
+
+  if (actorOrOptions?.id && actorOrOptions?.type) {
+    return { actor: actorOrOptions };
+  }
+
+  const options = actorOrOptions && typeof actorOrOptions === "object" ? actorOrOptions : {};
+  return {
+    actor: resolveActor(options.actor ?? options.actorId ?? null),
+    actorId: options.actorId ?? null,
+    shipId: options.shipId ?? null,
+  };
+}
+
 function getActiveShipId() {
   return shipStateIndex.activeShipId;
 }
@@ -111,6 +134,34 @@ export function createModuleApi() {
     const app = new ShipManagementApp();
     app.render({ force: true });
     return app;
+  };
+
+  const getPlayerFacingArcflightView = (actorOrOptions) => {
+    const { actor, actorId, shipId } = resolveActorOrOptions(actorOrOptions);
+    const resolvedActorId = actor?.id ?? actorId ?? null;
+
+    return new PlayerArcflightViewApp({
+      actorId: resolvedActorId,
+      shipId: shipId ?? null,
+    });
+  };
+
+  const openPlayerArcflightView = (actorOrOptions) => {
+    try {
+      const { actor } = resolveActorOrOptions(actorOrOptions);
+      if (actor) {
+        initializeShipStateForVehicleActor(actor, { setActive: true });
+      }
+
+      const app = getPlayerFacingArcflightView(actorOrOptions);
+      app.render({ force: true });
+      return app;
+    } catch (error) {
+      const uiMessage = getActorLaunchErrorMessage(error);
+      ui.notifications?.error(uiMessage);
+      console.warn(`${MODULE_ID} | ${uiMessage}`, error);
+      return null;
+    }
   };
 
   const initializeShipStateForVehicleActor = (actorOrId, options = {}) => {
@@ -220,6 +271,8 @@ export function createModuleApi() {
     ui: {
       openShipManagement,
       openShipManagementForVehicleActor,
+      getPlayerFacingArcflightView,
+      openPlayerArcflightView,
     },
   };
 }

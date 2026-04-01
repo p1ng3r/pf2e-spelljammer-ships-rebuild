@@ -1,0 +1,199 @@
+import { API_NAMESPACE, MODULE_ID, MODULE_TITLE, STATIONS, TRAVEL_TERM } from "../config/constants.js";
+import { PF2E_CORE_SKILLS } from "../state/ship-state.js";
+
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+function toLabel(value, fallback = "Unknown") {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function toText(value, fallback = "None") {
+  const normalized = String(value ?? "").trim();
+  return normalized || fallback;
+}
+
+function toStatusText(value) {
+  const normalized = String(value ?? "open").trim().toLowerCase() || "open";
+
+  if (normalized === "attempted") {
+    return "Response underway";
+  }
+
+  if (normalized === "resolved") {
+    return "Resolved";
+  }
+
+  return "Open";
+}
+
+function toUrgencyText(value) {
+  const normalized = String(value ?? "minor").trim().toLowerCase();
+
+  if (normalized === "critical") {
+    return "Critical urgency";
+  }
+
+  if (normalized === "major") {
+    return "High urgency";
+  }
+
+  if (normalized === "moderate") {
+    return "Medium urgency";
+  }
+
+  return "Low urgency";
+}
+
+function buildStationLabelsById() {
+  return STATIONS.reduce((accumulator, station) => {
+    accumulator[station.id] = station.label;
+    return accumulator;
+  }, {});
+}
+
+function buildSkillLabelsByValue() {
+  return PF2E_CORE_SKILLS.reduce((accumulator, skill) => {
+    accumulator[skill.value] = skill.label;
+    return accumulator;
+  }, {});
+}
+
+function mapPrompt(record, stationLabelsById, skillLabelsByValue) {
+  const stationLabel = record?.recommendedStation ? stationLabelsById[record.recommendedStation] ?? null : null;
+  const skillLabel = record?.recommendedSkill ? skillLabelsByValue[record.recommendedSkill] ?? toLabel(record.recommendedSkill) : null;
+
+  if (!stationLabel && !skillLabel) {
+    return "No specific station prompt assigned.";
+  }
+
+  if (stationLabel && skillLabel) {
+    return `${stationLabel}: ${skillLabel}`;
+  }
+
+  if (stationLabel) {
+    return `${stationLabel}: Any appropriate check`;
+  }
+
+  return `Any station: ${skillLabel}`;
+}
+
+function hasExplicitShipContext(shipContext) {
+  return Boolean(String(shipContext?.shipId ?? "").trim() || String(shipContext?.actorId ?? "").trim());
+}
+
+function toVoyageStatus(travelState) {
+  const destination = toText(travelState?.destination, "No destination set");
+  const posture = toLabel(travelState?.posture ?? "standard", "Standard");
+  const currentHex = toText(travelState?.currentHex, "Unknown");
+  const legProgress = Number(travelState?.legProgress ?? 0);
+  const legTarget = Math.max(1, Number(travelState?.legProgressMax ?? 1));
+  const daysElapsed = Number(travelState?.daysElapsed ?? 0);
+
+  return {
+    term: TRAVEL_TERM,
+    destination,
+    posture,
+    currentHex,
+    legProgressLabel: `${legProgress} / ${legTarget}`,
+    daysElapsed,
+    statusText: legProgress >= legTarget ? "Leg complete. Awaiting next heading." : "In transit.",
+  };
+}
+
+export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(ApplicationV2) {
+  #shipContext = null;
+
+  static DEFAULT_OPTIONS = {
+    id: `${MODULE_ID}-player-arcflight-view`,
+    classes: [MODULE_ID, "player-arcflight-view-app"],
+    tag: "section",
+    window: {
+      title: `${MODULE_TITLE} | Arcflight Status`,
+      resizable: true,
+    },
+    position: {
+      width: 560,
+      height: 560,
+    },
+  };
+
+  static PARTS = {
+    content: {
+      template: `modules/${MODULE_ID}/templates/app/player-arcflight-view.hbs`,
+    },
+  };
+
+  constructor(options = {}) {
+    super(options);
+    this.#shipContext = {
+      shipId: options.shipId ?? null,
+      actorId: options.actorId ?? null,
+    };
+  }
+
+  async _prepareContext() {
+    const api = game?.[API_NAMESPACE] ?? null;
+    const stateApi = api?.state ?? null;
+
+    const explicitTarget = hasExplicitShipContext(this.#shipContext);
+    const targetShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
+    const shipState = targetShipState ?? (explicitTarget ? null : stateApi?.getActiveShipState?.() ?? null);
+    const travelState = shipState?.arcflight ?? null;
+
+    if (!shipState || !travelState) {
+      return {
+        moduleTitle: MODULE_TITLE,
+        hasShipState: false,
+      };
+    }
+
+    const stationLabelsById = buildStationLabelsById();
+    const skillLabelsByValue = buildSkillLabelsByValue();
+
+    const openEvents = (Array.isArray(travelState.travelEvents) ? travelState.travelEvents : []).filter(
+      (eventRecord) => eventRecord?.status !== "resolved",
+    );
+    const openIssues = (Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : []).filter(
+      (issueRecord) => issueRecord?.status !== "resolved",
+    );
+    const responseTasks = (Array.isArray(travelState.travelTasks) ? travelState.travelTasks : []).filter(
+      (taskRecord) => taskRecord?.status === "open" || taskRecord?.status === "attempted",
+    );
+
+    return {
+      moduleTitle: MODULE_TITLE,
+      hasShipState: true,
+      shipName: shipState.identity?.name ?? "Unnamed Ship",
+      voyage: toVoyageStatus(travelState),
+      activeSituations: openEvents.map((eventRecord) => ({
+        title: toText(eventRecord.title, "Unnamed situation"),
+        statusText: toStatusText(eventRecord.status),
+        urgencyText: toUrgencyText(eventRecord.severity),
+        summaryText: toText(eventRecord.summary, "No public details yet."),
+        promptText: mapPrompt(eventRecord, stationLabelsById, skillLabelsByValue),
+      })),
+      shipProblems: openIssues.map((issueRecord) => ({
+        title: toText(issueRecord.title, "Unnamed problem"),
+        statusText: toStatusText(issueRecord.status),
+        urgencyText: toUrgencyText(issueRecord.severity),
+        summaryText: toText(issueRecord.resultSummary, "No public details yet."),
+        promptText: mapPrompt(issueRecord, stationLabelsById, skillLabelsByValue),
+      })),
+      crewResponses: responseTasks.map((taskRecord) => ({
+        title: toText(taskRecord.title, "Unnamed crew response"),
+        statusText: toStatusText(taskRecord.status),
+        summaryText: toText(taskRecord.lastAttemptSummary || taskRecord.summary, "No response summary yet."),
+        riskText: toText(taskRecord.resultSummary, "Outcome still uncertain."),
+        promptText: mapPrompt(taskRecord, stationLabelsById, skillLabelsByValue),
+      })),
+    };
+  }
+}

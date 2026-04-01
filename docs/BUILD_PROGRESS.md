@@ -340,3 +340,29 @@ Keep Arcflight focused and incremental:
 - Maintenance issue rows now display DC in compact metadata and include inline editable DC + **Save DC**.
 - Existing event DC behavior is preserved and unchanged.
 - DC behavior remains manual-only (no automated DC math and no roll execution).
+
+## Player Arcflight read-only view pass (2026-04-01)
+- Added a separate player-facing Arcflight status app (`PlayerArcflightViewApp`) for PF2E vehicle-linked ship state.
+- Added API launcher/read helpers:
+  - `ui.getPlayerFacingArcflightView(actorOrOptions?)`
+  - `ui.openPlayerArcflightView(actorOrOptions?)`
+- Added a minimal Vehicle sheet header button path for **Arcflight** alongside **Ship Mgmt**.
+- Player Arcflight view now shows read-only sections only:
+  - Current Voyage State
+  - Active Situations (unresolved travel events)
+  - Ship Problems (unresolved maintenance issues)
+  - Crew Responses Underway (open/attempted travel tasks)
+- Player view translation intentionally hides GM workflow/admin fields:
+  - no DC display
+  - no outcome tags
+  - no linked task metadata
+  - no resolve/edit/task-create controls
+  - no raw internal metadata/debug details
+- Shared ship state remains single-source; player app only derives a safe display view model.
+
+## Player Arcflight note-leak follow-up pass (2026-04-01)
+- Player Arcflight **Active Situations** summary fallback no longer reads event `notes`; it now uses only player-safe event `summary` plus a generic fallback.
+- Player Arcflight **Ship Problems** summary fallback no longer reads issue `notes`; it now uses only player-safe `resultSummary` plus a generic fallback.
+- Tightened target resolution behavior in Player Arcflight app:
+  - when explicit `actorId` or `shipId` is provided but no matching ship state exists, the app now shows no state instead of silently falling back to active ship.
+  - active-ship fallback remains only for launches without explicit target context.
