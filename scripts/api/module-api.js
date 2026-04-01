@@ -35,6 +35,7 @@ import { ShipManagementApp } from "../ui/ship-management-app.js";
 import { PlayerArcflightViewApp } from "../ui/player-arcflight-view.js";
 
 let shipStateIndex = createEmptyShipStateIndex();
+const SHIP_STATE_UPDATED_HOOK = `${MODULE_ID}.shipStateUpdated`;
 
 const TRAVEL_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
 
@@ -132,6 +133,24 @@ function resetShipStates() {
 }
 
 export function createModuleApi() {
+  const notifyShipStateUpdated = (nextShipState, context = {}) => {
+    if (!nextShipState) {
+      return nextShipState;
+    }
+
+    Hooks.callAll(SHIP_STATE_UPDATED_HOOK, {
+      shipId: nextShipState.identity?.shipId ?? null,
+      actorId: nextShipState.identity?.actorId ?? null,
+      updatedAt: nextShipState.meta?.updatedAt ?? Date.now(),
+      context,
+    });
+
+    return nextShipState;
+  };
+
+  const wrapStateMutation = (mutator, context) => (...args) =>
+    notifyShipStateUpdated(mutator(...args), context);
+
   const openShipManagement = () => {
     const app = new ShipManagementApp();
     app.render({ force: true });
@@ -205,6 +224,9 @@ export function createModuleApi() {
   return {
     moduleId: MODULE_ID,
     apiNamespace: API_NAMESPACE,
+    hooks: {
+      shipStateUpdated: SHIP_STATE_UPDATED_HOOK,
+    },
     state: {
       initializeShipState: (options) => initializeShipState(shipStateIndex, options),
       initializeShipStateForActor: (actorId, options = {}) =>
@@ -216,51 +238,113 @@ export function createModuleApi() {
       getShipStateForActor: (actorId) => getShipState(shipStateIndex, { actorId }),
       getActiveShipState: () => getShipState(shipStateIndex, { shipId: shipStateIndex.activeShipId }),
 
-      setShipState: (nextState, options) => setShipState(shipStateIndex, nextState, options),
-      setShipStateById: (shipId, nextState) => setShipState(shipStateIndex, nextState, { shipId }),
-      setShipStateForActor: (actorId, nextState) => setShipState(shipStateIndex, nextState, { actorId }),
+      setShipState: wrapStateMutation(
+        (nextState, options) => setShipState(shipStateIndex, nextState, options),
+        { source: "setShipState" },
+      ),
+      setShipStateById: wrapStateMutation(
+        (shipId, nextState) => setShipState(shipStateIndex, nextState, { shipId }),
+        { source: "setShipStateById" },
+      ),
+      setShipStateForActor: wrapStateMutation(
+        (actorId, nextState) => setShipState(shipStateIndex, nextState, { actorId }),
+        { source: "setShipStateForActor" },
+      ),
 
-      updateShipState: (updater, options) => updateShipState(shipStateIndex, updater, options),
-      updateShipStateById: (shipId, updater) => updateShipState(shipStateIndex, updater, { shipId }),
-      updateShipStateForActor: (actorId, updater) => updateShipState(shipStateIndex, updater, { actorId }),
+      updateShipState: wrapStateMutation(
+        (updater, options) => updateShipState(shipStateIndex, updater, options),
+        { source: "updateShipState" },
+      ),
+      updateShipStateById: wrapStateMutation(
+        (shipId, updater) => updateShipState(shipStateIndex, updater, { shipId }),
+        { source: "updateShipStateById" },
+      ),
+      updateShipStateForActor: wrapStateMutation(
+        (actorId, updater) => updateShipState(shipStateIndex, updater, { actorId }),
+        { source: "updateShipStateForActor" },
+      ),
 
       getTravelState: (options) => getTravelState(shipStateIndex, options),
-      updateTravelState: (updaterOrPartial, options) =>
-        updateTravelState(shipStateIndex, updaterOrPartial, options),
-      setTravelDestination: (destination, options) =>
-        setTravelDestination(shipStateIndex, destination, options),
-      setTravelLeg: (legPatch, options) => setTravelLeg(shipStateIndex, legPatch, options),
-      advanceTravelDay: (options) => advanceTravelDay(shipStateIndex, options),
+      updateTravelState: wrapStateMutation(
+        (updaterOrPartial, options) => updateTravelState(shipStateIndex, updaterOrPartial, options),
+        { source: "updateTravelState" },
+      ),
+      setTravelDestination: wrapStateMutation(
+        (destination, options) => setTravelDestination(shipStateIndex, destination, options),
+        { source: "setTravelDestination" },
+      ),
+      setTravelLeg: wrapStateMutation(
+        (legPatch, options) => setTravelLeg(shipStateIndex, legPatch, options),
+        { source: "setTravelLeg" },
+      ),
+      advanceTravelDay: wrapStateMutation(
+        (options) => advanceTravelDay(shipStateIndex, options),
+        { source: "advanceTravelDay" },
+      ),
       getTravelTasks: (options) => getTravelTasks(shipStateIndex, options),
-      addTravelTask: (taskOrPartial, options) => addTravelTask(shipStateIndex, taskOrPartial, options),
-      updateTravelTask: (taskId, taskPatch, options) =>
-        updateTravelTask(shipStateIndex, taskId, taskPatch, options),
-      attemptTravelTask: (taskId, attemptPatch, options) =>
-        attemptTravelTask(shipStateIndex, taskId, attemptPatch, options),
-      resolveTravelTask: (taskId, options) => resolveTravelTask(shipStateIndex, taskId, options),
+      addTravelTask: wrapStateMutation(
+        (taskOrPartial, options) => addTravelTask(shipStateIndex, taskOrPartial, options),
+        { source: "addTravelTask" },
+      ),
+      updateTravelTask: wrapStateMutation(
+        (taskId, taskPatch, options) => updateTravelTask(shipStateIndex, taskId, taskPatch, options),
+        { source: "updateTravelTask" },
+      ),
+      attemptTravelTask: wrapStateMutation(
+        (taskId, attemptPatch, options) => attemptTravelTask(shipStateIndex, taskId, attemptPatch, options),
+        { source: "attemptTravelTask" },
+      ),
+      resolveTravelTask: wrapStateMutation(
+        (taskId, options) => resolveTravelTask(shipStateIndex, taskId, options),
+        { source: "resolveTravelTask" },
+      ),
       getTravelEvents: (options) => getTravelEvents(shipStateIndex, options),
-      addTravelEvent: (eventOrPartial, options) => addTravelEvent(shipStateIndex, eventOrPartial, options),
-      updateTravelEvent: (eventId, eventPatch, options) =>
-        updateTravelEvent(shipStateIndex, eventId, eventPatch, options),
-      attemptTravelEvent: (eventId, attemptPatch, options) =>
-        attemptTravelEvent(shipStateIndex, eventId, attemptPatch, options),
-      resolveTravelEvent: (eventId, options) => resolveTravelEvent(shipStateIndex, eventId, options),
-      linkTravelEventToTask: (eventId, taskId, options) =>
-        linkTravelEventToTask(shipStateIndex, eventId, taskId, options),
-      createTravelTaskFromEvent: (eventId, taskOptions, options) =>
-        createTravelTaskFromEvent(shipStateIndex, eventId, taskOptions, options),
+      addTravelEvent: wrapStateMutation(
+        (eventOrPartial, options) => addTravelEvent(shipStateIndex, eventOrPartial, options),
+        { source: "addTravelEvent" },
+      ),
+      updateTravelEvent: wrapStateMutation(
+        (eventId, eventPatch, options) => updateTravelEvent(shipStateIndex, eventId, eventPatch, options),
+        { source: "updateTravelEvent" },
+      ),
+      attemptTravelEvent: wrapStateMutation(
+        (eventId, attemptPatch, options) => attemptTravelEvent(shipStateIndex, eventId, attemptPatch, options),
+        { source: "attemptTravelEvent" },
+      ),
+      resolveTravelEvent: wrapStateMutation(
+        (eventId, options) => resolveTravelEvent(shipStateIndex, eventId, options),
+        { source: "resolveTravelEvent" },
+      ),
+      linkTravelEventToTask: wrapStateMutation(
+        (eventId, taskId, options) => linkTravelEventToTask(shipStateIndex, eventId, taskId, options),
+        { source: "linkTravelEventToTask" },
+      ),
+      createTravelTaskFromEvent: wrapStateMutation(
+        (eventId, taskOptions, options) => createTravelTaskFromEvent(shipStateIndex, eventId, taskOptions, options),
+        { source: "createTravelTaskFromEvent" },
+      ),
       getMaintenanceIssues: (options) => getMaintenanceIssues(shipStateIndex, options),
-      addMaintenanceIssue: (issueOrPartial, options) =>
-        addMaintenanceIssue(shipStateIndex, issueOrPartial, options),
-      updateMaintenanceIssue: (issueId, issuePatch, options) =>
-        updateMaintenanceIssue(shipStateIndex, issueId, issuePatch, options),
-      setMaintenanceIssueTask: (issueId, taskPatch, options) =>
-        setMaintenanceIssueTask(shipStateIndex, issueId, taskPatch, options),
-      resolveMaintenanceIssue: (issueId, options) =>
-        resolveMaintenanceIssue(shipStateIndex, issueId, options),
+      addMaintenanceIssue: wrapStateMutation(
+        (issueOrPartial, options) => addMaintenanceIssue(shipStateIndex, issueOrPartial, options),
+        { source: "addMaintenanceIssue" },
+      ),
+      updateMaintenanceIssue: wrapStateMutation(
+        (issueId, issuePatch, options) => updateMaintenanceIssue(shipStateIndex, issueId, issuePatch, options),
+        { source: "updateMaintenanceIssue" },
+      ),
+      setMaintenanceIssueTask: wrapStateMutation(
+        (issueId, taskPatch, options) => setMaintenanceIssueTask(shipStateIndex, issueId, taskPatch, options),
+        { source: "setMaintenanceIssueTask" },
+      ),
+      resolveMaintenanceIssue: wrapStateMutation(
+        (issueId, options) => resolveMaintenanceIssue(shipStateIndex, issueId, options),
+        { source: "resolveMaintenanceIssue" },
+      ),
       getStationRequests: (options) => getStationRequests(shipStateIndex, options),
-      addStationRequest: (requestOrPartial, options) =>
-        addStationRequest(shipStateIndex, requestOrPartial, options),
+      addStationRequest: wrapStateMutation(
+        (requestOrPartial, options) => addStationRequest(shipStateIndex, requestOrPartial, options),
+        { source: "addStationRequest" },
+      ),
       setTravelPosture,
       travelPostures: TRAVEL_POSTURES,
 

@@ -4,9 +4,18 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output.
 
 ## Current Branch Focus
-Deliver a small Arcflight UX consistency + manual outcome-tag pass across tasks/issues/events, keeping compact Ship Management flow intact and now separating GM/internal text from explicit player-safe public briefing text.
+Deliver a small Arcflight live-refresh UX pass so open GM/player Arcflight windows automatically update when shared ship state changes.
 
 ## Completed So Far
+- Arcflight live-refresh UX pass added:
+  - Added centralized shared-state update signaling via module hook:
+    - `game.pf2eSpelljammerShipsRebuild.hooks.shipStateUpdated`
+    - emitted from shared-state mutation API methods with changed ship context.
+  - Ship Management app now subscribes to shared ship-state updates and auto-rerenders when the changed ship matches the currently active ship.
+  - Player Arcflight View now subscribes to the same shared update source and auto-rerenders when the changed ship matches its viewed ship context (explicit ship context or active fallback).
+  - Both apps use a compact debounce (~50ms) to reduce rerender spam during clustered updates.
+  - Both apps ignore their own immediately-local update signal to avoid duplicate back-to-back rerenders when the initiating window already forces a render.
+  - Ship Management live-refresh preserves body scroll position by capturing/restoring `.ship-management-body` scroll state for externally-triggered refreshes.
 - Foundation constants/config added.
 - Module API shell attached to `game`.
 - Shared ship-state foundation added and refined.

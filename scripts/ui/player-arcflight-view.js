@@ -223,6 +223,9 @@ function toVoyageStatus(travelState) {
 
 export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #shipContext = null;
+  #shipStateUpdatedHookId = null;
+  #refreshTimeoutId = null;
+  #ignoreNextLiveRefreshCount = 0;
 
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-player-arcflight-view`,
@@ -345,6 +348,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
   _onRender(context, options) {
     super._onRender(context, options);
+    this.#ensureLiveRefreshSubscription();
 
     const requestForms = this.element.querySelectorAll("[data-player-station-request-form]");
     for (const form of requestForms) {
@@ -373,6 +377,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       return;
     }
 
+    this.#ignoreNextLiveRefreshCount += 1;
     stateApi.addStationRequest(
       {
         stationId,
@@ -385,7 +390,77 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       },
       this.#shipContext,
     );
+  }
 
-    await this.render({ force: true });
+  async close(options) {
+    this.#teardownLiveRefreshSubscription();
+    return super.close(options);
+  }
+
+  #ensureLiveRefreshSubscription() {
+    if (this.#shipStateUpdatedHookId !== null) {
+      return;
+    }
+
+    const hookName = game?.[API_NAMESPACE]?.hooks?.shipStateUpdated;
+    if (!hookName) {
+      return;
+    }
+
+    this.#shipStateUpdatedHookId = Hooks.on(hookName, (payload) => {
+      if (this.#ignoreNextLiveRefreshCount > 0) {
+        this.#ignoreNextLiveRefreshCount -= 1;
+        return;
+      }
+
+      const changedShipId = payload?.shipId ?? null;
+      if (!this.#isRelevantShipUpdate(changedShipId)) {
+        return;
+      }
+
+      if (this.#refreshTimeoutId) {
+        clearTimeout(this.#refreshTimeoutId);
+      }
+
+      this.#refreshTimeoutId = setTimeout(() => {
+        this.#refreshTimeoutId = null;
+        if (!this.rendered) {
+          return;
+        }
+
+        this.render({ force: true });
+      }, 50);
+    });
+  }
+
+  #isRelevantShipUpdate(changedShipId) {
+    if (!changedShipId) {
+      return false;
+    }
+
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    const explicitShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
+    const explicitShipId = explicitShipState?.identity?.shipId ?? null;
+    if (explicitShipId) {
+      return explicitShipId === changedShipId;
+    }
+
+    const activeShipId = stateApi?.getActiveShipState?.()?.identity?.shipId ?? null;
+    return activeShipId === changedShipId;
+  }
+
+  #teardownLiveRefreshSubscription() {
+    if (this.#refreshTimeoutId) {
+      clearTimeout(this.#refreshTimeoutId);
+      this.#refreshTimeoutId = null;
+    }
+
+    const hookName = game?.[API_NAMESPACE]?.hooks?.shipStateUpdated;
+    if (hookName && this.#shipStateUpdatedHookId !== null) {
+      Hooks.off(hookName, this.#shipStateUpdatedHookId);
+    }
+
+    this.#shipStateUpdatedHookId = null;
+    this.#ignoreNextLiveRefreshCount = 0;
   }
 }

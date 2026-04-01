@@ -112,6 +112,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   #showResolvedTravelTasks = false;
   #showResolvedMaintenanceIssues = false;
   #showResolvedTravelEvents = false;
+  #shipStateUpdatedHookId = null;
+  #refreshTimeoutId = null;
+  #ignoreNextLiveRefreshCount = 0;
 
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-ship-management`,
@@ -323,6 +326,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
   _onRender(context, options) {
     super._onRender(context, options);
+    this.#ensureLiveRefreshSubscription();
 
     const root = this.element;
     if (!root) {
@@ -929,8 +933,14 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
   async #rerenderWithPreservedBodyScroll(action, sourceElement = null) {
     this.#pendingBodyScrollState = this.#captureBodyScrollState(sourceElement);
+    this.#ignoreNextLiveRefreshCount += 1;
     await action?.();
     this.render({ force: true });
+  }
+
+  async close(options) {
+    this.#teardownLiveRefreshSubscription();
+    return super.close(options);
   }
 
   #getBodyScrollContainer(root = this.element) {
@@ -1034,5 +1044,59 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         attemptedSkillSelect.value = attemptedSkill;
       }
     }
+  }
+
+  #ensureLiveRefreshSubscription() {
+    if (this.#shipStateUpdatedHookId !== null) {
+      return;
+    }
+
+    const hookName = game?.[API_NAMESPACE]?.hooks?.shipStateUpdated;
+    if (!hookName) {
+      return;
+    }
+
+    this.#shipStateUpdatedHookId = Hooks.on(hookName, (payload) => {
+      if (this.#ignoreNextLiveRefreshCount > 0) {
+        this.#ignoreNextLiveRefreshCount -= 1;
+        return;
+      }
+
+      const stateApi = game?.[API_NAMESPACE]?.state;
+      const activeShipId = stateApi?.getActiveShipState?.()?.identity?.shipId ?? null;
+      const changedShipId = payload?.shipId ?? null;
+      if (!activeShipId || changedShipId !== activeShipId) {
+        return;
+      }
+
+      this.#pendingBodyScrollState = this.#captureBodyScrollState();
+      if (this.#refreshTimeoutId) {
+        clearTimeout(this.#refreshTimeoutId);
+      }
+
+      this.#refreshTimeoutId = setTimeout(() => {
+        this.#refreshTimeoutId = null;
+        if (!this.rendered) {
+          return;
+        }
+
+        this.render({ force: true });
+      }, 50);
+    });
+  }
+
+  #teardownLiveRefreshSubscription() {
+    if (this.#refreshTimeoutId) {
+      clearTimeout(this.#refreshTimeoutId);
+      this.#refreshTimeoutId = null;
+    }
+
+    const hookName = game?.[API_NAMESPACE]?.hooks?.shipStateUpdated;
+    if (hookName && this.#shipStateUpdatedHookId !== null) {
+      Hooks.off(hookName, this.#shipStateUpdatedHookId);
+    }
+
+    this.#shipStateUpdatedHookId = null;
+    this.#ignoreNextLiveRefreshCount = 0;
   }
 }
