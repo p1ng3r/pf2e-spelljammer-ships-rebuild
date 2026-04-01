@@ -96,6 +96,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const routeForm = root.querySelector("[data-action='route-leg-form']");
     routeForm?.addEventListener("submit", this.#onRouteLegSubmit.bind(this));
+
+    const resetLegButton = root.querySelector("[data-action='reset-leg-progress']");
+    resetLegButton?.addEventListener("click", this.#onResetLegProgressClick.bind(this));
   }
 
   async #onAdvanceDayClick(event) {
@@ -154,6 +157,22 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     } else {
       await stateApi.updateTravelState?.({ legDistance, legProgressMax });
     }
+
+    this.render({ force: true });
+  }
+
+  async #onResetLegProgressClick(event) {
+    event.preventDefault();
+
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!stateApi) {
+      return;
+    }
+
+    await stateApi.updateTravelState?.({
+      legProgress: 0,
+      daysIntoCurrentLeg: 0,
+    });
 
     this.render({ force: true });
   }
