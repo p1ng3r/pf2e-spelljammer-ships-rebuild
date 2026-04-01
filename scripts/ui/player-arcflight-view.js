@@ -85,6 +85,10 @@ function mapPrompt(record, stationLabelsById, skillLabelsByValue) {
   return `Any station: ${skillLabel}`;
 }
 
+function hasExplicitShipContext(shipContext) {
+  return Boolean(String(shipContext?.shipId ?? "").trim() || String(shipContext?.actorId ?? "").trim());
+}
+
 function toVoyageStatus(travelState) {
   const destination = toText(travelState?.destination, "No destination set");
   const posture = toLabel(travelState?.posture ?? "standard", "Standard");
@@ -139,7 +143,9 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     const api = game?.[API_NAMESPACE] ?? null;
     const stateApi = api?.state ?? null;
 
-    const shipState = stateApi?.getShipState?.(this.#shipContext) ?? stateApi?.getActiveShipState?.() ?? null;
+    const explicitTarget = hasExplicitShipContext(this.#shipContext);
+    const targetShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
+    const shipState = targetShipState ?? (explicitTarget ? null : stateApi?.getActiveShipState?.() ?? null);
     const travelState = shipState?.arcflight ?? null;
 
     if (!shipState || !travelState) {
@@ -171,14 +177,14 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         title: toText(eventRecord.title, "Unnamed situation"),
         statusText: toStatusText(eventRecord.status),
         urgencyText: toUrgencyText(eventRecord.severity),
-        summaryText: toText(eventRecord.summary || eventRecord.notes, "No additional details yet."),
+        summaryText: toText(eventRecord.summary, "No public details yet."),
         promptText: mapPrompt(eventRecord, stationLabelsById, skillLabelsByValue),
       })),
       shipProblems: openIssues.map((issueRecord) => ({
         title: toText(issueRecord.title, "Unnamed problem"),
         statusText: toStatusText(issueRecord.status),
         urgencyText: toUrgencyText(issueRecord.severity),
-        summaryText: toText(issueRecord.notes || issueRecord.resultSummary, "No additional details yet."),
+        summaryText: toText(issueRecord.resultSummary, "No public details yet."),
         promptText: mapPrompt(issueRecord, stationLabelsById, skillLabelsByValue),
       })),
       crewResponses: responseTasks.map((taskRecord) => ({

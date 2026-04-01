@@ -359,3 +359,10 @@ Keep Arcflight focused and incremental:
   - no resolve/edit/task-create controls
   - no raw internal metadata/debug details
 - Shared ship state remains single-source; player app only derives a safe display view model.
+
+## Player Arcflight note-leak follow-up pass (2026-04-01)
+- Player Arcflight **Active Situations** summary fallback no longer reads event `notes`; it now uses only player-safe event `summary` plus a generic fallback.
+- Player Arcflight **Ship Problems** summary fallback no longer reads issue `notes`; it now uses only player-safe `resultSummary` plus a generic fallback.
+- Tightened target resolution behavior in Player Arcflight app:
+  - when explicit `actorId` or `shipId` is provided but no matching ship state exists, the app now shows no state instead of silently falling back to active ship.
+  - active-ship fallback remains only for launches without explicit target context.
