@@ -194,6 +194,35 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       accumulator[station.id] = station.label;
       return accumulator;
     }, {});
+    const assignableActors = Array.from(game.actors ?? [])
+      .filter((actor) => actor?.type === "character")
+      .sort((left, right) => String(left?.name ?? "").localeCompare(String(right?.name ?? "")))
+      .map((actor) => ({
+        id: actor.id,
+        name: actor.name ?? actor.id,
+      }));
+    const stationAssignments = shipState?.crew?.stations ?? {};
+    const stationAssignmentRows = STATIONS.map((station) => {
+      const stationAssignment = stationAssignments[station.id] ?? { actorId: null, isNpcCrew: false };
+      const assignedActorId = String(stationAssignment.actorId ?? "").trim();
+      const assignedActor = assignedActorId ? actorApi?.resolveActor?.(assignedActorId) ?? null : null;
+      const currentAssignedLabel = assignedActor?.name ??
+        (assignedActorId ? "Missing actor document" : "Unassigned");
+
+      return {
+        stationId: station.id,
+        stationLabel: station.label,
+        assignedActorId,
+        assignedActorName: currentAssignedLabel,
+        isNpcCrew: Boolean(stationAssignment.isNpcCrew),
+        isUnassigned: !assignedActorId,
+        actorOptions: assignableActors.map((actor) => ({
+          value: actor.id,
+          label: actor.name,
+          selected: actor.id === assignedActorId,
+        })),
+      };
+    });
     const skillLabelsByValue = PF2E_CORE_SKILLS.reduce((accumulator, skill) => {
       accumulator[skill.value] = skill.label;
       return accumulator;
@@ -302,6 +331,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       travelState,
       postureOptions,
       stations: STATIONS,
+      stationAssignments: {
+        rows: stationAssignmentRows,
+        hasAssignableActors: assignableActors.length > 0,
+      },
       activeShipId: stateApi?.getActiveShipId?.() ?? null,
       routeStatus: {
         legTarget,
@@ -469,6 +502,50 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     for (const button of advanceStationRequestStatusButtons) {
       button.addEventListener("click", this.#onAdvanceStationRequestStatusClick.bind(this));
     }
+
+    const assignStationActorButtons = root.querySelectorAll("[data-action='assign-station-actor']");
+    for (const button of assignStationActorButtons) {
+      button.addEventListener("click", this.#onAssignStationActorClick.bind(this));
+    }
+
+    const clearStationActorButtons = root.querySelectorAll("[data-action='clear-station-actor']");
+    for (const button of clearStationActorButtons) {
+      button.addEventListener("click", this.#onClearStationActorClick.bind(this));
+    }
+  }
+
+  async #onAssignStationActorClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const stationId = String(button?.dataset?.stationId ?? "").trim();
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!stationId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-station-id]");
+    const actorSelect = row?.querySelector("[name='stationAssignedActorId']");
+    const assignedActorId = String(actorSelect?.value ?? "").trim();
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.assignStationActor?.(stationId, assignedActorId || null);
+    }, event.currentTarget);
+  }
+
+  async #onClearStationActorClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const stationId = String(button?.dataset?.stationId ?? "").trim();
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!stationId || !stateApi) {
+      return;
+    }
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.clearStationActor?.(stationId);
+    }, event.currentTarget);
   }
 
   async #onAdvanceDayClick(event) {

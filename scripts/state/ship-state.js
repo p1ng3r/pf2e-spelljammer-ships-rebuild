@@ -471,6 +471,46 @@ export function updateShipState(index, updater, { shipId, actorId } = {}) {
   });
 }
 
+function isKnownStationId(stationId) {
+  return STATIONS.some((station) => station.id === stationId);
+}
+
+function normalizeAssignedActorId(actorId) {
+  const normalizedActorId = normalizeIssueText(actorId, "");
+  return normalizedActorId || null;
+}
+
+export function assignStationActor(index, stationId, assignedActorId, options = {}) {
+  if (!isKnownStationId(stationId)) {
+    return getShipState(index, options);
+  }
+
+  return updateShipState(
+    index,
+    (shipState) => {
+      shipState.crew ??= {};
+      shipState.crew.stations ??= createDefaultStationAssignments();
+      shipState.crew.stations[stationId] ??= {
+        actorId: null,
+        isNpcCrew: false,
+      };
+
+      shipState.crew.stations[stationId].actorId = normalizeAssignedActorId(assignedActorId);
+      shipState.crew.stations[stationId].isNpcCrew = Boolean(options.isNpcCrew);
+
+      return shipState;
+    },
+    options,
+  );
+}
+
+export function clearStationActor(index, stationId, options = {}) {
+  return assignStationActor(index, stationId, null, {
+    ...options,
+    isNpcCrew: false,
+  });
+}
+
 export function getTravelState(index, options = {}) {
   const shipState = getShipState(index, options);
   return shipState?.arcflight ?? null;
