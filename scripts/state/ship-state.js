@@ -56,6 +56,42 @@ function normalizeIssueStatus(value) {
   return allowedStatuses.includes(status) ? status : "open";
 }
 
+function normalizeTaskType(value, fallback = "general") {
+  const taskType = normalizeIssueText(value, fallback).toLowerCase();
+  const allowedTaskTypes = ["general", "travel", "maintenance", "repair", "navigation", "engineering"];
+  return allowedTaskTypes.includes(taskType) ? taskType : fallback;
+}
+
+function normalizeCheckType(value) {
+  const checkType = normalizeIssueText(value, "skill").toLowerCase();
+  const allowedCheckTypes = ["skill", "lore", "save", "other"];
+  return allowedCheckTypes.includes(checkType) ? checkType : "skill";
+}
+
+function normalizeRecommendedStation(value) {
+  const stationText = normalizeIssueText(value, "");
+  if (!stationText) {
+    return null;
+  }
+
+  const normalizedInput = stationText.toLowerCase();
+  const stationMatch = STATIONS.find(
+    (station) => station.id.toLowerCase() === normalizedInput || station.label.toLowerCase() === normalizedInput,
+  );
+
+  return stationMatch?.label ?? null;
+}
+
+function normalizeRecommendedSkill(value) {
+  const skill = normalizeIssueText(value, "");
+  return skill || null;
+}
+
+function normalizeTaskNotes(value) {
+  const notes = normalizeIssueText(value, "");
+  return notes || null;
+}
+
 function createMaintenanceIssue(issueOrPartial = {}) {
   const fallbackId = `issue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
@@ -66,6 +102,29 @@ function createMaintenanceIssue(issueOrPartial = {}) {
     severity: normalizeIssueSeverity(issueOrPartial.severity),
     status: normalizeIssueStatus(issueOrPartial.status),
     source: normalizeIssueText(issueOrPartial.source, "manual"),
+    taskType: normalizeTaskType(issueOrPartial.taskType, "maintenance"),
+    checkType: normalizeCheckType(issueOrPartial.checkType),
+    recommendedStation: normalizeRecommendedStation(issueOrPartial.recommendedStation),
+    recommendedSkill: normalizeRecommendedSkill(issueOrPartial.recommendedSkill),
+    notes: normalizeTaskNotes(issueOrPartial.notes),
+  };
+}
+
+function createTravelTask(taskOrPartial = {}) {
+  const fallbackId = `travel-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
+
+  return {
+    id: normalizeIssueText(taskOrPartial.id, generatedId),
+    title: normalizeIssueText(taskOrPartial.title, "General Arcflight Task"),
+    status: normalizeIssueStatus(taskOrPartial.status),
+    source: normalizeIssueText(taskOrPartial.source, "manual"),
+    taskType: normalizeTaskType(taskOrPartial.taskType, "travel"),
+    checkType: normalizeCheckType(taskOrPartial.checkType),
+    recommendedStation: normalizeRecommendedStation(taskOrPartial.recommendedStation),
+    recommendedSkill: normalizeRecommendedSkill(taskOrPartial.recommendedSkill),
+    notes: normalizeTaskNotes(taskOrPartial.notes),
+    summary: normalizeTaskNotes(taskOrPartial.summary),
   };
 }
 
@@ -90,6 +149,7 @@ function createDefaultArcflightState() {
     daysIntoCurrentLeg: 0,
     progressPerDay: 1,
     legProgress: 0,
+    travelTasks: [],
     maintenancePressure: 0,
     maintenanceIssues: [],
     encounterPressure: 0,
@@ -313,6 +373,32 @@ export function getMaintenanceIssues(index, options = {}) {
   return issues.filter((issue) => normalizeIssueStatus(issue?.status) !== "resolved");
 }
 
+export function getTravelTasks(index, options = {}) {
+  const travelState = getTravelState(index, options);
+  if (!travelState) {
+    return [];
+  }
+
+  const tasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
+  return tasks.filter((task) => normalizeIssueStatus(task?.status) !== "resolved");
+}
+
+export function addTravelTask(index, taskOrPartial = {}, options = {}) {
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const travelTasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
+      const nextTask = createTravelTask(taskOrPartial);
+
+      return {
+        ...travelState,
+        travelTasks: [...travelTasks, nextTask],
+      };
+    },
+    options,
+  );
+}
+
 export function addMaintenanceIssue(index, issueOrPartial = {}, options = {}) {
   return updateTravelState(
     index,
@@ -324,6 +410,50 @@ export function addMaintenanceIssue(index, issueOrPartial = {}, options = {}) {
         ...travelState,
         maintenanceIssues: [...maintenanceIssues, nextIssue],
       };
+    },
+    options,
+  );
+}
+
+export function updateMaintenanceIssue(index, issueId, issuePatch = {}, options = {}) {
+  const normalizedIssueId = normalizeIssueText(issueId, "");
+  if (!normalizedIssueId) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const maintenanceIssues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+      return {
+        ...travelState,
+        maintenanceIssues: maintenanceIssues.map((issue) => {
+          if (issue?.id !== normalizedIssueId) {
+            return issue;
+          }
+
+          return createMaintenanceIssue({
+            ...issue,
+            ...issuePatch,
+            id: issue.id,
+          });
+        }),
+      };
+    },
+    options,
+  );
+}
+
+export function setMaintenanceIssueTask(index, issueId, taskPatch = {}, options = {}) {
+  return updateMaintenanceIssue(
+    index,
+    issueId,
+    {
+      taskType: taskPatch.taskType,
+      checkType: taskPatch.checkType,
+      recommendedStation: taskPatch.recommendedStation,
+      recommendedSkill: taskPatch.recommendedSkill,
+      notes: taskPatch.notes,
     },
     options,
   );

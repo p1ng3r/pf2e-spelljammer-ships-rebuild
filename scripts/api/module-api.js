@@ -10,8 +10,12 @@ import {
   setTravelDestination,
   setTravelLeg,
   advanceTravelDay,
+  getTravelTasks,
+  addTravelTask,
   getMaintenanceIssues,
   addMaintenanceIssue,
+  updateMaintenanceIssue,
+  setMaintenanceIssueTask,
   resolveMaintenanceIssue,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
@@ -164,9 +168,15 @@ export function createModuleApi() {
         setTravelDestination(shipStateIndex, destination, options),
       setTravelLeg: (legPatch, options) => setTravelLeg(shipStateIndex, legPatch, options),
       advanceTravelDay: (options) => advanceTravelDay(shipStateIndex, options),
+      getTravelTasks: (options) => getTravelTasks(shipStateIndex, options),
+      addTravelTask: (taskOrPartial, options) => addTravelTask(shipStateIndex, taskOrPartial, options),
       getMaintenanceIssues: (options) => getMaintenanceIssues(shipStateIndex, options),
       addMaintenanceIssue: (issueOrPartial, options) =>
         addMaintenanceIssue(shipStateIndex, issueOrPartial, options),
+      updateMaintenanceIssue: (issueId, issuePatch, options) =>
+        updateMaintenanceIssue(shipStateIndex, issueId, issuePatch, options),
+      setMaintenanceIssueTask: (issueId, taskPatch, options) =>
+        setMaintenanceIssueTask(shipStateIndex, issueId, taskPatch, options),
       resolveMaintenanceIssue: (issueId, options) =>
         resolveMaintenanceIssue(shipStateIndex, issueId, options),
       setTravelPosture,

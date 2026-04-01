@@ -109,8 +109,53 @@
       </section>
 
       <section class="travel-maintenance">
-        <h5>Maintenance</h5>
+        <h5>Travel Tasks / Maintenance Tasks</h5>
+        <p><strong>Open Travel Tasks:</strong> {{travelTasks.tasks.length}}</p>
         <p><strong>Open Issues:</strong> {{maintenance.issues.length}}</p>
+
+        <form data-action="travel-task-form">
+          <label>
+            <span>Travel Task</span>
+            <input type="text" name="travelTaskTitle" placeholder="Ex: Plot safe Arcflight line" />
+          </label>
+          <label>
+            <span>Task Type</span>
+            <input type="text" name="travelTaskType" placeholder="travel" />
+          </label>
+          <label>
+            <span>Check Type</span>
+            <input type="text" name="travelTaskCheckType" placeholder="skill" />
+          </label>
+          <label>
+            <span>Recommended Station</span>
+            <input type="text" name="travelTaskRecommendedStation" placeholder="Ex: Sightmaster" />
+          </label>
+          <label>
+            <span>Recommended Skill</span>
+            <input type="text" name="travelTaskRecommendedSkill" placeholder="Ex: Survival" />
+          </label>
+          <label>
+            <span>Summary</span>
+            <input type="text" name="travelTaskSummary" placeholder="Quick notes for table handling" />
+          </label>
+          <button type="submit">Add Travel Task</button>
+        </form>
+
+        {{#if travelTasks.hasTasks}}
+          <ul>
+            {{#each travelTasks.tasks as |task|}}
+              <li>
+                <strong>{{task.title}}</strong>
+                <span>({{task.taskType}} / {{task.checkType}})</span>
+                <span>- {{#if task.recommendedStation}}{{task.recommendedStation}}{{else}}Unassigned{{/if}}</span>
+                <span>- {{#if task.recommendedSkill}}{{task.recommendedSkill}}{{else}}No skill set{{/if}}</span>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No travel tasks logged.</em></p>
+        {{/if}}
+
         <form data-action="maintenance-issue-form">
           <label>
             <span>Issue</span>
@@ -125,6 +170,22 @@
               <option value="critical">Critical</option>
             </select>
           </label>
+          <label>
+            <span>Task Type</span>
+            <input type="text" name="issueTaskType" placeholder="maintenance" />
+          </label>
+          <label>
+            <span>Recommended Station</span>
+            <input type="text" name="issueRecommendedStation" placeholder="Ex: Aetherwright" />
+          </label>
+          <label>
+            <span>Recommended Skill</span>
+            <input type="text" name="issueRecommendedSkill" placeholder="Ex: Crafting" />
+          </label>
+          <label>
+            <span>Notes</span>
+            <input type="text" name="issueNotes" placeholder="Optional table notes" />
+          </label>
           <button type="submit">Add Issue</button>
         </form>
 
@@ -134,7 +195,8 @@
               <li>
                 <strong>{{issue.title}}</strong>
                 <span>({{issue.severity}})</span>
-                <span>- {{issue.source}}</span>
+                <span>- {{#if issue.recommendedStation}}{{issue.recommendedStation}}{{else}}Unassigned{{/if}}</span>
+                <span>- {{#if issue.recommendedSkill}}{{issue.recommendedSkill}}{{else}}No skill set{{/if}}</span>
                 <button type="button" data-action="resolve-maintenance-issue" data-issue-id="{{issue.id}}">
                   Resolve
                 </button>
