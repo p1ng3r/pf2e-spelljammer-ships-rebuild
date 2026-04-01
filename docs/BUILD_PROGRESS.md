@@ -330,3 +330,13 @@ Keep Arcflight focused and incremental:
 - **Arcflight resolved visibility + manual outcome editing pass**: compact per-section Show Resolved toggles plus direct row-level outcome text editing for tasks/issues/events without requiring a new Attempt Check.
 - **Arcflight event manual DC field fix pass**: manual event DC create/edit support with compact row display and inline **Save DC** action.
 - **Arcflight outcome-tag + row consistency pass**: consistent compact row language for tasks/issues/events plus manual editable outcome tags (`none`, `success`, `failure`, `mixed`, `unresolved`) alongside freeform outcome text.
+
+## Arcflight task/issue manual DC parity pass (2026-04-01)
+- Travel task shared state now stores explicit manual numeric DC via `dc` (nullable).
+- Maintenance issue shared state now stores explicit manual numeric DC via `dc` (nullable).
+- Travel task creation form now accepts optional DC input.
+- Maintenance issue creation form now accepts optional DC input.
+- Travel task rows now display DC in compact metadata and include inline editable DC + **Save DC**.
+- Maintenance issue rows now display DC in compact metadata and include inline editable DC + **Save DC**.
+- Existing event DC behavior is preserved and unchanged.
+- DC behavior remains manual-only (no automated DC math and no roll execution).
