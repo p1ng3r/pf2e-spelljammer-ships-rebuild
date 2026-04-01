@@ -88,6 +88,12 @@ function normalizeIssueStatus(value) {
   return allowedStatuses.includes(status) ? status : "open";
 }
 
+function normalizeTravelTaskStatus(value) {
+  const status = normalizeIssueText(value, "open").toLowerCase();
+  const allowedStatuses = ["open", "attempted", "resolved"];
+  return allowedStatuses.includes(status) ? status : "open";
+}
+
 function normalizeTaskType(value, fallback = "general") {
   const taskType = normalizeIssueText(value, fallback).toLowerCase();
   const allowedTaskTypes = ["general", "travel", "maintenance", "repair", "navigation", "engineering"];
@@ -151,10 +157,10 @@ function createTravelTask(taskOrPartial = {}) {
   const fallbackId = `travel-task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
 
-  return {
+    return {
     id: normalizeIssueText(taskOrPartial.id, generatedId),
     title: normalizeIssueText(taskOrPartial.title, "General Arcflight Task"),
-    status: normalizeIssueStatus(taskOrPartial.status),
+    status: normalizeTravelTaskStatus(taskOrPartial.status),
     source: normalizeIssueText(taskOrPartial.source, "manual"),
     taskType: normalizeTaskType(taskOrPartial.taskType, "travel"),
     checkType: normalizeCheckType(taskOrPartial.checkType),
@@ -162,6 +168,10 @@ function createTravelTask(taskOrPartial = {}) {
     recommendedSkill: normalizeRecommendedSkill(taskOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(taskOrPartial.notes),
     summary: normalizeTaskNotes(taskOrPartial.summary),
+    lastAttemptSummary: normalizeTaskNotes(taskOrPartial.lastAttemptSummary),
+    attemptedByStation: normalizeRecommendedStation(taskOrPartial.attemptedByStation),
+    attemptedSkill: normalizeRecommendedSkill(taskOrPartial.attemptedSkill),
+    resultSummary: normalizeTaskNotes(taskOrPartial.resultSummary),
   };
 }
 
@@ -417,7 +427,7 @@ export function getTravelTasks(index, options = {}) {
   }
 
   const tasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
-  return tasks.filter((task) => normalizeIssueStatus(task?.status) !== "resolved");
+  return tasks.filter((task) => normalizeTravelTaskStatus(task?.status) !== "resolved");
 }
 
 export function addTravelTask(index, taskOrPartial = {}, options = {}) {
@@ -434,6 +444,55 @@ export function addTravelTask(index, taskOrPartial = {}, options = {}) {
     },
     options,
   );
+}
+
+export function updateTravelTask(index, taskId, taskPatch = {}, options = {}) {
+  const normalizedTaskId = normalizeIssueText(taskId, "");
+  if (!normalizedTaskId) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const travelTasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
+      return {
+        ...travelState,
+        travelTasks: travelTasks.map((task) => {
+          if (task?.id !== normalizedTaskId) {
+            return task;
+          }
+
+          return createTravelTask({
+            ...task,
+            ...taskPatch,
+            id: task.id,
+          });
+        }),
+      };
+    },
+    options,
+  );
+}
+
+export function attemptTravelTask(index, taskId, attemptPatch = {}, options = {}) {
+  return updateTravelTask(
+    index,
+    taskId,
+    {
+      status: "attempted",
+      lastAttemptSummary: attemptPatch.lastAttemptSummary,
+      attemptedByStation: attemptPatch.attemptedByStation,
+      attemptedSkill: attemptPatch.attemptedSkill,
+      resultSummary: attemptPatch.resultSummary,
+      summary: attemptPatch.summary,
+    },
+    options,
+  );
+}
+
+export function resolveTravelTask(index, taskId, options = {}) {
+  return updateTravelTask(index, taskId, { status: "resolved" }, options);
 }
 
 export function addMaintenanceIssue(index, issueOrPartial = {}, options = {}) {

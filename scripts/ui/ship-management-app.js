@@ -127,10 +127,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       travelTasks: {
         tasks: travelTasks.map((task) => ({
           ...task,
+          statusLabel: toReadableSlugLabel(task.status ?? "open"),
           taskTypeLabel: toReadableSlugLabel(task.taskType),
           checkTypeLabel: toReadableSlugLabel(task.checkType),
           recommendedStationLabel: stationLabelsById[task.recommendedStation] ?? null,
           recommendedSkillLabel: skillLabelsByValue[task.recommendedSkill] ?? toReadableSlugLabel(task.recommendedSkill),
+          attemptedByStationLabel: stationLabelsById[task.attemptedByStation] ?? null,
+          attemptedSkillLabel: skillLabelsByValue[task.attemptedSkill] ?? toReadableSlugLabel(task.attemptedSkill),
         })),
         hasTasks: travelTasks.length > 0,
       },
@@ -177,6 +180,16 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const resolveIssueButtons = root.querySelectorAll("[data-action='resolve-maintenance-issue']");
     for (const button of resolveIssueButtons) {
       button.addEventListener("click", this.#onResolveMaintenanceIssueClick.bind(this));
+    }
+
+    const attemptTaskButtons = root.querySelectorAll("[data-action='attempt-travel-task']");
+    for (const button of attemptTaskButtons) {
+      button.addEventListener("click", this.#onAttemptTravelTaskClick.bind(this));
+    }
+
+    const resolveTaskButtons = root.querySelectorAll("[data-action='resolve-travel-task']");
+    for (const button of resolveTaskButtons) {
+      button.addEventListener("click", this.#onResolveTravelTaskClick.bind(this));
     }
   }
 
@@ -347,6 +360,42 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     await stateApi.resolveMaintenanceIssue?.(issueId);
+    this.render({ force: true });
+  }
+
+  async #onAttemptTravelTaskClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const taskId = button?.dataset?.taskId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!taskId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-travel-task-id]");
+    const summaryInput = row?.querySelector("[name='travelTaskAttemptSummary']");
+    const lastAttemptSummary = String(summaryInput?.value ?? "").trim();
+
+    await stateApi.attemptTravelTask?.(taskId, {
+      lastAttemptSummary,
+      summary: lastAttemptSummary || undefined,
+    });
+
+    this.render({ force: true });
+  }
+
+  async #onResolveTravelTaskClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const taskId = button?.dataset?.taskId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!taskId || !stateApi) {
+      return;
+    }
+
+    await stateApi.resolveTravelTask?.(taskId);
     this.render({ force: true });
   }
 }
