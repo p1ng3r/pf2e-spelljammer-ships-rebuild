@@ -516,6 +516,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const taskType = String(formData.get("issueTaskType") ?? "maintenance").trim();
     const checkType = String(formData.get("issueCheckType") ?? "skill").trim();
     const notes = String(formData.get("issueNotes") ?? "").trim();
+    const publicSummary = String(formData.get("issuePublicSummary") ?? "").trim();
+    const publicOutcome = String(formData.get("issuePublicOutcome") ?? "").trim();
     const dc = parseOptionalDc(formData.get("issueDc"));
 
     if (!title) {
@@ -534,6 +536,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         recommendedSkill,
         dc,
         notes,
+        publicSummary,
+        publicOutcome,
       });
     }, event.currentTarget);
 
@@ -559,6 +563,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       formData.get("travelTaskRecommendedSkillCustom"),
     );
     const summary = String(formData.get("travelTaskSummary") ?? "").trim();
+    const publicSummary = String(formData.get("travelTaskPublicSummary") ?? "").trim();
+    const publicOutcome = String(formData.get("travelTaskPublicOutcome") ?? "").trim();
     const dc = parseOptionalDc(formData.get("travelTaskDc"));
 
     if (!title) {
@@ -574,6 +580,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         recommendedSkill,
         dc,
         summary,
+        publicSummary,
+        publicOutcome,
         source: "manual",
         status: "open",
       });
@@ -653,12 +661,18 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const row = button.closest("[data-travel-task-id]");
     const outcomeInput = row?.querySelector("[name='travelTaskOutcomeSummary']");
     const outcomeTagInput = row?.querySelector("[name='travelTaskOutcomeTag']");
+    const publicSummaryInput = row?.querySelector("[name='travelTaskPublicSummary']");
+    const publicOutcomeInput = row?.querySelector("[name='travelTaskPublicOutcome']");
     const resultSummary = String(outcomeInput?.value ?? "").trim();
+    const publicSummary = String(publicSummaryInput?.value ?? "").trim();
+    const publicOutcome = String(publicOutcomeInput?.value ?? "").trim();
     const outcomeTag = String(outcomeTagInput?.value ?? "none").trim().toLowerCase();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateTravelTask?.(taskId, {
         resultSummary: resultSummary || null,
+        publicSummary: publicSummary || null,
+        publicOutcome: publicOutcome || null,
         outcomeTag,
       });
     }, event.currentTarget);
@@ -686,6 +700,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     );
     const summary = String(formData.get("travelEventSummary") ?? "").trim();
     const notes = String(formData.get("travelEventNotes") ?? "").trim();
+    const publicSummary = String(formData.get("travelEventPublicSummary") ?? "").trim();
+    const publicOutcome = String(formData.get("travelEventPublicOutcome") ?? "").trim();
 
     if (!title) {
       return;
@@ -703,6 +719,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         dc,
         summary,
         notes,
+        publicSummary,
+        publicOutcome,
         source: "manual",
       });
     }, event.currentTarget);
@@ -766,12 +784,18 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const row = button.closest("[data-travel-event-id]");
     const outcomeInput = row?.querySelector("[name='travelEventOutcomeSummary']");
     const outcomeTagInput = row?.querySelector("[name='travelEventOutcomeTag']");
+    const publicSummaryInput = row?.querySelector("[name='travelEventPublicSummary']");
+    const publicOutcomeInput = row?.querySelector("[name='travelEventPublicOutcome']");
     const resultSummary = String(outcomeInput?.value ?? "").trim();
+    const publicSummary = String(publicSummaryInput?.value ?? "").trim();
+    const publicOutcome = String(publicOutcomeInput?.value ?? "").trim();
     const outcomeTag = String(outcomeTagInput?.value ?? "none").trim().toLowerCase();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateTravelEvent?.(eventId, {
         resultSummary: resultSummary || null,
+        publicSummary: publicSummary || null,
+        publicOutcome: publicOutcome || null,
         outcomeTag,
       });
     }, event.currentTarget);
@@ -847,12 +871,18 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const row = button.closest("[data-maintenance-issue-id]");
     const outcomeInput = row?.querySelector("[name='maintenanceIssueOutcomeSummary']");
     const outcomeTagInput = row?.querySelector("[name='maintenanceIssueOutcomeTag']");
+    const publicSummaryInput = row?.querySelector("[name='maintenanceIssuePublicSummary']");
+    const publicOutcomeInput = row?.querySelector("[name='maintenanceIssuePublicOutcome']");
     const resultSummary = String(outcomeInput?.value ?? "").trim();
+    const publicSummary = String(publicSummaryInput?.value ?? "").trim();
+    const publicOutcome = String(publicOutcomeInput?.value ?? "").trim();
     const outcomeTag = String(outcomeTagInput?.value ?? "none").trim().toLowerCase();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateMaintenanceIssue?.(issueId, {
         resultSummary: resultSummary || null,
+        publicSummary: publicSummary || null,
+        publicOutcome: publicOutcome || null,
         outcomeTag,
       });
     }, event.currentTarget);
