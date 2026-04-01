@@ -8,9 +8,27 @@
     <article>
       <h3>{{shipState.identity.name}}</h3>
       <p><strong>Ship ID:</strong> <code>{{activeShipId}}</code></p>
-      <p><strong>Linked Actor:</strong>
-        {{#if actorLinked}}
-          <code>{{shipState.identity.actorId}}</code>
+      <p><strong>Linked Actor ID:</strong>
+        {{#if actorContext.actorId}}
+          <code>{{actorContext.actorId}}</code>
+        {{else}}
+          <em>Not linked yet</em>
+        {{/if}}
+      </p>
+      <p><strong>Linked Actor Name:</strong>
+        {{#if actorContext.actorName}}
+          {{actorContext.actorName}}
+        {{else if actorContext.missingActor}}
+          <em>Missing actor document</em>
+        {{else}}
+          <em>Not linked yet</em>
+        {{/if}}
+      </p>
+      <p><strong>Linked Actor Type:</strong>
+        {{#if actorContext.actorType}}
+          <code>{{actorContext.actorType}}</code>
+        {{else if actorContext.missingActor}}
+          <em>Unknown</em>
         {{else}}
           <em>Not linked yet</em>
         {{/if}}

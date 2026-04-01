@@ -26,7 +26,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   async _prepareContext() {
     const api = game?.[API_NAMESPACE] ?? null;
     const stateApi = api?.state ?? null;
+    const actorApi = api?.actors ?? null;
     const shipState = stateApi?.getActiveShipState?.() ?? null;
+    const linkedActorId = shipState?.identity?.actorId ?? null;
+    const linkedActor = linkedActorId ? actorApi?.resolveActor?.(linkedActorId) ?? null : null;
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -34,7 +37,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       shipState,
       stations: STATIONS,
       activeShipId: stateApi?.getActiveShipId?.() ?? null,
-      actorLinked: Boolean(shipState?.identity?.actorId),
+      actorContext: {
+        actorId: linkedActorId,
+        actorName: linkedActor?.name ?? null,
+        actorType: linkedActor?.type ?? null,
+        missingActor: Boolean(linkedActorId && !linkedActor),
+      },
     };
   }
 }

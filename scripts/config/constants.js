@@ -11,8 +11,8 @@ export const STATIONS = Object.freeze([
   { id: "sightmaster", label: "Sightmaster" },
   { id: "arcpilot", label: "Arcpilot" },
   { id: "armsmaster", label: "Armsmaster" },
-  { id: "crewChief", label: "Crew Chief" },
-  { id: "arcTrimmer", label: "Arc Trimmer" },
-  { id: "containmentOfficer", label: "Containment Officer" },
+  { id: "crew-chief", label: "Crew Chief" },
+  { id: "arc-trimmer", label: "Arc Trimmer" },
+  { id: "containment-officer", label: "Containment Officer" },
   { id: "aetherwright", label: "Aetherwright" },
 ]);
