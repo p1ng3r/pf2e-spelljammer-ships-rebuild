@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the first Arcflight travel-task manual attempt/resolve vertical slice with compact GM controls and no roll automation.
+Deliver the next Arcflight travel-task UX vertical slice with scroll-safe inline actions and richer manual Attempt Check attribution.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -85,6 +85,17 @@ Deliver the first Arcflight travel-task manual attempt/resolve vertical slice wi
     - **Resolve** (manual completion)
     - inline attempt/result summary input
   - Maintenance issue resolution flow remains unchanged and separate from travel-task completion flow.
+- Arcflight travel-task UX pass added:
+  - Ship Management inline actions now preserve scroll position across forced rerenders (instead of jumping to the top of the scroll body).
+  - A shared app rerender helper now captures/restores `.ship-management-body` scroll state for current inline action handlers.
+  - Travel task rows now include compact manual Attempt Check attribution inputs for:
+    - attempted-by station (locked station roster ids)
+    - attempted skill (PF2E core skill slugs)
+  - Attempt Check now records:
+    - `attemptedByStation`
+    - `attemptedSkill`
+    - `lastAttemptSummary`
+  - Travel task rows now display readable attempted-by station/skill labels while persisting stable ids/slugs.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -113,6 +124,8 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.attemptTravelTask(taskId, { lastAttemptSummary })` marks a task `attempted` and records a lightweight manual summary.
 - `state.resolveTravelTask(taskId)` marks a task `resolved`.
 - In-app travel task rows support compact manual **Attempt Check** and **Resolve** actions without roll/DC automation.
+- In-app inline actions (**Attempt Check**, **Resolve**, **Reset Leg Progress**, **Advance Day**) keep Ship Management scroll position stable after rerender.
+- `state.attemptTravelTask(taskId, { attemptedByStation, attemptedSkill, lastAttemptSummary })` persists attempt attribution metadata with stable station ids and PF2E skill slugs.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -121,6 +134,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Travel and maintenance records now carry lightweight crew-check recommendation metadata only (no automated rolling).
 - Crew-check recommendation entry is now select-driven for cleaner GM data entry and reduced typo cleanup.
 - Travel tasks now also support lightweight manual attempt/result tracking with explicit status progression.
+- Travel-task manual Attempt Check now captures who attempted a check (station + skill) in compact row-level controls.
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
@@ -155,3 +169,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight crew-check scaffold pass**: travel task list + maintenance task metadata + compact station/skill guidance readout in Ship Management.
 - **Arcflight crew-check polish pass**: compact select controls for station/skill/task/check metadata with stable station-id and skill-slug storage.
 - **Arcflight travel-task attempt/resolve scaffold pass**: manual travel-task Attempt Check + Resolve controls with lightweight attempted-status tracking.
+- **Arcflight travel-task UX pass**: scroll-position preservation for inline rerenders plus compact attempted-by station/skill capture in Attempt Check flow.

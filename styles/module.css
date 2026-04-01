@@ -92,3 +92,15 @@
 .ship-management-app .travel-route form input {
   width: 100%;
 }
+
+.ship-management-app .travel-task-attempt-controls {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.ship-management-app .travel-task-attempt-controls label {
+  display: grid;
+  gap: 0.1rem;
+}

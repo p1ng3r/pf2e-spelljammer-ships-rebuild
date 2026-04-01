@@ -42,6 +42,8 @@ function resolveSkillValue(selectedSkill, customSkill) {
 }
 
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
+  #pendingBodyScrollTop = null;
+
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-ship-management`,
     classes: [MODULE_ID, "ship-management-app"],
@@ -159,6 +161,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
+    this.#restoreBodyScrollPosition(root);
+    this.#hydrateTravelTaskAttemptInputs(root);
+
     const advanceDayButton = root.querySelector("[data-action='advance-day']");
     advanceDayButton?.addEventListener("click", this.#onAdvanceDayClick.bind(this));
 
@@ -196,8 +201,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   async #onAdvanceDayClick(event) {
     event.preventDefault();
     const stateApi = game?.[API_NAMESPACE]?.state;
-    await stateApi?.advanceTravelDay?.();
-    this.render({ force: true });
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi?.advanceTravelDay?.();
+    });
   }
 
   async #onPostureChange(event) {
@@ -208,13 +214,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
-    if (typeof stateApi.setTravelPosture === "function") {
-      await stateApi.setTravelPosture(posture);
-    } else {
-      await stateApi.updateTravelState?.({ posture });
-    }
-
-    this.render({ force: true });
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      if (typeof stateApi.setTravelPosture === "function") {
+        await stateApi.setTravelPosture(posture);
+      } else {
+        await stateApi.updateTravelState?.({ posture });
+      }
+    });
   }
 
   async #onRouteLegSubmit(event) {
@@ -238,19 +244,19 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       currentTravelState.legProgressMax ?? legDistance,
     );
 
-    if (typeof stateApi.setTravelDestination === "function") {
-      await stateApi.setTravelDestination(destination);
-    } else {
-      await stateApi.updateTravelState?.({ destination: destination.trim() || null });
-    }
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      if (typeof stateApi.setTravelDestination === "function") {
+        await stateApi.setTravelDestination(destination);
+      } else {
+        await stateApi.updateTravelState?.({ destination: destination.trim() || null });
+      }
 
-    if (typeof stateApi.setTravelLeg === "function") {
-      await stateApi.setTravelLeg({ legDistance, legProgressMax });
-    } else {
-      await stateApi.updateTravelState?.({ legDistance, legProgressMax });
-    }
-
-    this.render({ force: true });
+      if (typeof stateApi.setTravelLeg === "function") {
+        await stateApi.setTravelLeg({ legDistance, legProgressMax });
+      } else {
+        await stateApi.updateTravelState?.({ legDistance, legProgressMax });
+      }
+    });
   }
 
   async #onResetLegProgressClick(event) {
@@ -261,12 +267,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
-    await stateApi.updateTravelState?.({
-      legProgress: 0,
-      daysIntoCurrentLeg: 0,
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateTravelState?.({
+        legProgress: 0,
+        daysIntoCurrentLeg: 0,
+      });
     });
-
-    this.render({ force: true });
   }
 
   async #onMaintenanceIssueSubmit(event) {
@@ -294,20 +300,21 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
-    await stateApi.addMaintenanceIssue?.({
-      title,
-      severity,
-      source: "manual",
-      status: "open",
-      taskType,
-      checkType,
-      recommendedStation,
-      recommendedSkill,
-      notes,
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.addMaintenanceIssue?.({
+        title,
+        severity,
+        source: "manual",
+        status: "open",
+        taskType,
+        checkType,
+        recommendedStation,
+        recommendedSkill,
+        notes,
+      });
     });
 
     form.reset();
-    this.render({ force: true });
   }
 
   async #onTravelTaskSubmit(event) {
@@ -334,19 +341,20 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
-    await stateApi.addTravelTask?.({
-      title,
-      taskType,
-      checkType,
-      recommendedStation,
-      recommendedSkill,
-      summary,
-      source: "manual",
-      status: "open",
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.addTravelTask?.({
+        title,
+        taskType,
+        checkType,
+        recommendedStation,
+        recommendedSkill,
+        summary,
+        source: "manual",
+        status: "open",
+      });
     });
 
     form.reset();
-    this.render({ force: true });
   }
 
   async #onResolveMaintenanceIssueClick(event) {
@@ -359,8 +367,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
-    await stateApi.resolveMaintenanceIssue?.(issueId);
-    this.render({ force: true });
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.resolveMaintenanceIssue?.(issueId);
+    });
   }
 
   async #onAttemptTravelTaskClick(event) {
@@ -375,14 +384,20 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const row = button.closest("[data-travel-task-id]");
     const summaryInput = row?.querySelector("[name='travelTaskAttemptSummary']");
+    const attemptedByStationInput = row?.querySelector("[name='travelTaskAttemptedByStation']");
+    const attemptedSkillInput = row?.querySelector("[name='travelTaskAttemptedSkill']");
     const lastAttemptSummary = String(summaryInput?.value ?? "").trim();
+    const attemptedByStation = String(attemptedByStationInput?.value ?? "").trim();
+    const attemptedSkill = String(attemptedSkillInput?.value ?? "").trim().toLowerCase();
 
-    await stateApi.attemptTravelTask?.(taskId, {
-      lastAttemptSummary,
-      summary: lastAttemptSummary || undefined,
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.attemptTravelTask?.(taskId, {
+        lastAttemptSummary,
+        summary: lastAttemptSummary || undefined,
+        attemptedByStation: attemptedByStation || null,
+        attemptedSkill: attemptedSkill || null,
+      });
     });
-
-    this.render({ force: true });
   }
 
   async #onResolveTravelTaskClick(event) {
@@ -395,7 +410,53 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return;
     }
 
-    await stateApi.resolveTravelTask?.(taskId);
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.resolveTravelTask?.(taskId);
+    });
+  }
+
+  async #rerenderWithPreservedBodyScroll(action) {
+    this.#pendingBodyScrollTop = this.#getBodyScrollContainer()?.scrollTop ?? 0;
+    await action?.();
     this.render({ force: true });
+  }
+
+  #getBodyScrollContainer(root = this.element) {
+    return root?.querySelector(".ship-management-body") ?? null;
+  }
+
+  #restoreBodyScrollPosition(root) {
+    if (!Number.isFinite(this.#pendingBodyScrollTop)) {
+      return;
+    }
+
+    const scrollTop = this.#pendingBodyScrollTop;
+    this.#pendingBodyScrollTop = null;
+    const scrollContainer = this.#getBodyScrollContainer(root);
+    if (!scrollContainer) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      scrollContainer.scrollTop = scrollTop;
+    });
+  }
+
+  #hydrateTravelTaskAttemptInputs(root) {
+    const taskRows = root.querySelectorAll("[data-travel-task-id]");
+    for (const row of taskRows) {
+      const attemptedByStation = String(row.dataset.attemptedByStation ?? "").trim();
+      const attemptedSkill = String(row.dataset.attemptedSkill ?? "").trim();
+      const attemptedByStationSelect = row.querySelector("[name='travelTaskAttemptedByStation']");
+      const attemptedSkillSelect = row.querySelector("[name='travelTaskAttemptedSkill']");
+
+      if (attemptedByStationSelect) {
+        attemptedByStationSelect.value = attemptedByStation;
+      }
+
+      if (attemptedSkillSelect) {
+        attemptedSkillSelect.value = attemptedSkill;
+      }
+    }
   }
 }

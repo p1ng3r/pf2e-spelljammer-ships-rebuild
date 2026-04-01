@@ -167,12 +167,42 @@
         {{#if travelTasks.hasTasks}}
           <ul>
             {{#each travelTasks.tasks as |task|}}
-              <li data-travel-task-id="{{task.id}}">
+              <li
+                data-travel-task-id="{{task.id}}"
+                data-attempted-by-station="{{task.attemptedByStation}}"
+                data-attempted-skill="{{task.attemptedSkill}}"
+              >
                 <strong>{{task.title}}</strong>
                 <span>- <strong>Status:</strong> {{task.statusLabel}}</span>
                 <span>({{task.taskTypeLabel}} / {{task.checkTypeLabel}})</span>
                 <span>- {{#if task.recommendedStationLabel}}{{task.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
                 <span>- {{#if task.recommendedSkill}}{{task.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
+                <span>
+                  - Attempted By:
+                  {{#if task.attemptedByStationLabel}}{{task.attemptedByStationLabel}}{{else}}Unassigned{{/if}}
+                  /
+                  {{#if task.attemptedSkill}}{{task.attemptedSkillLabel}}{{else}}No skill set{{/if}}
+                </span>
+                <div class="travel-task-attempt-controls">
+                  <label>
+                    <span>By Station</span>
+                    <select name="travelTaskAttemptedByStation">
+                      <option value="">Unassigned</option>
+                      {{#each ../stationOptions as |station|}}
+                        <option value="{{station.value}}">{{station.label}}</option>
+                      {{/each}}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Skill</span>
+                    <select name="travelTaskAttemptedSkill">
+                      <option value="">None</option>
+                      {{#each ../skillOptions as |skill|}}
+                        <option value="{{skill.value}}">{{skill.label}}</option>
+                      {{/each}}
+                    </select>
+                  </label>
+                </div>
                 <label>
                   <span>Attempt / Result Summary</span>
                   <input
