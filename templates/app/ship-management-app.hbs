@@ -33,8 +33,29 @@
           <em>Not linked yet</em>
         {{/if}}
       </p>
-      <p><strong>Travel Term:</strong> {{shipState.arcflight.term}}</p>
       <p><strong>Level:</strong> {{shipState.identity.level}}</p>
+
+      <h4>Travel (Arcflight)</h4>
+      <p><strong>Posture:</strong> {{travelState.posture}}</p>
+      <p><strong>Days Elapsed:</strong> {{travelState.daysElapsed}}</p>
+      <p><strong>Current Hex:</strong>
+        {{#if travelState.currentHex}}
+          <code>{{travelState.currentHex}}</code>
+        {{else}}
+          <em>Not set</em>
+        {{/if}}
+      </p>
+      <p><strong>Destination:</strong>
+        {{#if travelState.destination}}
+          <code>{{travelState.destination}}</code>
+        {{else}}
+          <em>Not set</em>
+        {{/if}}
+      </p>
+      <p><strong>Leg Progress:</strong> {{travelState.legProgress}} ({{travelState.progressPerDay}}/day)</p>
+      <p><strong>Days Into Current Leg:</strong> {{travelState.daysIntoCurrentLeg}}</p>
+      <p><strong>Maintenance Pressure:</strong> {{travelState.maintenancePressure}}</p>
+      <p><strong>Encounter Pressure:</strong> {{travelState.encounterPressure}}</p>
 
       <h4>Stations</h4>
       <ul>

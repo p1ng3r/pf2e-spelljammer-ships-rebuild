@@ -5,6 +5,9 @@ import {
   getShipState,
   setShipState,
   updateShipState,
+  getTravelState,
+  updateTravelState,
+  advanceTravelDay,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
@@ -138,6 +141,11 @@ export function createModuleApi() {
       updateShipState: (updater, options) => updateShipState(shipStateIndex, updater, options),
       updateShipStateById: (shipId, updater) => updateShipState(shipStateIndex, updater, { shipId }),
       updateShipStateForActor: (actorId, updater) => updateShipState(shipStateIndex, updater, { actorId }),
+
+      getTravelState: (options) => getTravelState(shipStateIndex, options),
+      updateTravelState: (updaterOrPartial, options) =>
+        updateTravelState(shipStateIndex, updaterOrPartial, options),
+      advanceTravelDay: (options) => advanceTravelDay(shipStateIndex, options),
 
       getActiveShipId,
       setActiveShipId,

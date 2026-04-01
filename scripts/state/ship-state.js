@@ -10,6 +10,41 @@ function cloneData(data) {
   return JSON.parse(JSON.stringify(data));
 }
 
+function applyTravelStatePatch(currentTravelState, updaterOrPartial) {
+  if (typeof updaterOrPartial === "function") {
+    const nextTravelState = updaterOrPartial(cloneData(currentTravelState));
+    return nextTravelState ?? currentTravelState;
+  }
+
+  if (updaterOrPartial && typeof updaterOrPartial === "object") {
+    return {
+      ...currentTravelState,
+      ...updaterOrPartial,
+    };
+  }
+
+  return currentTravelState;
+}
+
+function clampPressure(value) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function createDefaultArcflightState() {
+  return {
+    term: TRAVEL_TERM,
+    posture: "standard",
+    currentHex: null,
+    destination: null,
+    daysElapsed: 0,
+    daysIntoCurrentLeg: 0,
+    progressPerDay: 1,
+    legProgress: 0,
+    maintenancePressure: 0,
+    encounterPressure: 0,
+  };
+}
+
 /**
  * Creates the container used by the module API to hold multiple ship states.
  * Actor-linking is supported through shipIdByActorId without introducing
@@ -46,11 +81,7 @@ export function createDefaultShipState({
     crew: {
       stations: createDefaultStationAssignments(),
     },
-    arcflight: {
-      term: TRAVEL_TERM,
-      currentSector: null,
-      daysElapsed: 0,
-    },
+    arcflight: createDefaultArcflightState(),
     combat: {
       active: false,
       encounterId: null,
@@ -154,4 +185,38 @@ export function updateShipState(index, updater, { shipId, actorId } = {}) {
     actorId: currentState.identity.actorId,
     setActive: true,
   });
+}
+
+export function getTravelState(index, options = {}) {
+  const shipState = getShipState(index, options);
+  return shipState?.arcflight ?? null;
+}
+
+export function updateTravelState(index, updaterOrPartial, options = {}) {
+  return updateShipState(index, (nextState) => {
+    const currentTravelState = nextState.arcflight ?? createDefaultArcflightState();
+    nextState.arcflight = applyTravelStatePatch(currentTravelState, updaterOrPartial);
+    return nextState;
+  }, options);
+}
+
+export function advanceTravelDay(index, options = {}) {
+  return updateShipState(index, (nextState) => {
+    const travelState = nextState.arcflight ?? createDefaultArcflightState();
+
+    const progressPerDay = Number.isFinite(travelState.progressPerDay)
+      ? travelState.progressPerDay
+      : 1;
+
+    nextState.arcflight = {
+      ...travelState,
+      daysElapsed: (travelState.daysElapsed ?? 0) + 1,
+      daysIntoCurrentLeg: (travelState.daysIntoCurrentLeg ?? 0) + 1,
+      legProgress: (travelState.legProgress ?? 0) + progressPerDay,
+      maintenancePressure: clampPressure((travelState.maintenancePressure ?? 0) + 1),
+      encounterPressure: clampPressure((travelState.encounterPressure ?? 0) + 1),
+    };
+
+    return nextState;
+  }, options);
 }
