@@ -104,3 +104,61 @@
   display: grid;
   gap: 0.1rem;
 }
+
+.ship-management-app .travel-event-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+}
+
+.ship-management-app .travel-event-row {
+  margin-bottom: 0.45rem;
+  padding: 0.35rem 0.4rem 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+}
+
+.ship-management-app .travel-event-row__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.ship-management-app .travel-event-row__chips {
+  display: inline-flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.ship-management-app .travel-event-chip {
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.ship-management-app .travel-event-row__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.12rem 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.ship-management-app .travel-event-row__meta-grid p,
+.ship-management-app .travel-event-row__summary,
+.ship-management-app .travel-event-row__default-note {
+  margin: 0.1rem 0;
+}
+
+.ship-management-app .travel-event-row__attempt-controls {
+  margin: 0.2rem 0;
+}
+
+.ship-management-app .travel-event-row__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}

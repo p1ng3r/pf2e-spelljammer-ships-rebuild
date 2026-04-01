@@ -377,38 +377,31 @@
         </form>
 
         {{#if travelEvents.hasEvents}}
-          <ul>
+          <ul class="travel-event-list">
             {{#each travelEvents.events as |event|}}
               <li
+                class="travel-event-row"
                 data-travel-event-id="{{event.id}}"
                 data-effective-attempted-by-station="{{event.effectiveAttemptedByStation}}"
                 data-effective-attempted-skill="{{event.effectiveAttemptedSkill}}"
               >
-                <strong>{{event.title}}</strong>
-                <span>- <strong>Status:</strong> {{event.statusLabel}}</span>
-                <span>({{event.severity}} / {{event.eventTypeLabel}} / {{event.checkTypeLabel}})</span>
-                <span>- {{#if event.recommendedStationLabel}}{{event.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
-                <span>- {{#if event.recommendedSkill}}{{event.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
-                <span>- {{#if event.summary}}{{event.summary}}{{else}}No summary{{/if}}</span>
-                <span>
-                  - Attempted By:
-                  {{#if event.attemptedByStationLabel}}{{event.attemptedByStationLabel}}{{else}}Unassigned{{/if}}
-                  /
-                  {{#if event.attemptedSkill}}{{event.attemptedSkillLabel}}{{else}}No skill set{{/if}}
-                </span>
-                {{#if event.hasLinkedTask}}
-                  <span>
-                    - Linked Task:
-                    {{#if event.linkedTaskTitle}}
-                      {{event.linkedTaskTitle}}
-                    {{else}}
-                      <code>{{event.linkedTaskId}}</code>
-                    {{/if}}
+                <div class="travel-event-row__header">
+                  <strong>{{event.title}}</strong>
+                  <span class="travel-event-row__chips">
+                    <span class="travel-event-chip">{{event.statusSummaryLabel}}</span>
+                    <span class="travel-event-chip">{{event.severityLabel}}</span>
+                    <span class="travel-event-chip">{{event.eventTypeLabel}}</span>
+                    <span class="travel-event-chip">{{event.checkTypeLabel}}</span>
                   </span>
-                {{else}}
-                  <span>- Linked Task: None</span>
-                {{/if}}
-                <div class="travel-task-attempt-controls">
+                </div>
+                <div class="travel-event-row__meta-grid">
+                  <p><strong>Recommended:</strong> {{#if event.recommendedStationLabel}}{{event.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.recommendedSkill}}{{event.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                  <p><strong>Attempted:</strong> {{#if event.attemptedByStationLabel}}{{event.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.attemptedSkill}}{{event.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                  <p><strong>Linked Task:</strong> {{#if event.hasLinkedTask}}{{#if event.linkedTaskTitle}}{{event.linkedTaskTitle}}{{else}}<code>{{event.linkedTaskId}}</code>{{/if}}{{else}}None{{/if}}</p>
+                </div>
+                <p class="travel-event-row__summary"><strong>Attempt Summary:</strong> {{event.attemptSummaryLabel}}</p>
+                <p class="travel-event-row__summary"><strong>Outcome:</strong> {{event.outcomeSummaryLabel}}</p>
+                <div class="travel-task-attempt-controls travel-event-row__attempt-controls">
                   <label>
                     <span>By Station</span>
                     <select name="travelEventAttemptedByStation">
@@ -429,31 +422,33 @@
                   </label>
                 </div>
                 {{#if event.attemptUsesRecommendedDefaults}}
-                  <p><em>Attempt fields defaulted from recommended station/skill.</em></p>
+                  <p class="travel-event-row__default-note"><em>Attempt fields defaulted from recommended station/skill.</em></p>
                 {{/if}}
                 <label>
-                  <span>Attempt / Result Summary</span>
+                  <span>Attempt Notes</span>
                   <input
                     type="text"
                     name="travelEventAttemptSummary"
                     value="{{#if event.lastAttemptSummary}}{{event.lastAttemptSummary}}{{else}}{{event.summary}}{{/if}}"
-                    placeholder="Manual attempt notes"
+                    placeholder="Manual attempt details"
                   />
                 </label>
-                <button type="button" data-action="attempt-travel-event" data-event-id="{{event.id}}">
-                  Attempt Check
-                </button>
-                <button
-                  type="button"
-                  data-action="create-task-from-event"
-                  data-event-id="{{event.id}}"
-                  {{#if event.hasLinkedTask}}disabled{{/if}}
-                >
-                  Create Task
-                </button>
-                <button type="button" data-action="resolve-travel-event" data-event-id="{{event.id}}">
-                  Resolve
-                </button>
+                <div class="travel-event-row__actions">
+                  <button type="button" data-action="attempt-travel-event" data-event-id="{{event.id}}">
+                    Attempt Check
+                  </button>
+                  <button
+                    type="button"
+                    data-action="create-task-from-event"
+                    data-event-id="{{event.id}}"
+                    {{#if event.hasLinkedTask}}disabled{{/if}}
+                  >
+                    Create Task
+                  </button>
+                  <button type="button" data-action="resolve-travel-event" data-event-id="{{event.id}}">
+                    Resolve
+                  </button>
+                </div>
               </li>
             {{/each}}
           </ul>
