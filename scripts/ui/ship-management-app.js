@@ -11,6 +11,15 @@ function toLabel(posture) {
     .join(" ");
 }
 
+function parsePositiveNumber(value, fallback) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return fallback;
+  }
+
+  return numericValue;
+}
+
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-ship-management`,
@@ -45,6 +54,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       label: toLabel(posture),
       selected: posture === travelState?.posture,
     }));
+    const legTarget = parsePositiveNumber(travelState?.legProgressMax, 1);
+    const legProgress = Number(travelState?.legProgress ?? 0);
+    const legComplete = legTarget > 0 && legProgress >= legTarget;
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -54,6 +66,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       postureOptions,
       stations: STATIONS,
       activeShipId: stateApi?.getActiveShipId?.() ?? null,
+      routeStatus: {
+        legTarget,
+        legProgress,
+        legComplete,
+      },
       actorContext: {
         actorId: linkedActorId,
         actorName: linkedActor?.name ?? null,
@@ -76,6 +93,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const postureSelect = root.querySelector("[data-action='set-posture']");
     postureSelect?.addEventListener("change", this.#onPostureChange.bind(this));
+
+    const routeForm = root.querySelector("[data-action='route-leg-form']");
+    routeForm?.addEventListener("submit", this.#onRouteLegSubmit.bind(this));
   }
 
   async #onAdvanceDayClick(event) {
@@ -97,6 +117,42 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       await stateApi.setTravelPosture(posture);
     } else {
       await stateApi.updateTravelState?.({ posture });
+    }
+
+    this.render({ force: true });
+  }
+
+  async #onRouteLegSubmit(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!form || !stateApi) {
+      return;
+    }
+
+    const formData = new FormData(form);
+    const destination = String(formData.get("destination") ?? "");
+    const legDistanceValue = formData.get("legDistance");
+    const legProgressMaxValue = formData.get("legProgressMax");
+
+    const currentTravelState = stateApi.getTravelState?.() ?? {};
+    const legDistance = parsePositiveNumber(legDistanceValue, currentTravelState.legDistance ?? 1);
+    const legProgressMax = parsePositiveNumber(
+      legProgressMaxValue,
+      currentTravelState.legProgressMax ?? legDistance,
+    );
+
+    if (typeof stateApi.setTravelDestination === "function") {
+      await stateApi.setTravelDestination(destination);
+    } else {
+      await stateApi.updateTravelState?.({ destination: destination.trim() || null });
+    }
+
+    if (typeof stateApi.setTravelLeg === "function") {
+      await stateApi.setTravelLeg({ legDistance, legProgressMax });
+    } else {
+      await stateApi.updateTravelState?.({ legDistance, legProgressMax });
     }
 
     this.render({ force: true });
