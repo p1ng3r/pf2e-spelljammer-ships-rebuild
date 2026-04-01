@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output.
 
 ## Current Branch Focus
-Deliver a small Arcflight station interaction vertical slice: preserve GM Ship Management scroll position on external live refresh and add first player station-briefing skill-roll action.
+Deliver a small Arcflight station assignment UX vertical slice: add a GM-facing assignment workflow in Ship Management while preserving shared-state station resolution used by player Roll Check.
 
 ## Completed So Far
 - Arcflight live-refresh UX pass added:
@@ -16,6 +16,21 @@ Deliver a small Arcflight station interaction vertical slice: preserve GM Ship M
   - Both apps use a compact debounce (~50ms) to reduce rerender spam during clustered updates.
   - Both apps ignore their own immediately-local update signal to avoid duplicate back-to-back rerenders when the initiating window already forces a render.
   - Ship Management live-refresh preserves body scroll position by capturing/restoring `.ship-management-body` scroll state for externally-triggered refreshes.
+- Arcflight station assignment UX pass added:
+  - Ship Management now includes a compact GM-facing **Stations / Crew Assignments** section.
+  - Each station row now shows:
+    - station label + station id
+    - current assigned actor display (`Unassigned` fallback)
+    - character actor picker
+    - **Assign / Save** and **Clear** actions
+  - Added shared-state/API helpers:
+    - `state.assignStationActor(stationId, actorId, options?)`
+    - `state.clearStationActor(stationId, options?)`
+  - Assignment updates continue to write the existing shared model:
+    - `shipState.crew.stations[stationId].actorId`
+    - `shipState.crew.stations[stationId].isNpcCrew`
+  - Assignment updates emit the existing shared ship-state update hook path, so live-refresh behavior remains unchanged.
+  - Player-side station briefing **Roll Check** actor resolution remains unchanged and now immediately reflects GM assignment edits.
 - Foundation constants/config added.
 - Module API shell attached to `game`.
 - Shared ship-state foundation added and refined.
@@ -485,3 +500,12 @@ Keep Arcflight focused and incremental:
   - no automated success/failure adjudication
   - no auto-resolution of linked tasks/events/issues
   - existing station request flow and GM inbox behavior are preserved.
+
+## Arcflight station assignment UX pass (2026-04-01)
+- Added compact GM-facing **Stations / Crew Assignments** rows to Ship Management.
+- Added explicit shared state/API station assignment helpers:
+  - `assignStationActor(stationId, actorId, options?)`
+  - `clearStationActor(stationId, options?)`
+- Assignment rows are wired to the existing shared state model (`crew.stations[stationId].actorId` + `isNpcCrew`) with no new assignment schema.
+- Character actor picker is currently scoped to `game.actors` documents with actor type `character` for a clean first pass.
+- Live-refresh remains on the existing shared hook path; player station Roll Check actor resolution immediately uses updated assignments.

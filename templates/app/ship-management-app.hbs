@@ -757,12 +757,51 @@
         {{/if}}
       </section>
 
-      <h4>Stations</h4>
-      <ul>
-        {{#each stations as |station|}}
-          <li><strong>{{station.label}}</strong> <code>({{station.id}})</code></li>
-        {{/each}}
-      </ul>
+      <section class="travel-maintenance">
+        <h4>Stations / Crew Assignments</h4>
+        {{#if stationAssignments.hasAssignableActors}}
+          <ul class="travel-record-list">
+            {{#each stationAssignments.rows as |assignment|}}
+              <li class="travel-record-row" data-station-id="{{assignment.stationId}}">
+                <div class="travel-record-row__header">
+                  <strong>{{assignment.stationLabel}}</strong>
+                  <span class="travel-record-row__chips">
+                    <span class="travel-record-chip">Station ID: {{assignment.stationId}}</span>
+                    {{#if assignment.isNpcCrew}}
+                      <span class="travel-record-chip">NPC Crew</span>
+                    {{/if}}
+                  </span>
+                </div>
+                <p class="travel-record-row__summary">
+                  <strong>Assigned Actor:</strong>
+                  {{assignment.assignedActorName}}
+                </p>
+                <label>
+                  <span>Assign Character</span>
+                  <select name="stationAssignedActorId">
+                    <option value="">Unassigned</option>
+                    {{#each assignment.actorOptions as |actor|}}
+                      <option value="{{actor.value}}" {{#if actor.selected}}selected{{/if}}>
+                        {{actor.label}}
+                      </option>
+                    {{/each}}
+                  </select>
+                </label>
+                <div class="travel-record-row__actions">
+                  <button type="button" data-action="assign-station-actor" data-station-id="{{assignment.stationId}}">
+                    Assign / Save
+                  </button>
+                  <button type="button" data-action="clear-station-actor" data-station-id="{{assignment.stationId}}">
+                    Clear
+                  </button>
+                </div>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No character actors are available for station assignment.</em></p>
+        {{/if}}
+      </section>
 
       <p>This UI remains intentionally minimal and reads from the shared API/state layer.</p>
     </article>

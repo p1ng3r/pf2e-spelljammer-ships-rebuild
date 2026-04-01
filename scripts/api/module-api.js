@@ -6,6 +6,8 @@ import {
   setShipState,
   updateShipState,
   getTravelState,
+  assignStationActor,
+  clearStationActor,
   updateTravelState,
   setTravelDestination,
   setTravelLeg,
@@ -266,6 +268,14 @@ export function createModuleApi() {
       ),
 
       getTravelState: (options) => getTravelState(shipStateIndex, options),
+      assignStationActor: wrapStateMutation(
+        (stationId, actorId, options) => assignStationActor(shipStateIndex, stationId, actorId, options),
+        { source: "assignStationActor" },
+      ),
+      clearStationActor: wrapStateMutation(
+        (stationId, options) => clearStationActor(shipStateIndex, stationId, options),
+        { source: "clearStationActor" },
+      ),
       updateTravelState: wrapStateMutation(
         (updaterOrPartial, options) => updateTravelState(shipStateIndex, updaterOrPartial, options),
         { source: "updateTravelState" },
