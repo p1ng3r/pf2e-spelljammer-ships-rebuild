@@ -112,6 +112,7 @@
         <h5>Travel Tasks / Maintenance Tasks</h5>
         <p><strong>Open Travel Tasks:</strong> {{travelTasks.tasks.length}}</p>
         <p><strong>Open Issues:</strong> {{maintenance.issues.length}}</p>
+        <p><strong>Open Events:</strong> {{travelEvents.events.length}}</p>
 
         <form data-action="travel-task-form">
           <label>
@@ -308,6 +309,91 @@
           </ul>
         {{else}}
           <p><em>No maintenance issues logged.</em></p>
+        {{/if}}
+
+        <h5>Events</h5>
+        <form data-action="travel-event-form">
+          <label>
+            <span>Event Title</span>
+            <input type="text" name="travelEventTitle" placeholder="Ex: Unstable Aether Wake" />
+          </label>
+          <label>
+            <span>Severity</span>
+            <select name="travelEventSeverity">
+              <option value="minor">Minor</option>
+              <option value="moderate">Moderate</option>
+              <option value="major">Major</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <label>
+            <span>Event Type</span>
+            <select name="travelEventType">
+              {{#each eventTypeOptions as |eventType|}}
+                <option value="{{eventType.value}}">{{eventType.label}}</option>
+              {{/each}}
+            </select>
+          </label>
+          <label>
+            <span>Check Type</span>
+            <select name="travelEventCheckType">
+              {{#each checkTypeOptions as |checkType|}}
+                <option value="{{checkType.value}}">{{checkType.label}}</option>
+              {{/each}}
+            </select>
+          </label>
+          <label>
+            <span>Recommended Station</span>
+            <select name="travelEventRecommendedStation">
+              <option value="">Unassigned</option>
+              {{#each stationOptions as |station|}}
+                <option value="{{station.value}}">{{station.label}}</option>
+              {{/each}}
+            </select>
+          </label>
+          <label>
+            <span>Recommended Skill</span>
+            <select name="travelEventRecommendedSkill">
+              <option value="">None</option>
+              {{#each skillOptions as |skill|}}
+                <option value="{{skill.value}}">{{skill.label}}</option>
+              {{/each}}
+              <option value="{{customSkillOption}}">Custom</option>
+            </select>
+          </label>
+          <label>
+            <span>Custom Skill (Optional)</span>
+            <input type="text" name="travelEventRecommendedSkillCustom" placeholder="Ex: astronavigation-lore" />
+          </label>
+          <label>
+            <span>Summary</span>
+            <input type="text" name="travelEventSummary" placeholder="Quick event summary" />
+          </label>
+          <label>
+            <span>Notes</span>
+            <input type="text" name="travelEventNotes" placeholder="Optional GM notes" />
+          </label>
+          <button type="submit">Add Event</button>
+        </form>
+
+        {{#if travelEvents.hasEvents}}
+          <ul>
+            {{#each travelEvents.events as |event|}}
+              <li>
+                <strong>{{event.title}}</strong>
+                <span>- <strong>Status:</strong> {{event.status}}</span>
+                <span>({{event.severity}} / {{event.eventTypeLabel}} / {{event.checkTypeLabel}})</span>
+                <span>- {{#if event.recommendedStationLabel}}{{event.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
+                <span>- {{#if event.recommendedSkill}}{{event.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
+                <span>- {{#if event.summary}}{{event.summary}}{{else}}No summary{{/if}}</span>
+                <button type="button" data-action="resolve-travel-event" data-event-id="{{event.id}}">
+                  Resolve
+                </button>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No travel events logged.</em></p>
         {{/if}}
       </section>
 
