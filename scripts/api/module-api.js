@@ -1,20 +1,36 @@
 import { API_NAMESPACE, MODULE_ID } from "../config/constants.js";
-import { createDefaultShipState } from "../state/ship-state.js";
+import {
+  createEmptyShipStateIndex,
+  initializeShipState,
+  getShipState,
+  setShipState,
+  updateShipState,
+  DEFAULT_SHARED_SHIP_ID,
+} from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
 
-let sharedShipState = null;
+let shipStateIndex = createEmptyShipStateIndex();
 
-function ensureState() {
-  if (!sharedShipState) {
-    sharedShipState = createDefaultShipState();
-  }
-
-  return sharedShipState;
+function initializeDefaultShipState() {
+  return initializeShipState(shipStateIndex, { shipId: DEFAULT_SHARED_SHIP_ID });
 }
 
-function resetState() {
-  sharedShipState = createDefaultShipState();
-  return sharedShipState;
+function getActiveShipId() {
+  return shipStateIndex.activeShipId;
+}
+
+function setActiveShipId(shipId) {
+  if (!shipStateIndex.shipsById[shipId]) {
+    return null;
+  }
+
+  shipStateIndex.activeShipId = shipId;
+  return shipStateIndex.activeShipId;
+}
+
+function resetShipStates() {
+  shipStateIndex = createEmptyShipStateIndex();
+  return initializeDefaultShipState();
 }
 
 export function createModuleApi() {
@@ -22,8 +38,26 @@ export function createModuleApi() {
     moduleId: MODULE_ID,
     apiNamespace: API_NAMESPACE,
     state: {
-      getShipState: () => ensureState(),
-      resetShipState: () => resetState(),
+      initializeShipState: (options) => initializeShipState(shipStateIndex, options),
+      initializeShipStateForActor: (actorId, options = {}) =>
+        initializeShipState(shipStateIndex, { ...options, actorId }),
+
+      getShipState: (options) => getShipState(shipStateIndex, options),
+      getShipStateById: (shipId) => getShipState(shipStateIndex, { shipId }),
+      getShipStateForActor: (actorId) => getShipState(shipStateIndex, { actorId }),
+      getActiveShipState: () => getShipState(shipStateIndex, { shipId: shipStateIndex.activeShipId }),
+
+      setShipState: (nextState, options) => setShipState(shipStateIndex, nextState, options),
+      setShipStateById: (shipId, nextState) => setShipState(shipStateIndex, nextState, { shipId }),
+      setShipStateForActor: (actorId, nextState) => setShipState(shipStateIndex, nextState, { actorId }),
+
+      updateShipState: (updater, options) => updateShipState(shipStateIndex, updater, options),
+      updateShipStateById: (shipId, updater) => updateShipState(shipStateIndex, updater, { shipId }),
+      updateShipStateForActor: (actorId, updater) => updateShipState(shipStateIndex, updater, { actorId }),
+
+      getActiveShipId,
+      setActiveShipId,
+      resetShipStates,
     },
     ui: {
       openShipManagement: () => {
@@ -37,6 +71,9 @@ export function createModuleApi() {
 
 export function attachModuleApi() {
   const api = createModuleApi();
+
+  initializeDefaultShipState();
   game[API_NAMESPACE] = api;
+
   return api;
 }

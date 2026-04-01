@@ -7,6 +7,14 @@
   {{#if hasShipState}}
     <article>
       <h3>{{shipState.identity.name}}</h3>
+      <p><strong>Ship ID:</strong> <code>{{activeShipId}}</code></p>
+      <p><strong>Linked Actor:</strong>
+        {{#if actorLinked}}
+          <code>{{shipState.identity.actorId}}</code>
+        {{else}}
+          <em>Not linked yet</em>
+        {{/if}}
+      </p>
       <p><strong>Travel Term:</strong> {{shipState.arcflight.term}}</p>
       <p><strong>Level:</strong> {{shipState.identity.level}}</p>
 
@@ -17,7 +25,7 @@
         {{/each}}
       </ul>
 
-      <p>This UI is intentionally minimal for the first clean foundation pass.</p>
+      <p>This UI remains intentionally minimal and reads from the shared API/state layer.</p>
     </article>
   {{else}}
     <p>No ship state available.</p>

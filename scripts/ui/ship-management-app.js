@@ -25,13 +25,16 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
   async _prepareContext() {
     const api = game?.[API_NAMESPACE] ?? null;
-    const shipState = api?.state?.getShipState?.() ?? null;
+    const stateApi = api?.state ?? null;
+    const shipState = stateApi?.getActiveShipState?.() ?? null;
 
     return {
       moduleTitle: MODULE_TITLE,
       hasShipState: Boolean(shipState),
       shipState,
       stations: STATIONS,
+      activeShipId: stateApi?.getActiveShipId?.() ?? null,
+      actorLinked: Boolean(shipState?.identity?.actorId),
     };
   }
 }

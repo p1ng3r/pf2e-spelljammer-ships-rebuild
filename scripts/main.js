@@ -7,7 +7,9 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   const api = attachModuleApi();
+  const activeShipState = api.state.getActiveShipState();
 
   console.log(`${MODULE_TITLE} | ready`);
   console.log(`${MODULE_TITLE} | API attached to game.${API_NAMESPACE}`, api);
+  console.log(`${MODULE_TITLE} | Active ship state initialized`, activeShipState);
 });
