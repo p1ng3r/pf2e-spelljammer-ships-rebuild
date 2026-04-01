@@ -169,8 +169,8 @@
             {{#each travelTasks.tasks as |task|}}
               <li
                 data-travel-task-id="{{task.id}}"
-                data-attempted-by-station="{{task.attemptedByStation}}"
-                data-attempted-skill="{{task.attemptedSkill}}"
+                data-effective-attempted-by-station="{{task.effectiveAttemptedByStation}}"
+                data-effective-attempted-skill="{{task.effectiveAttemptedSkill}}"
               >
                 <strong>{{task.title}}</strong>
                 <span>- <strong>Status:</strong> {{task.statusLabel}}</span>
@@ -203,6 +203,9 @@
                     </select>
                   </label>
                 </div>
+                {{#if task.attemptUsesRecommendedDefaults}}
+                  <p><em>Attempt fields defaulted from recommended station/skill.</em></p>
+                {{/if}}
                 <label>
                   <span>Attempt / Result Summary</span>
                   <input

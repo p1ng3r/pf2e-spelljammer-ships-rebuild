@@ -41,6 +41,29 @@ function resolveSkillValue(selectedSkill, customSkill) {
   return String(selectedSkill ?? "").trim().toLowerCase();
 }
 
+function getEffectiveAttemptValue(attemptedValue, recommendedValue) {
+  const attempted = String(attemptedValue ?? "").trim();
+  if (attempted) {
+    return {
+      value: attempted,
+      usesRecommendedDefault: false,
+    };
+  }
+
+  const recommended = String(recommendedValue ?? "").trim();
+  if (recommended) {
+    return {
+      value: recommended,
+      usesRecommendedDefault: true,
+    };
+  }
+
+  return {
+    value: "",
+    usesRecommendedDefault: false,
+  };
+}
+
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #pendingBodyScrollTop = null;
 
@@ -102,6 +125,24 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       accumulator[skill.value] = skill.label;
       return accumulator;
     }, {});
+    const travelTaskViewModels = travelTasks.map((task) => {
+      const stationAttemptValue = getEffectiveAttemptValue(task.attemptedByStation, task.recommendedStation);
+      const skillAttemptValue = getEffectiveAttemptValue(task.attemptedSkill, task.recommendedSkill);
+
+      return {
+        ...task,
+        statusLabel: toReadableSlugLabel(task.status ?? "open"),
+        taskTypeLabel: toReadableSlugLabel(task.taskType),
+        checkTypeLabel: toReadableSlugLabel(task.checkType),
+        recommendedStationLabel: stationLabelsById[task.recommendedStation] ?? null,
+        recommendedSkillLabel: skillLabelsByValue[task.recommendedSkill] ?? toReadableSlugLabel(task.recommendedSkill),
+        attemptedByStationLabel: stationLabelsById[task.attemptedByStation] ?? null,
+        attemptedSkillLabel: skillLabelsByValue[task.attemptedSkill] ?? toReadableSlugLabel(task.attemptedSkill),
+        effectiveAttemptedByStation: stationAttemptValue.value,
+        effectiveAttemptedSkill: skillAttemptValue.value,
+        attemptUsesRecommendedDefaults: stationAttemptValue.usesRecommendedDefault || skillAttemptValue.usesRecommendedDefault,
+      };
+    });
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -127,16 +168,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         hasIssues: maintenanceIssues.length > 0,
       },
       travelTasks: {
-        tasks: travelTasks.map((task) => ({
-          ...task,
-          statusLabel: toReadableSlugLabel(task.status ?? "open"),
-          taskTypeLabel: toReadableSlugLabel(task.taskType),
-          checkTypeLabel: toReadableSlugLabel(task.checkType),
-          recommendedStationLabel: stationLabelsById[task.recommendedStation] ?? null,
-          recommendedSkillLabel: skillLabelsByValue[task.recommendedSkill] ?? toReadableSlugLabel(task.recommendedSkill),
-          attemptedByStationLabel: stationLabelsById[task.attemptedByStation] ?? null,
-          attemptedSkillLabel: skillLabelsByValue[task.attemptedSkill] ?? toReadableSlugLabel(task.attemptedSkill),
-        })),
+        tasks: travelTaskViewModels,
         hasTasks: travelTasks.length > 0,
       },
       taskTypeOptions,
@@ -445,8 +477,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   #hydrateTravelTaskAttemptInputs(root) {
     const taskRows = root.querySelectorAll("[data-travel-task-id]");
     for (const row of taskRows) {
-      const attemptedByStation = String(row.dataset.attemptedByStation ?? "").trim();
-      const attemptedSkill = String(row.dataset.attemptedSkill ?? "").trim();
+      const attemptedByStation = String(row.dataset.effectiveAttemptedByStation ?? "").trim();
+      const attemptedSkill = String(row.dataset.effectiveAttemptedSkill ?? "").trim();
       const attemptedByStationSelect = row.querySelector("[name='travelTaskAttemptedByStation']");
       const attemptedSkillSelect = row.querySelector("[name='travelTaskAttemptedSkill']");
 

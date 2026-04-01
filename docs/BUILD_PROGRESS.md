@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the next Arcflight travel-task UX vertical slice with scroll-safe inline actions and richer manual Attempt Check attribution.
+Deliver the next Arcflight travel-task UX polish slice by defaulting Attempt Check attribution inputs from recommendation metadata while preserving manual override.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -125,7 +125,14 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.resolveTravelTask(taskId)` marks a task `resolved`.
 - In-app travel task rows support compact manual **Attempt Check** and **Resolve** actions without roll/DC automation.
 - In-app inline actions (**Attempt Check**, **Resolve**, **Reset Leg Progress**, **Advance Day**) keep Ship Management scroll position stable after rerender.
-- `state.attemptTravelTask(taskId, { attemptedByStation, attemptedSkill, lastAttemptSummary })` persists attempt attribution metadata with stable station ids and PF2E skill slugs.
+  - `state.attemptTravelTask(taskId, { attemptedByStation, attemptedSkill, lastAttemptSummary })` persists attempt attribution metadata with stable station ids and PF2E skill slugs.
+- Arcflight travel-task Attempt Check defaulting polish pass added:
+  - Ship Management now centralizes Attempt Check input defaults in app view-model prep:
+    - attempted station/skill is used first when already set
+    - recommended station/skill is used as default only when attempted values are empty
+  - Travel-task rows now hydrate Attempt Check select inputs from those effective values, reducing duplicate GM data entry in the common case.
+  - Manual override behavior is unchanged: GM can still change attempted station/skill before clicking **Attempt Check**.
+  - Rerender behavior remains stable: selected attempted values continue to display correctly after inline actions, and scroll preservation remains unchanged.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -135,6 +142,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Crew-check recommendation entry is now select-driven for cleaner GM data entry and reduced typo cleanup.
 - Travel tasks now also support lightweight manual attempt/result tracking with explicit status progression.
 - Travel-task manual Attempt Check now captures who attempted a check (station + skill) in compact row-level controls.
+- Travel-task Attempt Check attribution now defaults from recommended station/skill when attempted values are unset, while preserving the state distinction between recommendation and actual attempt metadata.
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
