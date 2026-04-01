@@ -122,6 +122,15 @@ function toRequestStatusText(status) {
   return "Requested";
 }
 
+function toSkillCheckLabel(skillSlug, skillLabelsByValue) {
+  const normalizedSkill = String(skillSlug ?? "").trim().toLowerCase();
+  if (!normalizedSkill) {
+    return "appropriate skill";
+  }
+
+  return skillLabelsByValue[normalizedSkill] ?? toLabel(normalizedSkill);
+}
+
 function toPriorityWeight(record) {
   const status = String(record?.status ?? "open").trim().toLowerCase();
   const severity = String(record?.severity ?? "minor").trim().toLowerCase();
@@ -166,6 +175,8 @@ function buildStationPromptItems(record, stationLabelsById, skillLabelsByValue) 
       roleActionText: toRoleActionLine(record, stationLabel, skillLabel),
       sourceType: record.source,
       sourceId: record.id ?? "",
+      recommendedSkill: record.recommendedSkill ?? null,
+      recommendedSkillLabel: skillLabel ?? "Appropriate skill",
       requestActionLabel: toRequestActionLabel(record.source),
       priorityWeight: toPriorityWeight(record),
     },
@@ -354,6 +365,11 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     for (const form of requestForms) {
       form.addEventListener("submit", this.#onStationRequestSubmit.bind(this));
     }
+
+    const rollButtons = this.element.querySelectorAll("[data-player-station-roll-check]");
+    for (const button of rollButtons) {
+      button.addEventListener("click", this.#onStationRollCheckClick.bind(this));
+    }
   }
 
   async #onStationRequestSubmit(event) {
@@ -390,6 +406,81 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       },
       this.#shipContext,
     );
+  }
+
+  async #onStationRollCheckClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const stationId = String(button?.dataset?.stationId ?? "").trim().toLowerCase();
+    const sourceType = String(button?.dataset?.sourceType ?? "").trim().toLowerCase();
+    const sourceId = String(button?.dataset?.sourceId ?? "").trim();
+    const recommendedSkill = String(button?.dataset?.recommendedSkill ?? "").trim().toLowerCase();
+    const title = String(button?.dataset?.title ?? "").trim() || "Station task";
+
+    if (!stationId || !sourceType || !sourceId || !recommendedSkill) {
+      ui.notifications?.warn("This station briefing does not have a recommended skill to roll yet.");
+      return;
+    }
+
+    const actingActor = this.#resolveAssignedStationActor(stationId);
+    if (!actingActor) {
+      ui.notifications?.warn("No assigned character was found for this station. Ask the GM to set station crew.");
+      return;
+    }
+
+    const skillLabelsByValue = buildSkillLabelsByValue();
+    const skillLabel = toSkillCheckLabel(recommendedSkill, skillLabelsByValue);
+    const stationLabel = STATIONS.find((station) => station.id === stationId)?.label ?? toLabel(stationId);
+    const sourceLabel = toSourceLabel(sourceType);
+    const chatFlavor =
+      `<strong>Arcflight Station Check</strong><br>` +
+      `<strong>Station:</strong> ${stationLabel}<br>` +
+      `<strong>Acting Character:</strong> ${actingActor.name}<br>` +
+      `<strong>Prompt:</strong> ${title}<br>` +
+      `<strong>Skill:</strong> ${skillLabel}<br>` +
+      `<strong>Source:</strong> ${sourceLabel}`;
+
+    const legacySkillData = actingActor.system?.skills?.[recommendedSkill] ?? null;
+    const modifier = Number(
+      legacySkillData?.modifier ??
+        legacySkillData?.mod ??
+        legacySkillData?.value ??
+        0,
+    );
+
+    if (actingActor.skills?.[recommendedSkill]?.check?.roll) {
+      await actingActor.skills[recommendedSkill].check.roll({
+        event,
+        skill: recommendedSkill,
+        flavor: chatFlavor,
+      });
+      return;
+    }
+
+    const roll = await new Roll(`1d20 + ${modifier}`).evaluate();
+    await roll.toMessage({
+      speaker: ChatMessage.getSpeaker({ actor: actingActor }),
+      flavor: chatFlavor,
+    });
+  }
+
+  #resolveAssignedStationActor(stationId) {
+    const normalizedStationId = String(stationId ?? "").trim().toLowerCase();
+    if (!normalizedStationId) {
+      return null;
+    }
+
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    const explicitTarget = hasExplicitShipContext(this.#shipContext);
+    const targetShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
+    const shipState = targetShipState ?? (explicitTarget ? null : stateApi?.getActiveShipState?.() ?? null);
+    const assignedActorId = shipState?.crew?.stations?.[normalizedStationId]?.actorId ?? null;
+    if (!assignedActorId) {
+      return null;
+    }
+
+    return game.actors?.get(assignedActorId) ?? null;
   }
 
   async close(options) {

@@ -1009,9 +1009,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       anchorOffsetTop: null,
     };
 
-    const anchorRow = sourceElement?.closest?.(
-      "[data-travel-task-id], [data-travel-event-id], [data-station-request-id]",
-    );
+    const anchorRow =
+      sourceElement?.closest?.(
+        "[data-travel-task-id], [data-travel-event-id], [data-maintenance-issue-id], [data-station-request-id]",
+      ) ?? this.#findFirstVisibleTravelRow(scrollContainer);
     if (!anchorRow?.dataset) {
       return state;
     }
@@ -1030,6 +1031,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return state;
     }
 
+    const issueId = String(anchorRow.dataset.maintenanceIssueId ?? "").trim();
+    if (issueId) {
+      state.anchorSelector = `[data-maintenance-issue-id="${issueId}"]`;
+      state.anchorOffsetTop = anchorRow.offsetTop - scrollContainer.scrollTop;
+      return state;
+    }
+
     const requestId = String(anchorRow.dataset.stationRequestId ?? "").trim();
     if (requestId) {
       state.anchorSelector = `[data-station-request-id="${requestId}"]`;
@@ -1037,6 +1045,21 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     return state;
+  }
+
+  #findFirstVisibleTravelRow(scrollContainer) {
+    const candidateRows = scrollContainer.querySelectorAll(
+      "[data-travel-task-id], [data-travel-event-id], [data-maintenance-issue-id], [data-station-request-id]",
+    );
+    const currentScrollTop = scrollContainer.scrollTop ?? 0;
+
+    for (const row of candidateRows) {
+      if (row.offsetTop >= currentScrollTop) {
+        return row;
+      }
+    }
+
+    return candidateRows[candidateRows.length - 1] ?? null;
   }
 
   #restoreBodyScrollPosition(root) {

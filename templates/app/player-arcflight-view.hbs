@@ -36,6 +36,18 @@
                       <p><strong>What is happening:</strong> {{item.happeningText}}</p>
                       <p><strong>Why it matters:</strong> {{item.mattersText}}</p>
                       <p><strong>Your station focus:</strong> {{item.roleActionText}}</p>
+                      <p><strong>Recommended check:</strong> {{item.recommendedSkillLabel}}</p>
+                      <button
+                        type="button"
+                        data-player-station-roll-check
+                        data-station-id="{{stationPrompt.stationId}}"
+                        data-source-type="{{item.sourceType}}"
+                        data-source-id="{{item.sourceId}}"
+                        data-title="{{item.title}}"
+                        data-recommended-skill="{{item.recommendedSkill}}"
+                      >
+                        Roll Check
+                      </button>
                       {{#if item.hasStationRequest}}
                         <p><strong>Station intent:</strong> {{item.requestStatusText}}{{#if item.requestSummaryText}} · {{item.requestSummaryText}}{{/if}}</p>
                       {{else}}
