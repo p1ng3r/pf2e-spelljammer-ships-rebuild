@@ -27,6 +27,15 @@ function parsePositiveNumber(value, fallback) {
   return numericValue;
 }
 
+function parseOptionalDc(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return Math.floor(numericValue);
+}
+
 function toReadableSlugLabel(value) {
   if (!value) {
     return "None";
@@ -214,6 +223,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         attemptUsesRecommendedDefaults:
           stationAttemptValue.usesRecommendedDefault || skillAttemptValue.usesRecommendedDefault,
         linkedTaskTitle: travelTasksById[travelEvent.linkedTaskId]?.title ?? null,
+        dcLabel: Number.isFinite(Number(travelEvent.dc)) ? Math.floor(Number(travelEvent.dc)) : null,
         statusSummaryLabel: `Status: ${toReadableSlugLabel(travelEvent.status ?? "open")}`,
         attemptSummaryLabel: toSentenceOrFallback(
           travelEvent.lastAttemptSummary || travelEvent.summary,
@@ -357,6 +367,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const saveEventOutcomeButtons = root.querySelectorAll("[data-action='save-travel-event-outcome']");
     for (const button of saveEventOutcomeButtons) {
       button.addEventListener("click", this.#onSaveTravelEventOutcomeClick.bind(this));
+    }
+
+    const saveEventDcButtons = root.querySelectorAll("[data-action='save-travel-event-dc']");
+    for (const button of saveEventDcButtons) {
+      button.addEventListener("click", this.#onSaveTravelEventDcClick.bind(this));
     }
   }
 
@@ -612,6 +627,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const severity = String(formData.get("travelEventSeverity") ?? "minor").trim();
     const eventType = String(formData.get("travelEventType") ?? "other").trim();
     const checkType = String(formData.get("travelEventCheckType") ?? "skill").trim();
+    const dc = parseOptionalDc(formData.get("travelEventDc"));
     const recommendedStation = String(formData.get("travelEventRecommendedStation") ?? "").trim();
     const recommendedSkill = resolveSkillValue(
       formData.get("travelEventRecommendedSkill"),
@@ -633,6 +649,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         recommendedStation,
         recommendedSkill,
         checkType,
+        dc,
         summary,
         notes,
         source: "manual",
@@ -702,6 +719,27 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateTravelEvent?.(eventId, {
         resultSummary: resultSummary || null,
+      });
+    }, event.currentTarget);
+  }
+
+  async #onSaveTravelEventDcClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const eventId = button?.dataset?.eventId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!eventId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-travel-event-id]");
+    const dcInput = row?.querySelector("[name='travelEventDc']");
+    const dc = parseOptionalDc(dcInput?.value);
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateTravelEvent?.(eventId, {
+        dc,
       });
     }, event.currentTarget);
   }

@@ -160,6 +160,19 @@ function normalizeTaskNotes(value) {
   return notes || null;
 }
 
+function normalizeOptionalDc(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return null;
+  }
+
+  return Math.floor(numericValue);
+}
+
 function createMaintenanceIssue(issueOrPartial = {}) {
   const fallbackId = `issue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
@@ -217,6 +230,7 @@ function createTravelEvent(eventOrPartial = {}) {
     recommendedStation: normalizeRecommendedStation(eventOrPartial.recommendedStation),
     recommendedSkill: normalizeRecommendedSkill(eventOrPartial.recommendedSkill),
     checkType: normalizeCheckType(eventOrPartial.checkType),
+    dc: normalizeOptionalDc(eventOrPartial.dc),
     notes: normalizeTaskNotes(eventOrPartial.notes),
     summary: normalizeTaskNotes(eventOrPartial.summary),
     lastAttemptSummary: normalizeTaskNotes(eventOrPartial.lastAttemptSummary),

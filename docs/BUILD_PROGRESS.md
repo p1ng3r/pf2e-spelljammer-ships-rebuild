@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the Arcflight resolved-record visibility and manual outcome-editing slice while keeping the compact Ship Management flow intact.
+Deliver a small Arcflight event-DC fix pass on top of resolved visibility/outcome editing, keeping compact Ship Management flow intact.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -189,6 +189,13 @@ Deliver the Arcflight resolved-record visibility and manual outcome-editing slic
     - travel events (`resultSummary` via `updateTravelEvent`)
   - Existing Attempt Check, Resolve, and Create Task from Event flows remain in place and unchanged in scope.
   - Shared rerender scroll-preservation behavior remains used for the new toggle and outcome-save actions.
+- Arcflight event manual DC field fix pass added:
+  - Travel event shared state now stores explicit manual numeric DC via `dc` (nullable).
+  - Event creation form now accepts optional DC input.
+  - Event rows now display DC clearly in compact metadata.
+  - Event rows now include inline editable DC input + **Save DC** action.
+  - DC editing remains manual-only and does not require Attempt Check.
+  - No automatic DC math and no roll automation were added.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -226,7 +233,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
   - Travel-task rows now hydrate Attempt Check select inputs from those effective values, reducing duplicate GM data entry in the common case.
   - Manual override behavior is unchanged: GM can still change attempted station/skill before clicking **Attempt Check**.
   - Rerender behavior remains stable: selected attempted values continue to display correctly after inline actions, and scroll preservation remains unchanged.
-- `state.addTravelEvent(...)` appends a simple open travel event placeholder (`id`, `title`, `severity`, `eventType`, `status`, `recommendedStation`, `recommendedSkill`, `checkType`, `notes`, `summary`) to Arcflight shared state.
+- `state.addTravelEvent(...)` appends a simple open travel event placeholder (`id`, `title`, `severity`, `eventType`, `status`, `recommendedStation`, `recommendedSkill`, `checkType`, `dc`, `notes`, `summary`) to Arcflight shared state.
 - `state.getTravelEvents()` returns currently open travel events.
 - `state.resolveTravelEvent(eventId)` marks an event as resolved and removes it from the open-events readout.
 - In-app Events controls support manual event creation and one-click event resolution.
@@ -235,6 +242,9 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.attemptTravelEvent(eventId, { attemptedByStation, attemptedSkill, lastAttemptSummary })` marks an event `attempted` and persists manual attempt metadata.
 - In-app event rows support compact manual **Attempt Check** and **Resolve** actions with shared scroll-safe rerender behavior.
 - In-app event rows now present denser scan-friendly metadata while preserving existing manual action flow and state linkage behavior.
+- `state.addTravelEvent({ dc })` stores optional manual event DC when provided.
+- `state.updateTravelEvent(eventId, { dc })` allows manual event DC edits without a new Attempt Check.
+- In-app event rows display and persist manual DC through inline **Save DC**.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.

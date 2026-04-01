@@ -395,6 +395,10 @@
             </select>
           </label>
           <label>
+            <span>DC</span>
+            <input type="number" name="travelEventDc" min="1" step="1" placeholder="Ex: 18" />
+          </label>
+          <label>
             <span>Recommended Station</span>
             <select name="travelEventRecommendedStation">
               <option value="">Unassigned</option>
@@ -448,6 +452,7 @@
                 </div>
                 <div class="travel-event-row__meta-grid">
                   <p><strong>Recommended:</strong> {{#if event.recommendedStationLabel}}{{event.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.recommendedSkill}}{{event.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                  <p><strong>DC:</strong> {{#if event.dcLabel}}{{event.dcLabel}}{{else}}Not set{{/if}}</p>
                   <p><strong>Attempted:</strong> {{#if event.attemptedByStationLabel}}{{event.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.attemptedSkill}}{{event.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>Linked Task:</strong> {{#if event.hasLinkedTask}}{{#if event.linkedTaskTitle}}{{event.linkedTaskTitle}}{{else}}<code>{{event.linkedTaskId}}</code>{{/if}}{{else}}None{{/if}}</p>
                 </div>
@@ -494,12 +499,26 @@
                     placeholder="Editable GM outcome text"
                   />
                 </label>
+                <label>
+                  <span>DC</span>
+                  <input
+                    type="number"
+                    name="travelEventDc"
+                    min="1"
+                    step="1"
+                    value="{{event.dcLabel}}"
+                    placeholder="Event DC"
+                  />
+                </label>
                 <div class="travel-event-row__actions">
                   <button type="button" data-action="attempt-travel-event" data-event-id="{{event.id}}">
                     Attempt Check
                   </button>
                   <button type="button" data-action="save-travel-event-outcome" data-event-id="{{event.id}}">
                     Save Outcome
+                  </button>
+                  <button type="button" data-action="save-travel-event-dc" data-event-id="{{event.id}}">
+                    Save DC
                   </button>
                   <button
                     type="button"
