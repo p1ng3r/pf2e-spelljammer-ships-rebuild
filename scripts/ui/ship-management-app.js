@@ -202,6 +202,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         recommendedSkillLabel: skillLabelsByValue[task.recommendedSkill] ?? toReadableSlugLabel(task.recommendedSkill),
         attemptedByStationLabel: stationLabelsById[task.attemptedByStation] ?? null,
         attemptedSkillLabel: skillLabelsByValue[task.attemptedSkill] ?? toReadableSlugLabel(task.attemptedSkill),
+        dcLabel: Number.isFinite(Number(task.dc)) ? Math.floor(Number(task.dc)) : null,
         effectiveAttemptedByStation: stationAttemptValue.value,
         effectiveAttemptedSkill: skillAttemptValue.value,
         attemptUsesRecommendedDefaults: stationAttemptValue.usesRecommendedDefault || skillAttemptValue.usesRecommendedDefault,
@@ -280,6 +281,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
           checkTypeLabel: toReadableSlugLabel(issue.checkType),
           recommendedStationLabel: stationLabelsById[issue.recommendedStation] ?? null,
           recommendedSkillLabel: skillLabelsByValue[issue.recommendedSkill] ?? toReadableSlugLabel(issue.recommendedSkill),
+          dcLabel: Number.isFinite(Number(issue.dc)) ? Math.floor(Number(issue.dc)) : null,
           outcomeTagOptions: outcomeTagOptions.map((outcomeTag) => ({
             ...outcomeTag,
             selected: outcomeTag.value === (issue.outcomeTag ?? "none"),
@@ -405,6 +407,16 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     for (const button of saveEventDcButtons) {
       button.addEventListener("click", this.#onSaveTravelEventDcClick.bind(this));
     }
+
+    const saveTaskDcButtons = root.querySelectorAll("[data-action='save-travel-task-dc']");
+    for (const button of saveTaskDcButtons) {
+      button.addEventListener("click", this.#onSaveTravelTaskDcClick.bind(this));
+    }
+
+    const saveIssueDcButtons = root.querySelectorAll("[data-action='save-maintenance-issue-dc']");
+    for (const button of saveIssueDcButtons) {
+      button.addEventListener("click", this.#onSaveMaintenanceIssueDcClick.bind(this));
+    }
   }
 
   async #onAdvanceDayClick(event) {
@@ -504,6 +516,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const taskType = String(formData.get("issueTaskType") ?? "maintenance").trim();
     const checkType = String(formData.get("issueCheckType") ?? "skill").trim();
     const notes = String(formData.get("issueNotes") ?? "").trim();
+    const dc = parseOptionalDc(formData.get("issueDc"));
 
     if (!title) {
       return;
@@ -519,6 +532,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         checkType,
         recommendedStation,
         recommendedSkill,
+        dc,
         notes,
       });
     }, event.currentTarget);
@@ -545,6 +559,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       formData.get("travelTaskRecommendedSkillCustom"),
     );
     const summary = String(formData.get("travelTaskSummary") ?? "").trim();
+    const dc = parseOptionalDc(formData.get("travelTaskDc"));
 
     if (!title) {
       return;
@@ -557,6 +572,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         checkType,
         recommendedStation,
         recommendedSkill,
+        dc,
         summary,
         source: "manual",
         status: "open",
@@ -782,6 +798,27 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }, event.currentTarget);
   }
 
+  async #onSaveTravelTaskDcClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const taskId = button?.dataset?.taskId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!taskId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-travel-task-id]");
+    const dcInput = row?.querySelector("[name='travelTaskDc']");
+    const dc = parseOptionalDc(dcInput?.value);
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateTravelTask?.(taskId, {
+        dc,
+      });
+    }, event.currentTarget);
+  }
+
   async #onCreateTaskFromEventClick(event) {
     event.preventDefault();
 
@@ -817,6 +854,27 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       await stateApi.updateMaintenanceIssue?.(issueId, {
         resultSummary: resultSummary || null,
         outcomeTag,
+      });
+    }, event.currentTarget);
+  }
+
+  async #onSaveMaintenanceIssueDcClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const issueId = button?.dataset?.issueId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!issueId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-maintenance-issue-id]");
+    const dcInput = row?.querySelector("[name='maintenanceIssueDc']");
+    const dc = parseOptionalDc(dcInput?.value);
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateMaintenanceIssue?.(issueId, {
+        dc,
       });
     }, event.currentTarget);
   }

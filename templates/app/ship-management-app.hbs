@@ -171,6 +171,10 @@
             <span>Summary</span>
             <input type="text" name="travelTaskSummary" placeholder="Quick notes for table handling" />
           </label>
+          <label>
+            <span>DC</span>
+            <input type="number" name="travelTaskDc" min="1" step="1" placeholder="Ex: 18" />
+          </label>
           <button type="submit">Add Travel Task</button>
         </form>
 
@@ -195,6 +199,7 @@
                 <div class="travel-record-row__meta-grid">
                   <p><strong>Recommended:</strong> {{#if task.recommendedStationLabel}}{{task.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if task.recommendedSkill}}{{task.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>Attempted:</strong> {{#if task.attemptedByStationLabel}}{{task.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if task.attemptedSkill}}{{task.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                  <p><strong>DC:</strong> {{#if task.dcLabel}}{{task.dcLabel}}{{else}}Not set{{/if}}</p>
                 </div>
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{task.outcomeSummaryLabel}}</p>
                 <div class="travel-task-attempt-controls">
@@ -230,6 +235,17 @@
                   />
                 </label>
                 <label>
+                  <span>DC</span>
+                  <input
+                    type="number"
+                    name="travelTaskDc"
+                    min="1"
+                    step="1"
+                    value="{{task.dcLabel}}"
+                    placeholder="Task DC"
+                  />
+                </label>
+                <label>
                   <span>Outcome</span>
                   <input
                     type="text"
@@ -253,6 +269,9 @@
                 </button>
                 <button type="button" data-action="save-travel-task-outcome" data-task-id="{{task.id}}">
                   Save Outcome
+                </button>
+                <button type="button" data-action="save-travel-task-dc" data-task-id="{{task.id}}">
+                  Save DC
                 </button>
                 <button type="button" data-action="resolve-travel-task" data-task-id="{{task.id}}">
                   Resolve
@@ -324,6 +343,10 @@
             <span>Notes</span>
             <input type="text" name="issueNotes" placeholder="Optional table notes" />
           </label>
+          <label>
+            <span>DC</span>
+            <input type="number" name="issueDc" min="1" step="1" placeholder="Ex: 18" />
+          </label>
           <button type="submit">Add Issue</button>
         </form>
         <label>
@@ -352,8 +375,20 @@
                 </div>
                 <div class="travel-record-row__meta-grid">
                   <p><strong>Recommended:</strong> {{#if issue.recommendedStationLabel}}{{issue.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if issue.recommendedSkill}}{{issue.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                  <p><strong>DC:</strong> {{#if issue.dcLabel}}{{issue.dcLabel}}{{else}}Not set{{/if}}</p>
                 </div>
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{issue.outcomeSummaryLabel}}</p>
+                <label>
+                  <span>DC</span>
+                  <input
+                    type="number"
+                    name="maintenanceIssueDc"
+                    min="1"
+                    step="1"
+                    value="{{issue.dcLabel}}"
+                    placeholder="Issue DC"
+                  />
+                </label>
                 <label>
                   <span>Outcome</span>
                   <input
@@ -375,6 +410,9 @@
                 </label>
                 <button type="button" data-action="save-maintenance-issue-outcome" data-issue-id="{{issue.id}}">
                   Save Outcome
+                </button>
+                <button type="button" data-action="save-maintenance-issue-dc" data-issue-id="{{issue.id}}">
+                  Save DC
                 </button>
                 <button type="button" data-action="resolve-maintenance-issue" data-issue-id="{{issue.id}}">
                   Resolve
