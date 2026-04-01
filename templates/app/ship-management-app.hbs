@@ -57,6 +57,33 @@
         </div>
       </section>
 
+      <section class="travel-route">
+        <h5>Route / Destination</h5>
+        <form data-action="route-leg-form">
+          <label>
+            <span>Destination</span>
+            <input type="text" name="destination" value="{{travelState.destination}}" placeholder="Ex: Azure Ring Gate" />
+          </label>
+          <label>
+            <span>Leg Distance (hexes)</span>
+            <input type="number" name="legDistance" min="1" step="1" value="{{travelState.legDistance}}" />
+          </label>
+          <label>
+            <span>Leg Target Progress</span>
+            <input type="number" name="legProgressMax" min="1" step="1" value="{{travelState.legProgressMax}}" />
+          </label>
+          <button type="submit">Save Route Leg</button>
+        </form>
+        <p><strong>Leg Progress Status:</strong> {{routeStatus.legProgress}} / {{routeStatus.legTarget}}</p>
+        <p><strong>Leg Status:</strong>
+          {{#if routeStatus.legComplete}}
+            <span>Leg Complete</span>
+          {{else}}
+            <span>In Progress</span>
+          {{/if}}
+        </p>
+      </section>
+
       <p><strong>Days Elapsed:</strong> {{travelState.daysElapsed}}</p>
       <p><strong>Current Hex:</strong>
         {{#if travelState.currentHex}}

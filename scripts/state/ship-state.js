@@ -30,12 +30,32 @@ function clampPressure(value) {
   return Math.max(0, Math.min(100, value));
 }
 
+function normalizePositiveNumber(value, fallback) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return fallback;
+  }
+
+  return numericValue;
+}
+
+export function isTravelLegComplete(travelState) {
+  const legProgressMax = normalizePositiveNumber(travelState?.legProgressMax, 0);
+  if (legProgressMax <= 0) {
+    return false;
+  }
+
+  return (travelState?.legProgress ?? 0) >= legProgressMax;
+}
+
 function createDefaultArcflightState() {
   return {
     term: TRAVEL_TERM,
     posture: "standard",
     currentHex: null,
     destination: null,
+    legDistance: 1,
+    legProgressMax: 1,
     daysElapsed: 0,
     daysIntoCurrentLeg: 0,
     progressPerDay: 1,
@@ -193,11 +213,42 @@ export function getTravelState(index, options = {}) {
 }
 
 export function updateTravelState(index, updaterOrPartial, options = {}) {
-  return updateShipState(index, (nextState) => {
-    const currentTravelState = nextState.arcflight ?? createDefaultArcflightState();
-    nextState.arcflight = applyTravelStatePatch(currentTravelState, updaterOrPartial);
-    return nextState;
-  }, options);
+  return updateShipState(
+    index,
+    (nextState) => {
+      const currentTravelState = nextState.arcflight ?? createDefaultArcflightState();
+      nextState.arcflight = applyTravelStatePatch(currentTravelState, updaterOrPartial);
+      return nextState;
+    },
+    options,
+  );
+}
+
+export function setTravelDestination(index, destination, options = {}) {
+  const nextDestination = typeof destination === "string" ? destination.trim() : "";
+
+  return updateTravelState(
+    index,
+    {
+      destination: nextDestination || null,
+    },
+    options,
+  );
+}
+
+export function setTravelLeg(index, { legDistance, legProgressMax } = {}, options = {}) {
+  return updateTravelState(
+    index,
+    (travelState) => ({
+      ...travelState,
+      legDistance: normalizePositiveNumber(legDistance, normalizePositiveNumber(travelState.legDistance, 1)),
+      legProgressMax: normalizePositiveNumber(
+        legProgressMax,
+        normalizePositiveNumber(travelState.legProgressMax, 1),
+      ),
+    }),
+    options,
+  );
 }
 
 export function advanceTravelDay(index, options = {}) {

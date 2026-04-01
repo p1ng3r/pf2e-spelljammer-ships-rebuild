@@ -7,6 +7,8 @@ import {
   updateShipState,
   getTravelState,
   updateTravelState,
+  setTravelDestination,
+  setTravelLeg,
   advanceTravelDay,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
@@ -155,6 +157,9 @@ export function createModuleApi() {
       getTravelState: (options) => getTravelState(shipStateIndex, options),
       updateTravelState: (updaterOrPartial, options) =>
         updateTravelState(shipStateIndex, updaterOrPartial, options),
+      setTravelDestination: (destination, options) =>
+        setTravelDestination(shipStateIndex, destination, options),
+      setTravelLeg: (legPatch, options) => setTravelLeg(shipStateIndex, legPatch, options),
       advanceTravelDay: (options) => advanceTravelDay(shipStateIndex, options),
       setTravelPosture,
       travelPostures: TRAVEL_POSTURES,
