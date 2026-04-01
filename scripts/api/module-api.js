@@ -35,6 +35,12 @@ import {
   getStationRollAttempts,
   getLatestStationRollAttempt,
   recordStationRollAttempt,
+  getArcflightTemplates,
+  getArcflightTemplateById,
+  createArcflightTemplate,
+  spawnArcflightTemplateInstance,
+  getArcflightLogEntries,
+  addArcflightLogEntry,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
@@ -369,6 +375,20 @@ export function createModuleApi() {
       recordStationRollAttempt: wrapStateMutation(
         (attemptOrPartial, options) => recordStationRollAttempt(shipStateIndex, attemptOrPartial, options),
         { source: "recordStationRollAttempt" },
+      ),
+      getArcflightTemplates: (options) => getArcflightTemplates(shipStateIndex, options),
+      getArcflightTemplateById: (templateId, options) =>
+        getArcflightTemplateById(shipStateIndex, templateId, options),
+      createArcflightTemplate,
+      spawnArcflightTemplateInstance: wrapStateMutation(
+        (templateOrId, instancePatch, options) =>
+          spawnArcflightTemplateInstance(shipStateIndex, templateOrId, instancePatch, options),
+        { source: "spawnArcflightTemplateInstance" },
+      ),
+      getArcflightLogEntries: (options) => getArcflightLogEntries(shipStateIndex, options),
+      addArcflightLogEntry: wrapStateMutation(
+        (entryOrPartial, options) => addArcflightLogEntry(shipStateIndex, entryOrPartial, options),
+        { source: "addArcflightLogEntry" },
       ),
       setTravelPosture,
       travelPostures: TRAVEL_POSTURES,
