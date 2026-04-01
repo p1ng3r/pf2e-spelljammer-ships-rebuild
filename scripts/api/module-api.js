@@ -50,6 +50,20 @@ function assertPf2eVehicleActor(actorOrId) {
   return actor;
 }
 
+function getActorLaunchErrorMessage(error) {
+  const fallback = "Could not open Ship Management for that actor.";
+  if (!error?.message) {
+    return fallback;
+  }
+
+  const separatorIndex = error.message.indexOf("|");
+  if (separatorIndex < 0) {
+    return error.message;
+  }
+
+  return error.message.slice(separatorIndex + 1).trim();
+}
+
 function getActiveShipId() {
   return shipStateIndex.activeShipId;
 }
@@ -92,8 +106,15 @@ export function createModuleApi() {
   };
 
   const openShipManagementForVehicleActor = (actorOrId, options = {}) => {
-    initializeShipStateForVehicleActor(actorOrId, { ...options, setActive: true });
-    return openShipManagement();
+    try {
+      initializeShipStateForVehicleActor(actorOrId, { ...options, setActive: true });
+      return openShipManagement();
+    } catch (error) {
+      const uiMessage = getActorLaunchErrorMessage(error);
+      ui.notifications?.error(uiMessage);
+      console.warn(`${MODULE_ID} | ${uiMessage}`, error);
+      return null;
+    }
   };
 
   return {
