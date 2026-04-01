@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver an Arcflight crew-check polish pass that replaces free-text recommendation entry with compact controlled selects while keeping manual task/issue creation.
+Deliver the first Arcflight travel-task manual attempt/resolve vertical slice with compact GM controls and no roll automation.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -69,6 +69,22 @@ Deliver an Arcflight crew-check polish pass that replaces free-text recommendati
     - `recommendedStation` stores station id (`captain`, `aetherwright`, etc.)
     - `recommendedSkill` stores lowercase PF2E skill slug (or custom lowercase slug text)
   - In-app list display now resolves readable labels from stable stored values.
+- Arcflight travel-task attempt/resolve scaffold pass added:
+  - Travel tasks now support a lightweight status flow: `open` -> `attempted` -> `resolved`.
+  - Travel tasks now support lightweight attempt/result fields:
+    - `lastAttemptSummary`
+    - `attemptedByStation`
+    - `attemptedSkill`
+    - `resultSummary`
+  - Added explicit travel-task API helpers in shared state/API:
+    - `updateTravelTask(taskId, taskPatch, options?)`
+    - `attemptTravelTask(taskId, attemptPatch, options?)`
+    - `resolveTravelTask(taskId, options?)`
+  - Ship Management now includes compact per-task actions:
+    - **Attempt Check** (manual placeholder write)
+    - **Resolve** (manual completion)
+    - inline attempt/result summary input
+  - Maintenance issue resolution flow remains unchanged and separate from travel-task completion flow.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -94,6 +110,9 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - In-app task controls support manual station/skill recommendations while issue resolution remains manual.
 - Travel Task and Maintenance Issue forms accept recommended station/skill/task/check values through select controls instead of free text.
 - Added tasks/issues persist stable station ids and skill slugs in shared state while displaying readable labels in the app.
+- `state.attemptTravelTask(taskId, { lastAttemptSummary })` marks a task `attempted` and records a lightweight manual summary.
+- `state.resolveTravelTask(taskId)` marks a task `resolved`.
+- In-app travel task rows support compact manual **Attempt Check** and **Resolve** actions without roll/DC automation.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -101,6 +120,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Maintenance pressure remains a separate placeholder value from explicit maintenance issue entries.
 - Travel and maintenance records now carry lightweight crew-check recommendation metadata only (no automated rolling).
 - Crew-check recommendation entry is now select-driven for cleaner GM data entry and reduced typo cleanup.
+- Travel tasks now also support lightweight manual attempt/result tracking with explicit status progression.
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
@@ -111,13 +131,14 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 ## Next Recommended Pass
 Keep Arcflight focused and incremental:
 - table-test whether select-driven station/skill/task/check fields are sufficient for GM adjudication before adding check execution helpers
-- add minimal completion/archive handling for travel tasks if table use needs history visibility
+- table-test whether open/attempted/resolved status flow is sufficient before adding archive/history UX
 - continue deferring automation-heavy subsystems (rolling, event generation, deep maintenance simulation)
 
 ## Known Issues / Cleanup
 - Decide whether sector naming should use `currentSector` in parallel with `currentHex` or stay hex-only for now.
 - Keep pressure fields as placeholders until core travel loop behavior is table-tested.
 - Decide later whether resolved issues should be archived instead of removed after the first playable validation loop.
+- Decide later whether resolved travel tasks should be shown via a compact archive toggle.
 - Keep app UX intentionally lightweight until travel loop behavior is validated.
 
 ## Pass History
@@ -133,3 +154,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight maintenance placeholder pass**: shared maintenance issue list + simple API helpers + compact Ship Management maintenance controls.
 - **Arcflight crew-check scaffold pass**: travel task list + maintenance task metadata + compact station/skill guidance readout in Ship Management.
 - **Arcflight crew-check polish pass**: compact select controls for station/skill/task/check metadata with stable station-id and skill-slug storage.
+- **Arcflight travel-task attempt/resolve scaffold pass**: manual travel-task Attempt Check + Resolve controls with lightweight attempted-status tracking.

@@ -167,11 +167,27 @@
         {{#if travelTasks.hasTasks}}
           <ul>
             {{#each travelTasks.tasks as |task|}}
-              <li>
+              <li data-travel-task-id="{{task.id}}">
                 <strong>{{task.title}}</strong>
+                <span>- <strong>Status:</strong> {{task.statusLabel}}</span>
                 <span>({{task.taskTypeLabel}} / {{task.checkTypeLabel}})</span>
                 <span>- {{#if task.recommendedStationLabel}}{{task.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
                 <span>- {{#if task.recommendedSkill}}{{task.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
+                <label>
+                  <span>Attempt / Result Summary</span>
+                  <input
+                    type="text"
+                    name="travelTaskAttemptSummary"
+                    value="{{#if task.lastAttemptSummary}}{{task.lastAttemptSummary}}{{else}}{{task.summary}}{{/if}}"
+                    placeholder="Manual attempt notes"
+                  />
+                </label>
+                <button type="button" data-action="attempt-travel-task" data-task-id="{{task.id}}">
+                  Attempt Check
+                </button>
+                <button type="button" data-action="resolve-travel-task" data-task-id="{{task.id}}">
+                  Resolve
+                </button>
               </li>
             {{/each}}
           </ul>

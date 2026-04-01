@@ -12,6 +12,9 @@ import {
   advanceTravelDay,
   getTravelTasks,
   addTravelTask,
+  updateTravelTask,
+  attemptTravelTask,
+  resolveTravelTask,
   getMaintenanceIssues,
   addMaintenanceIssue,
   updateMaintenanceIssue,
@@ -170,6 +173,11 @@ export function createModuleApi() {
       advanceTravelDay: (options) => advanceTravelDay(shipStateIndex, options),
       getTravelTasks: (options) => getTravelTasks(shipStateIndex, options),
       addTravelTask: (taskOrPartial, options) => addTravelTask(shipStateIndex, taskOrPartial, options),
+      updateTravelTask: (taskId, taskPatch, options) =>
+        updateTravelTask(shipStateIndex, taskId, taskPatch, options),
+      attemptTravelTask: (taskId, attemptPatch, options) =>
+        attemptTravelTask(shipStateIndex, taskId, attemptPatch, options),
+      resolveTravelTask: (taskId, options) => resolveTravelTask(shipStateIndex, taskId, options),
       getMaintenanceIssues: (options) => getMaintenanceIssues(shipStateIndex, options),
       addMaintenanceIssue: (issueOrPartial, options) =>
         addMaintenanceIssue(shipStateIndex, issueOrPartial, options),
