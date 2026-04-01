@@ -378,3 +378,29 @@ Keep Arcflight focused and incremental:
 - Tightened target resolution behavior in Player Arcflight app:
   - when explicit `actorId` or `shipId` is provided but no matching ship state exists, the app now shows no state instead of silently falling back to active ship.
   - active-ship fallback remains only for launches without explicit target context.
+
+## Player Arcflight station briefing pass (2026-04-01)
+- Extended the player-facing Arcflight translation layer with an explicit station prompt view model:
+  - `stationPrompts: [{ stationId, stationLabel, items: [...] }]`
+  - each `items[]` entry includes compact player-safe text:
+    - `title`
+    - `sourceLabel`
+    - `statusText`
+    - `urgencyText`
+    - `happeningText`
+    - `mattersText`
+    - `roleActionText`
+- Player Arcflight view now includes a read-only **Station Briefings** section showing station-specific priorities.
+- Station prompt records are derived from unresolved/open Arcflight records in shared state:
+  - unresolved travel events
+  - unresolved maintenance issues
+  - open/attempted travel tasks
+- Station briefings prioritize unresolved or underway items by simple player-facing urgency ordering:
+  - open before attempted
+  - critical/major before moderate/minor
+- Station briefings only show stations that currently have relevant prompts (no empty full-roster grid yet).
+- GM/internal admin fields remain hidden in player view:
+  - no `dc`
+  - no `outcomeTag`
+  - no `linkedTaskId` / `hasLinkedTask`
+  - no internal notes/metadata fields or raw GM workflow controls

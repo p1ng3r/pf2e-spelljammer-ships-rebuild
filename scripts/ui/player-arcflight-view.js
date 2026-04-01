@@ -85,6 +85,91 @@ function mapPrompt(record, stationLabelsById, skillLabelsByValue) {
   return `Any station: ${skillLabel}`;
 }
 
+function toSourceLabel(source) {
+  if (source === "event") {
+    return "Situation";
+  }
+
+  if (source === "issue") {
+    return "Ship problem";
+  }
+
+  return "Crew response";
+}
+
+function toPriorityWeight(record) {
+  const status = String(record?.status ?? "open").trim().toLowerCase();
+  const severity = String(record?.severity ?? "minor").trim().toLowerCase();
+
+  const statusWeight = status === "open" ? 0 : status === "attempted" ? 1 : 2;
+  const severityWeight = severity === "critical" ? 0 : severity === "major" ? 1 : severity === "moderate" ? 2 : 3;
+
+  return statusWeight * 10 + severityWeight;
+}
+
+function toRoleActionLine(record, stationLabel, skillLabel) {
+  const summaryText = toText(record.publicSummary, "No public details yet.");
+
+  if (skillLabel) {
+    return `${stationLabel} should lead with ${skillLabel} while this is active. ${summaryText}`;
+  }
+
+  return `${stationLabel} should take point while this is active. ${summaryText}`;
+}
+
+function buildStationPromptItems(record, stationLabelsById, skillLabelsByValue) {
+  const stationId = String(record?.recommendedStation ?? "").trim();
+  if (!stationId || !stationLabelsById[stationId]) {
+    return null;
+  }
+
+  const stationLabel = stationLabelsById[stationId];
+  const skillLabel = record?.recommendedSkill
+    ? skillLabelsByValue[record.recommendedSkill] ?? toLabel(record.recommendedSkill)
+    : null;
+
+  return {
+    stationId,
+    stationLabel,
+    item: {
+      title: toText(record.title, "Unnamed duty"),
+      sourceLabel: toSourceLabel(record.source),
+      statusText: toStatusText(record.status),
+      urgencyText: toUrgencyText(record.severity),
+      happeningText: toText(record.publicSummary, "No public details yet."),
+      mattersText: toText(record.publicOutcome, "Outcome still uncertain."),
+      roleActionText: toRoleActionLine(record, stationLabel, skillLabel),
+      priorityWeight: toPriorityWeight(record),
+    },
+  };
+}
+
+function buildStationPrompts(records, stationLabelsById, skillLabelsByValue) {
+  const promptsByStation = {};
+
+  for (const record of records) {
+    const stationPromptItem = buildStationPromptItems(record, stationLabelsById, skillLabelsByValue);
+    if (!stationPromptItem) {
+      continue;
+    }
+
+    const existing = promptsByStation[stationPromptItem.stationId] ?? {
+      stationId: stationPromptItem.stationId,
+      stationLabel: stationPromptItem.stationLabel,
+      items: [],
+    };
+    existing.items.push(stationPromptItem.item);
+    promptsByStation[stationPromptItem.stationId] = existing;
+  }
+
+  return STATIONS.map((station) => promptsByStation[station.id])
+    .filter((stationPrompt) => stationPrompt?.items?.length)
+    .map((stationPrompt) => ({
+      ...stationPrompt,
+      items: stationPrompt.items.sort((left, right) => left.priorityWeight - right.priorityWeight),
+    }));
+}
+
 function hasExplicitShipContext(shipContext) {
   return Boolean(String(shipContext?.shipId ?? "").trim() || String(shipContext?.actorId ?? "").trim());
 }
@@ -167,6 +252,11 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     const responseTasks = (Array.isArray(travelState.travelTasks) ? travelState.travelTasks : []).filter(
       (taskRecord) => taskRecord?.status === "open" || taskRecord?.status === "attempted",
     );
+    const stationPromptSourceRecords = [
+      ...openEvents.map((eventRecord) => ({ ...eventRecord, source: "event" })),
+      ...openIssues.map((issueRecord) => ({ ...issueRecord, source: "issue" })),
+      ...responseTasks.map((taskRecord) => ({ ...taskRecord, source: "task" })),
+    ];
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -194,6 +284,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         riskText: toText(taskRecord.publicOutcome, "Outcome still uncertain."),
         promptText: mapPrompt(taskRecord, stationLabelsById, skillLabelsByValue),
       })),
+      stationPrompts: buildStationPrompts(stationPromptSourceRecords, stationLabelsById, skillLabelsByValue),
     };
   }
 }
