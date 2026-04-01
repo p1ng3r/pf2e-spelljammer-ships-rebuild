@@ -1,7 +1,13 @@
+import { attachModuleApi } from "./api/module-api.js";
+import { MODULE_ID, MODULE_TITLE } from "./config/constants.js";
+
 Hooks.once("init", () => {
-  console.log("PF2E Spelljammer Ships Rebuild | init");
+  console.log(`${MODULE_TITLE} | init`);
 });
 
 Hooks.once("ready", () => {
-  console.log("PF2E Spelljammer Ships Rebuild | ready");
+  const api = attachModuleApi();
+
+  console.log(`${MODULE_TITLE} | ready`);
+  console.log(`${MODULE_TITLE} | API attached to game.${MODULE_ID}`, api);
 });

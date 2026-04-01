@@ -1,0 +1,25 @@
+<section class="pf2e-sj-ship-management">
+  <header>
+    <h2>{{moduleTitle}}</h2>
+    <p>Ship Management foundation shell.</p>
+  </header>
+
+  {{#if hasShipState}}
+    <article>
+      <h3>{{shipState.identity.name}}</h3>
+      <p><strong>Travel Term:</strong> {{shipState.arcflight.term}}</p>
+      <p><strong>Level:</strong> {{shipState.identity.level}}</p>
+
+      <h4>Stations</h4>
+      <ul>
+        {{#each stationRoster as |stationName|}}
+          <li>{{stationName}}</li>
+        {{/each}}
+      </ul>
+
+      <p>This UI is intentionally minimal for the first clean foundation pass.</p>
+    </article>
+  {{else}}
+    <p>No ship state available.</p>
+  {{/if}}
+</section>
