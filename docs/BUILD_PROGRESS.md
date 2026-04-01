@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the first GM-built Arcflight event placeholder slice so voyage events can be tracked with the same structured scaffold style as travel tasks and maintenance issues.
+Deliver the Arcflight GM event-to-task linkage slice so an event can act as a compact narrative wrapper that creates one linked operational follow-up task.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -118,6 +118,21 @@ Deliver the first GM-built Arcflight event placeholder slice so voyage events ca
     - compact list of current open events
     - per-event manual **Resolve** action
   - Events remain manual placeholders only; no random generation or roll execution added.
+- Arcflight event-linked task workflow pass added:
+  - Travel event records now include lightweight relationship fields:
+    - `linkedTaskId`
+    - `hasLinkedTask`
+  - Added explicit event/task linkage helpers in shared state/API:
+    - `linkTravelEventToTask(eventId, taskId, options?)`
+    - `createTravelTaskFromEvent(eventId, taskOptions?, options?)`
+  - `createTravelTaskFromEvent` creates a separate travel-task record with compact defaults inherited from the source event:
+    - title derived from event title (`"<event title> Response Task"`)
+    - recommended station
+    - recommended skill
+    - check type
+    - summary/notes
+  - Default behavior prevents duplicate linked-task creation for an event that already has a `linkedTaskId`.
+  - Ship Management Events rows now include a compact **Create Task** action and lightweight linked-task status display.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -159,6 +174,8 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.getTravelEvents()` returns currently open travel events.
 - `state.resolveTravelEvent(eventId)` marks an event as resolved and removes it from the open-events readout.
 - In-app Events controls support manual event creation and one-click event resolution.
+- `state.createTravelTaskFromEvent(eventId)` creates one linked follow-up travel task from an event using event-driven defaults.
+- Event rows display whether a linked task exists and disable **Create Task** when already linked.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -170,17 +187,19 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - Travel-task manual Attempt Check now captures who attempted a check (station + skill) in compact row-level controls.
 - Travel-task Attempt Check attribution now defaults from recommended station/skill when attempted values are unset, while preserving the state distinction between recommendation and actual attempt metadata.
 - Travel events are now tracked as a separate manual placeholder list in the same shared Arcflight state model used by travel tasks and maintenance issues.
+- Travel events and travel tasks remain separate objects with only lightweight event-to-task linking metadata (`linkedTaskId`, `hasLinkedTask`).
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
 - Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
 - Travel events are manual placeholders only (no procedural generation yet).
+- Event-to-task linking remains lightweight and GM-directed (no archive graph, no relationship engine).
 - No travel randomization or encounter tables yet.
 - No real combat mechanics yet.
 - No upgrades/cargo/reputation systems yet.
 
 ## Next Recommended Pass
 Keep Arcflight focused and incremental:
-- table-test whether select-driven station/skill/task/check fields are sufficient for GM adjudication before adding check execution helpers
+- table-test whether event-to-task linkage defaults are sufficient or need small per-click override options
 - table-test whether open/attempted/resolved status flow is sufficient before adding archive/history UX
 - continue deferring automation-heavy subsystems (rolling, event generation, deep maintenance simulation)
 
@@ -189,6 +208,7 @@ Keep Arcflight focused and incremental:
 - Keep pressure fields as placeholders until core travel loop behavior is table-tested.
 - Decide later whether resolved issues should be archived instead of removed after the first playable validation loop.
 - Decide later whether resolved travel tasks should be shown via a compact archive toggle.
+- Decide later whether to allow optional multi-task follow-ups per event behind an explicit GM setting.
 - Keep app UX intentionally lightweight until travel loop behavior is validated.
 
 ## Pass History
@@ -207,3 +227,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight travel-task attempt/resolve scaffold pass**: manual travel-task Attempt Check + Resolve controls with lightweight attempted-status tracking.
 - **Arcflight travel-task UX pass**: scroll-position preservation for inline rerenders plus compact attempted-by station/skill capture in Attempt Check flow.
 - **Arcflight travel-event placeholder pass**: manual shared-state event list + state/API event helpers + compact Ship Management Events controls.
+- **Arcflight event-linked task workflow pass**: lightweight event/task relationship fields + `createTravelTaskFromEvent` helper + compact per-event **Create Task** UI action.
