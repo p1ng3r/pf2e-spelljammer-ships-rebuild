@@ -22,6 +22,32 @@
       </section>
 
       <section>
+        <h4>Station Briefings</h4>
+        {{#if stationPrompts.length}}
+          <ul>
+            {{#each stationPrompts as |stationPrompt|}}
+              <li>
+                <strong>{{stationPrompt.stationLabel}}</strong>
+                <ul>
+                  {{#each stationPrompt.items as |item|}}
+                    <li>
+                      <strong>{{item.title}}</strong>
+                      <p><strong>Type:</strong> {{item.sourceLabel}} · {{item.statusText}} · {{item.urgencyText}}</p>
+                      <p><strong>What is happening:</strong> {{item.happeningText}}</p>
+                      <p><strong>Why it matters:</strong> {{item.mattersText}}</p>
+                      <p><strong>Your station focus:</strong> {{item.roleActionText}}</p>
+                    </li>
+                  {{/each}}
+                </ul>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No station-specific priorities right now.</em></p>
+        {{/if}}
+      </section>
+
+      <section>
         <h4>Active Situations</h4>
         {{#if activeSituations.length}}
           <ul>
