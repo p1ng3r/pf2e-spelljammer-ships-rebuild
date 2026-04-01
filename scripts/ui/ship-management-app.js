@@ -2,6 +2,7 @@ import { API_NAMESPACE, MODULE_ID, MODULE_TITLE, STATIONS } from "../config/cons
 import {
   CREW_CHECK_TYPES,
   CREW_TASK_TYPES,
+  MANUAL_OUTCOME_TAGS,
   PF2E_CORE_SKILLS,
   TRAVEL_EVENT_TYPES,
 } from "../state/ship-state.js";
@@ -63,6 +64,16 @@ function toEventOutcomeSummaryLabel(eventRecord) {
   }
 
   return "No outcome recorded yet.";
+}
+
+function toOutcomeTagLabel(outcomeTag) {
+  const normalizedTag = String(outcomeTag ?? "none").trim().toLowerCase() || "none";
+  const match = MANUAL_OUTCOME_TAGS.find((tag) => tag.value === normalizedTag);
+  return match?.label ?? "None";
+}
+
+function toOutcomeSummaryLabel(record) {
+  return toEventOutcomeSummaryLabel(record);
 }
 
 function resolveSkillValue(selectedSkill, customSkill) {
@@ -166,6 +177,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       value: eventType.value,
       label: eventType.label,
     }));
+    const outcomeTagOptions = MANUAL_OUTCOME_TAGS.map((outcomeTag) => ({
+      value: outcomeTag.value,
+      label: outcomeTag.label,
+    }));
     const stationLabelsById = STATIONS.reduce((accumulator, station) => {
       accumulator[station.id] = station.label;
       return accumulator;
@@ -190,6 +205,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         effectiveAttemptedByStation: stationAttemptValue.value,
         effectiveAttemptedSkill: skillAttemptValue.value,
         attemptUsesRecommendedDefaults: stationAttemptValue.usesRecommendedDefault || skillAttemptValue.usesRecommendedDefault,
+        outcomeTagOptions: outcomeTagOptions.map((outcomeTag) => ({
+          ...outcomeTag,
+          selected: outcomeTag.value === (task.outcomeTag ?? "none"),
+        })),
+        outcomeTagLabel: toOutcomeTagLabel(task.outcomeTag),
+        outcomeSummaryLabel: toOutcomeSummaryLabel(task),
       };
     });
     const travelTasksById = travelTasks.reduce((accumulator, task) => {
@@ -229,7 +250,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
           travelEvent.lastAttemptSummary || travelEvent.summary,
           "No attempt summary recorded yet.",
         ),
-        outcomeSummaryLabel: toEventOutcomeSummaryLabel(travelEvent),
+        outcomeTagOptions: outcomeTagOptions.map((outcomeTag) => ({
+          ...outcomeTag,
+          selected: outcomeTag.value === (travelEvent.outcomeTag ?? "none"),
+        })),
+        outcomeTagLabel: toOutcomeTagLabel(travelEvent.outcomeTag),
+        outcomeSummaryLabel: toOutcomeSummaryLabel(travelEvent),
       };
     });
 
@@ -254,7 +280,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
           checkTypeLabel: toReadableSlugLabel(issue.checkType),
           recommendedStationLabel: stationLabelsById[issue.recommendedStation] ?? null,
           recommendedSkillLabel: skillLabelsByValue[issue.recommendedSkill] ?? toReadableSlugLabel(issue.recommendedSkill),
-          outcomeSummaryLabel: toSentenceOrFallback(issue.resultSummary, "No outcome recorded yet."),
+          outcomeTagOptions: outcomeTagOptions.map((outcomeTag) => ({
+            ...outcomeTag,
+            selected: outcomeTag.value === (issue.outcomeTag ?? "none"),
+          })),
+          outcomeTagLabel: toOutcomeTagLabel(issue.outcomeTag),
+          outcomeSummaryLabel: toOutcomeSummaryLabel(issue),
         })),
         hasIssues: maintenanceIssues.length > 0,
         showResolved: this.#showResolvedMaintenanceIssues,
@@ -275,6 +306,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       taskTypeOptions,
       checkTypeOptions,
       eventTypeOptions,
+      outcomeTagOptions,
       stationOptions,
       skillOptions,
       customSkillOption: CUSTOM_SKILL_OPTION,
@@ -604,11 +636,14 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const row = button.closest("[data-travel-task-id]");
     const outcomeInput = row?.querySelector("[name='travelTaskOutcomeSummary']");
+    const outcomeTagInput = row?.querySelector("[name='travelTaskOutcomeTag']");
     const resultSummary = String(outcomeInput?.value ?? "").trim();
+    const outcomeTag = String(outcomeTagInput?.value ?? "none").trim().toLowerCase();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateTravelTask?.(taskId, {
         resultSummary: resultSummary || null,
+        outcomeTag,
       });
     }, event.currentTarget);
   }
@@ -714,11 +749,14 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const row = button.closest("[data-travel-event-id]");
     const outcomeInput = row?.querySelector("[name='travelEventOutcomeSummary']");
+    const outcomeTagInput = row?.querySelector("[name='travelEventOutcomeTag']");
     const resultSummary = String(outcomeInput?.value ?? "").trim();
+    const outcomeTag = String(outcomeTagInput?.value ?? "none").trim().toLowerCase();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateTravelEvent?.(eventId, {
         resultSummary: resultSummary || null,
+        outcomeTag,
       });
     }, event.currentTarget);
   }
@@ -771,11 +809,14 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const row = button.closest("[data-maintenance-issue-id]");
     const outcomeInput = row?.querySelector("[name='maintenanceIssueOutcomeSummary']");
+    const outcomeTagInput = row?.querySelector("[name='maintenanceIssueOutcomeTag']");
     const resultSummary = String(outcomeInput?.value ?? "").trim();
+    const outcomeTag = String(outcomeTagInput?.value ?? "none").trim().toLowerCase();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateMaintenanceIssue?.(issueId, {
         resultSummary: resultSummary || null,
+        outcomeTag,
       });
     }, event.currentTarget);
   }

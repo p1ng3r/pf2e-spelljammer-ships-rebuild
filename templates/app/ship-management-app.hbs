@@ -175,24 +175,28 @@
         </form>
 
         {{#if travelTasks.hasTasks}}
-          <ul>
+          <ul class="travel-record-list">
             {{#each travelTasks.tasks as |task|}}
               <li
+                class="travel-record-row"
                 data-travel-task-id="{{task.id}}"
                 data-effective-attempted-by-station="{{task.effectiveAttemptedByStation}}"
                 data-effective-attempted-skill="{{task.effectiveAttemptedSkill}}"
               >
-                <strong>{{task.title}}</strong>
-                <span>- <strong>Status:</strong> {{task.statusLabel}}</span>
-                <span>({{task.taskTypeLabel}} / {{task.checkTypeLabel}})</span>
-                <span>- {{#if task.recommendedStationLabel}}{{task.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
-                <span>- {{#if task.recommendedSkill}}{{task.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
-                <span>
-                  - Attempted By:
-                  {{#if task.attemptedByStationLabel}}{{task.attemptedByStationLabel}}{{else}}Unassigned{{/if}}
-                  /
-                  {{#if task.attemptedSkill}}{{task.attemptedSkillLabel}}{{else}}No skill set{{/if}}
-                </span>
+                <div class="travel-record-row__header">
+                  <strong>{{task.title}}</strong>
+                  <span class="travel-record-row__chips">
+                    <span class="travel-record-chip">Status: {{task.statusLabel}}</span>
+                    <span class="travel-record-chip">{{task.taskTypeLabel}}</span>
+                    <span class="travel-record-chip">{{task.checkTypeLabel}}</span>
+                    <span class="travel-record-chip">Outcome Tag: {{task.outcomeTagLabel}}</span>
+                  </span>
+                </div>
+                <div class="travel-record-row__meta-grid">
+                  <p><strong>Recommended:</strong> {{#if task.recommendedStationLabel}}{{task.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if task.recommendedSkill}}{{task.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                  <p><strong>Attempted:</strong> {{#if task.attemptedByStationLabel}}{{task.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if task.attemptedSkill}}{{task.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                </div>
+                <p class="travel-record-row__summary"><strong>Outcome:</strong> {{task.outcomeSummaryLabel}}</p>
                 <div class="travel-task-attempt-controls">
                   <label>
                     <span>By Station</span>
@@ -217,7 +221,7 @@
                   <p><em>Attempt fields defaulted from recommended station/skill.</em></p>
                 {{/if}}
                 <label>
-                  <span>Attempt / Result Summary</span>
+                  <span>Attempt Notes</span>
                   <input
                     type="text"
                     name="travelTaskAttemptSummary"
@@ -233,6 +237,16 @@
                     value="{{task.resultSummary}}"
                     placeholder="Editable GM outcome text"
                   />
+                </label>
+                <label>
+                  <span>Outcome Tag</span>
+                  <select name="travelTaskOutcomeTag">
+                    {{#each task.outcomeTagOptions as |outcomeTag|}}
+                      <option value="{{outcomeTag.value}}" {{#if outcomeTag.selected}}selected{{/if}}>
+                        {{outcomeTag.label}}
+                      </option>
+                    {{/each}}
+                  </select>
                 </label>
                 <button type="button" data-action="attempt-travel-task" data-task-id="{{task.id}}">
                   Attempt Check
@@ -323,15 +337,23 @@
         </label>
 
         {{#if maintenance.hasIssues}}
-          <ul>
+          <ul class="travel-record-list">
             {{#each maintenance.issues as |issue|}}
-              <li data-maintenance-issue-id="{{issue.id}}">
-                <strong>{{issue.title}}</strong>
-                <span>({{issue.severity}})</span>
-                <span>- <strong>Status:</strong> {{issue.statusLabel}}</span>
-                <span>- {{issue.taskTypeLabel}} / {{issue.checkTypeLabel}}</span>
-                <span>- {{#if issue.recommendedStationLabel}}{{issue.recommendedStationLabel}}{{else}}Unassigned{{/if}}</span>
-                <span>- {{#if issue.recommendedSkill}}{{issue.recommendedSkillLabel}}{{else}}No skill set{{/if}}</span>
+              <li class="travel-record-row" data-maintenance-issue-id="{{issue.id}}">
+                <div class="travel-record-row__header">
+                  <strong>{{issue.title}}</strong>
+                  <span class="travel-record-row__chips">
+                    <span class="travel-record-chip">Status: {{issue.statusLabel}}</span>
+                    <span class="travel-record-chip">{{issue.severity}}</span>
+                    <span class="travel-record-chip">{{issue.taskTypeLabel}}</span>
+                    <span class="travel-record-chip">{{issue.checkTypeLabel}}</span>
+                    <span class="travel-record-chip">Outcome Tag: {{issue.outcomeTagLabel}}</span>
+                  </span>
+                </div>
+                <div class="travel-record-row__meta-grid">
+                  <p><strong>Recommended:</strong> {{#if issue.recommendedStationLabel}}{{issue.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if issue.recommendedSkill}}{{issue.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
+                </div>
+                <p class="travel-record-row__summary"><strong>Outcome:</strong> {{issue.outcomeSummaryLabel}}</p>
                 <label>
                   <span>Outcome</span>
                   <input
@@ -340,6 +362,16 @@
                     value="{{issue.resultSummary}}"
                     placeholder="Editable GM outcome text"
                   />
+                </label>
+                <label>
+                  <span>Outcome Tag</span>
+                  <select name="maintenanceIssueOutcomeTag">
+                    {{#each issue.outcomeTagOptions as |outcomeTag|}}
+                      <option value="{{outcomeTag.value}}" {{#if outcomeTag.selected}}selected{{/if}}>
+                        {{outcomeTag.label}}
+                      </option>
+                    {{/each}}
+                  </select>
                 </label>
                 <button type="button" data-action="save-maintenance-issue-outcome" data-issue-id="{{issue.id}}">
                   Save Outcome
@@ -433,32 +465,33 @@
         </form>
 
         {{#if travelEvents.hasEvents}}
-          <ul class="travel-event-list">
+          <ul class="travel-record-list">
             {{#each travelEvents.events as |event|}}
               <li
-                class="travel-event-row"
+                class="travel-record-row"
                 data-travel-event-id="{{event.id}}"
                 data-effective-attempted-by-station="{{event.effectiveAttemptedByStation}}"
                 data-effective-attempted-skill="{{event.effectiveAttemptedSkill}}"
               >
-                <div class="travel-event-row__header">
+                <div class="travel-record-row__header">
                   <strong>{{event.title}}</strong>
-                  <span class="travel-event-row__chips">
-                    <span class="travel-event-chip">{{event.statusSummaryLabel}}</span>
-                    <span class="travel-event-chip">{{event.severityLabel}}</span>
-                    <span class="travel-event-chip">{{event.eventTypeLabel}}</span>
-                    <span class="travel-event-chip">{{event.checkTypeLabel}}</span>
+                  <span class="travel-record-row__chips">
+                    <span class="travel-record-chip">{{event.statusSummaryLabel}}</span>
+                    <span class="travel-record-chip">{{event.severityLabel}}</span>
+                    <span class="travel-record-chip">{{event.eventTypeLabel}}</span>
+                    <span class="travel-record-chip">{{event.checkTypeLabel}}</span>
+                    <span class="travel-record-chip">Outcome Tag: {{event.outcomeTagLabel}}</span>
                   </span>
                 </div>
-                <div class="travel-event-row__meta-grid">
+                <div class="travel-record-row__meta-grid">
                   <p><strong>Recommended:</strong> {{#if event.recommendedStationLabel}}{{event.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.recommendedSkill}}{{event.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>DC:</strong> {{#if event.dcLabel}}{{event.dcLabel}}{{else}}Not set{{/if}}</p>
                   <p><strong>Attempted:</strong> {{#if event.attemptedByStationLabel}}{{event.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.attemptedSkill}}{{event.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>Linked Task:</strong> {{#if event.hasLinkedTask}}{{#if event.linkedTaskTitle}}{{event.linkedTaskTitle}}{{else}}<code>{{event.linkedTaskId}}</code>{{/if}}{{else}}None{{/if}}</p>
                 </div>
-                <p class="travel-event-row__summary"><strong>Attempt Summary:</strong> {{event.attemptSummaryLabel}}</p>
-                <p class="travel-event-row__summary"><strong>Outcome:</strong> {{event.outcomeSummaryLabel}}</p>
-                <div class="travel-task-attempt-controls travel-event-row__attempt-controls">
+                <p class="travel-record-row__summary"><strong>Attempt Summary:</strong> {{event.attemptSummaryLabel}}</p>
+                <p class="travel-record-row__summary"><strong>Outcome:</strong> {{event.outcomeSummaryLabel}}</p>
+                <div class="travel-task-attempt-controls travel-record-row__attempt-controls">
                   <label>
                     <span>By Station</span>
                     <select name="travelEventAttemptedByStation">
@@ -479,7 +512,7 @@
                   </label>
                 </div>
                 {{#if event.attemptUsesRecommendedDefaults}}
-                  <p class="travel-event-row__default-note"><em>Attempt fields defaulted from recommended station/skill.</em></p>
+                  <p class="travel-record-row__default-note"><em>Attempt fields defaulted from recommended station/skill.</em></p>
                 {{/if}}
                 <label>
                   <span>Attempt Notes</span>
@@ -500,6 +533,16 @@
                   />
                 </label>
                 <label>
+                  <span>Outcome Tag</span>
+                  <select name="travelEventOutcomeTag">
+                    {{#each event.outcomeTagOptions as |outcomeTag|}}
+                      <option value="{{outcomeTag.value}}" {{#if outcomeTag.selected}}selected{{/if}}>
+                        {{outcomeTag.label}}
+                      </option>
+                    {{/each}}
+                  </select>
+                </label>
+                <label>
                   <span>DC</span>
                   <input
                     type="number"
@@ -510,7 +553,7 @@
                     placeholder="Event DC"
                   />
                 </label>
-                <div class="travel-event-row__actions">
+                <div class="travel-record-row__actions">
                   <button type="button" data-action="attempt-travel-event" data-event-id="{{event.id}}">
                     Attempt Check
                   </button>

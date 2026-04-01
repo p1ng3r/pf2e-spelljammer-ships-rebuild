@@ -41,6 +41,13 @@ export const TRAVEL_EVENT_TYPES = Object.freeze([
   { value: "anomaly", label: "Anomaly" },
   { value: "other", label: "Other" },
 ]);
+export const MANUAL_OUTCOME_TAGS = Object.freeze([
+  { value: "none", label: "None" },
+  { value: "success", label: "Success" },
+  { value: "failure", label: "Failure" },
+  { value: "mixed", label: "Mixed" },
+  { value: "unresolved", label: "Unresolved" },
+]);
 
 function cloneData(data) {
   if (typeof globalThis.structuredClone === "function") {
@@ -160,6 +167,12 @@ function normalizeTaskNotes(value) {
   return notes || null;
 }
 
+function normalizeOutcomeTag(value) {
+  const outcomeTag = normalizeIssueText(value, "none").toLowerCase();
+  const allowedOutcomeTags = ["none", "success", "failure", "mixed", "unresolved"];
+  return allowedOutcomeTags.includes(outcomeTag) ? outcomeTag : "none";
+}
+
 function normalizeOptionalDc(value) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -189,6 +202,7 @@ function createMaintenanceIssue(issueOrPartial = {}) {
     recommendedSkill: normalizeRecommendedSkill(issueOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(issueOrPartial.notes),
     resultSummary: normalizeTaskNotes(issueOrPartial.resultSummary),
+    outcomeTag: normalizeOutcomeTag(issueOrPartial.outcomeTag),
   };
 }
 
@@ -211,6 +225,7 @@ function createTravelTask(taskOrPartial = {}) {
     attemptedByStation: normalizeRecommendedStation(taskOrPartial.attemptedByStation),
     attemptedSkill: normalizeRecommendedSkill(taskOrPartial.attemptedSkill),
     resultSummary: normalizeTaskNotes(taskOrPartial.resultSummary),
+    outcomeTag: normalizeOutcomeTag(taskOrPartial.outcomeTag),
   };
 }
 
@@ -237,6 +252,7 @@ function createTravelEvent(eventOrPartial = {}) {
     attemptedByStation: normalizeRecommendedStation(eventOrPartial.attemptedByStation),
     attemptedSkill: normalizeRecommendedSkill(eventOrPartial.attemptedSkill),
     resultSummary: normalizeTaskNotes(eventOrPartial.resultSummary),
+    outcomeTag: normalizeOutcomeTag(eventOrPartial.outcomeTag),
     linkedTaskId,
     hasLinkedTask: Boolean(linkedTaskId),
   };
