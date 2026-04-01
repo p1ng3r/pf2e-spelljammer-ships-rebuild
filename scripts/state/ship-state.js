@@ -178,6 +178,18 @@ function normalizeOutcomeTag(value) {
   return allowedOutcomeTags.includes(outcomeTag) ? outcomeTag : "none";
 }
 
+function normalizeStationRequestStatus(value) {
+  const status = normalizeIssueText(value, "requested").toLowerCase();
+  const allowedStatuses = ["requested", "active", "resolved"];
+  return allowedStatuses.includes(status) ? status : "requested";
+}
+
+function normalizeStationRequestSourceType(value) {
+  const sourceType = normalizeIssueText(value, "task").toLowerCase();
+  const allowedSourceTypes = ["event", "issue", "task"];
+  return allowedSourceTypes.includes(sourceType) ? sourceType : "task";
+}
+
 function normalizeOptionalDc(value) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -271,6 +283,22 @@ function createTravelEvent(eventOrPartial = {}) {
   };
 }
 
+function createStationRequest(requestOrPartial = {}) {
+  const fallbackId = `station-request-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
+
+  return {
+    id: normalizeIssueText(requestOrPartial.id, generatedId),
+    stationId: normalizeRecommendedStation(requestOrPartial.stationId),
+    sourceType: normalizeStationRequestSourceType(requestOrPartial.sourceType),
+    sourceId: normalizeIssueText(requestOrPartial.sourceId, "") || null,
+    title: normalizeIssueText(requestOrPartial.title, "Station Request"),
+    status: normalizeStationRequestStatus(requestOrPartial.status),
+    requestText: normalizeIssueText(requestOrPartial.requestText, "Taking point on this station prompt."),
+    summary: normalizeTaskNotes(requestOrPartial.summary),
+  };
+}
+
 export function isTravelLegComplete(travelState) {
   const legProgressMax = normalizePositiveNumber(travelState?.legProgressMax, 0);
   if (legProgressMax <= 0) {
@@ -294,6 +322,7 @@ function createDefaultArcflightState() {
     legProgress: 0,
     travelTasks: [],
     travelEvents: [],
+    stationRequests: [],
     maintenancePressure: 0,
     maintenanceIssues: [],
     encounterPressure: 0,
@@ -773,6 +802,51 @@ export function addMaintenanceIssue(index, issueOrPartial = {}, options = {}) {
       return {
         ...travelState,
         maintenanceIssues: [...maintenanceIssues, nextIssue],
+      };
+    },
+    options,
+  );
+}
+
+export function getStationRequests(index, options = {}) {
+  const travelState = getTravelState(index, options);
+  if (!travelState) {
+    return [];
+  }
+
+  const requests = Array.isArray(travelState.stationRequests) ? travelState.stationRequests : [];
+  if (options.includeResolved) {
+    return requests;
+  }
+
+  return requests.filter((request) => normalizeStationRequestStatus(request?.status) !== "resolved");
+}
+
+export function addStationRequest(index, requestOrPartial = {}, options = {}) {
+  const nextRequest = createStationRequest(requestOrPartial);
+  if (!nextRequest.stationId || !nextRequest.sourceId) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const stationRequests = Array.isArray(travelState.stationRequests) ? travelState.stationRequests : [];
+      const existingRequest = stationRequests.find(
+        (request) =>
+          request?.stationId === nextRequest.stationId &&
+          request?.sourceType === nextRequest.sourceType &&
+          request?.sourceId === nextRequest.sourceId &&
+          normalizeStationRequestStatus(request?.status) !== "resolved",
+      );
+
+      if (existingRequest) {
+        return travelState;
+      }
+
+      return {
+        ...travelState,
+        stationRequests: [...stationRequests, nextRequest],
       };
     },
     options,

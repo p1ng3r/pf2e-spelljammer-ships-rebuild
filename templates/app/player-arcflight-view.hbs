@@ -36,6 +36,18 @@
                       <p><strong>What is happening:</strong> {{item.happeningText}}</p>
                       <p><strong>Why it matters:</strong> {{item.mattersText}}</p>
                       <p><strong>Your station focus:</strong> {{item.roleActionText}}</p>
+                      {{#if item.hasStationRequest}}
+                        <p><strong>Station intent:</strong> {{item.requestStatusText}}{{#if item.requestSummaryText}} · {{item.requestSummaryText}}{{/if}}</p>
+                      {{else}}
+                        <form data-player-station-request-form>
+                          <input type="hidden" name="stationId" value="{{stationPrompt.stationId}}" />
+                          <input type="hidden" name="sourceType" value="{{item.sourceType}}" />
+                          <input type="hidden" name="sourceId" value="{{item.sourceId}}" />
+                          <input type="hidden" name="title" value="{{item.title}}" />
+                          <input type="hidden" name="requestActionLabel" value="{{item.requestActionLabel}}" />
+                          <button type="submit">{{item.requestActionLabel}}</button>
+                        </form>
+                      {{/if}}
                     </li>
                   {{/each}}
                 </ul>

@@ -97,6 +97,31 @@ function toSourceLabel(source) {
   return "Crew response";
 }
 
+function toRequestActionLabel(sourceType) {
+  if (sourceType === "event") {
+    return "Respond";
+  }
+
+  if (sourceType === "issue") {
+    return "Take Point";
+  }
+
+  return "Request Action";
+}
+
+function toRequestStatusText(status) {
+  const normalized = String(status ?? "requested").trim().toLowerCase();
+  if (normalized === "active") {
+    return "In progress";
+  }
+
+  if (normalized === "resolved") {
+    return "Handled";
+  }
+
+  return "Requested";
+}
+
 function toPriorityWeight(record) {
   const status = String(record?.status ?? "open").trim().toLowerCase();
   const severity = String(record?.severity ?? "minor").trim().toLowerCase();
@@ -139,6 +164,9 @@ function buildStationPromptItems(record, stationLabelsById, skillLabelsByValue) 
       happeningText: toText(record.publicSummary, "No public details yet."),
       mattersText: toText(record.publicOutcome, "Outcome still uncertain."),
       roleActionText: toRoleActionLine(record, stationLabel, skillLabel),
+      sourceType: record.source,
+      sourceId: record.id ?? "",
+      requestActionLabel: toRequestActionLabel(record.source),
       priorityWeight: toPriorityWeight(record),
     },
   };
@@ -242,6 +270,18 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     const stationLabelsById = buildStationLabelsById();
     const skillLabelsByValue = buildSkillLabelsByValue();
+    const stationRequests = stateApi?.getStationRequests?.() ?? (Array.isArray(travelState.stationRequests) ? travelState.stationRequests : []);
+    const stationRequestByPromptKey = stationRequests.reduce((accumulator, request) => {
+      const stationId = String(request?.stationId ?? "").trim();
+      const sourceType = String(request?.sourceType ?? "").trim();
+      const sourceId = String(request?.sourceId ?? "").trim();
+      if (!stationId || !sourceType || !sourceId) {
+        return accumulator;
+      }
+
+      accumulator[`${stationId}::${sourceType}::${sourceId}`] = request;
+      return accumulator;
+    }, {});
 
     const openEvents = (Array.isArray(travelState.travelEvents) ? travelState.travelEvents : []).filter(
       (eventRecord) => eventRecord?.status !== "resolved",
@@ -284,7 +324,68 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         riskText: toText(taskRecord.publicOutcome, "Outcome still uncertain."),
         promptText: mapPrompt(taskRecord, stationLabelsById, skillLabelsByValue),
       })),
-      stationPrompts: buildStationPrompts(stationPromptSourceRecords, stationLabelsById, skillLabelsByValue),
+      stationPrompts: buildStationPrompts(stationPromptSourceRecords, stationLabelsById, skillLabelsByValue).map(
+        (stationPrompt) => ({
+          ...stationPrompt,
+          items: stationPrompt.items.map((item) => {
+            const requestKey = `${stationPrompt.stationId}::${item.sourceType}::${item.sourceId}`;
+            const existingRequest = stationRequestByPromptKey[requestKey] ?? null;
+
+            return {
+              ...item,
+              hasStationRequest: Boolean(existingRequest),
+              requestStatusText: existingRequest ? toRequestStatusText(existingRequest.status) : null,
+              requestSummaryText: existingRequest?.requestText ?? null,
+            };
+          }),
+        }),
+      ),
     };
+  }
+
+  _onRender(context, options) {
+    super._onRender(context, options);
+
+    const requestForms = this.element.querySelectorAll("[data-player-station-request-form]");
+    for (const form of requestForms) {
+      form.addEventListener("submit", this.#onStationRequestSubmit.bind(this));
+    }
+  }
+
+  async #onStationRequestSubmit(event) {
+    event.preventDefault();
+
+    const api = game?.[API_NAMESPACE] ?? null;
+    const stateApi = api?.state ?? null;
+    if (!stateApi?.addStationRequest) {
+      return;
+    }
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const stationId = String(formData.get("stationId") ?? "").trim();
+    const sourceType = String(formData.get("sourceType") ?? "").trim();
+    const sourceId = String(formData.get("sourceId") ?? "").trim();
+    const title = String(formData.get("title") ?? "").trim();
+    const requestActionLabel = String(formData.get("requestActionLabel") ?? "").trim();
+
+    if (!stationId || !sourceType || !sourceId) {
+      return;
+    }
+
+    stateApi.addStationRequest(
+      {
+        stationId,
+        sourceType,
+        sourceId,
+        title,
+        status: "requested",
+        requestText: `${requestActionLabel}: ${title}`,
+        summary: "Player station intent recorded.",
+      },
+      this.#shipContext,
+    );
+
+    await this.render({ force: true });
   }
 }
