@@ -108,6 +108,44 @@
         </form>
       </section>
 
+      <section class="travel-maintenance">
+        <h5>Maintenance</h5>
+        <p><strong>Open Issues:</strong> {{maintenance.issues.length}}</p>
+        <form data-action="maintenance-issue-form">
+          <label>
+            <span>Issue</span>
+            <input type="text" name="issueTitle" placeholder="Ex: Aether Coil Drift" />
+          </label>
+          <label>
+            <span>Severity</span>
+            <select name="issueSeverity">
+              <option value="minor">Minor</option>
+              <option value="moderate">Moderate</option>
+              <option value="major">Major</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <button type="submit">Add Issue</button>
+        </form>
+
+        {{#if maintenance.hasIssues}}
+          <ul>
+            {{#each maintenance.issues as |issue|}}
+              <li>
+                <strong>{{issue.title}}</strong>
+                <span>({{issue.severity}})</span>
+                <span>- {{issue.source}}</span>
+                <button type="button" data-action="resolve-maintenance-issue" data-issue-id="{{issue.id}}">
+                  Resolve
+                </button>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No maintenance issues logged.</em></p>
+        {{/if}}
+      </section>
+
       <h4>Stations</h4>
       <ul>
         {{#each stations as |station|}}

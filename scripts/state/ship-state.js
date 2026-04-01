@@ -39,6 +39,36 @@ function normalizePositiveNumber(value, fallback) {
   return numericValue;
 }
 
+function normalizeIssueText(value, fallback) {
+  const textValue = typeof value === "string" ? value.trim() : "";
+  return textValue || fallback;
+}
+
+function normalizeIssueSeverity(value) {
+  const severity = normalizeIssueText(value, "minor").toLowerCase();
+  const allowedSeverities = ["minor", "moderate", "major", "critical"];
+  return allowedSeverities.includes(severity) ? severity : "minor";
+}
+
+function normalizeIssueStatus(value) {
+  const status = normalizeIssueText(value, "open").toLowerCase();
+  const allowedStatuses = ["open", "resolved"];
+  return allowedStatuses.includes(status) ? status : "open";
+}
+
+function createMaintenanceIssue(issueOrPartial = {}) {
+  const fallbackId = `issue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
+
+  return {
+    id: normalizeIssueText(issueOrPartial.id, generatedId),
+    title: normalizeIssueText(issueOrPartial.title, "General Wear"),
+    severity: normalizeIssueSeverity(issueOrPartial.severity),
+    status: normalizeIssueStatus(issueOrPartial.status),
+    source: normalizeIssueText(issueOrPartial.source, "manual"),
+  };
+}
+
 export function isTravelLegComplete(travelState) {
   const legProgressMax = normalizePositiveNumber(travelState?.legProgressMax, 0);
   if (legProgressMax <= 0) {
@@ -61,6 +91,7 @@ function createDefaultArcflightState() {
     progressPerDay: 1,
     legProgress: 0,
     maintenancePressure: 0,
+    maintenanceIssues: [],
     encounterPressure: 0,
   };
 }
@@ -270,4 +301,49 @@ export function advanceTravelDay(index, options = {}) {
 
     return nextState;
   }, options);
+}
+
+export function getMaintenanceIssues(index, options = {}) {
+  const travelState = getTravelState(index, options);
+  if (!travelState) {
+    return [];
+  }
+
+  const issues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+  return issues.filter((issue) => normalizeIssueStatus(issue?.status) !== "resolved");
+}
+
+export function addMaintenanceIssue(index, issueOrPartial = {}, options = {}) {
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const maintenanceIssues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+      const nextIssue = createMaintenanceIssue(issueOrPartial);
+
+      return {
+        ...travelState,
+        maintenanceIssues: [...maintenanceIssues, nextIssue],
+      };
+    },
+    options,
+  );
+}
+
+export function resolveMaintenanceIssue(index, issueId, options = {}) {
+  const normalizedIssueId = normalizeIssueText(issueId, "");
+  if (!normalizedIssueId) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const maintenanceIssues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+      return {
+        ...travelState,
+        maintenanceIssues: maintenanceIssues.filter((issue) => issue?.id !== normalizedIssueId),
+      };
+    },
+    options,
+  );
 }
