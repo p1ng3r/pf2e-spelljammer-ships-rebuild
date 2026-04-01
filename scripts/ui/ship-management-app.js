@@ -59,6 +59,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const legComplete = legTarget > 0 && legProgress >= legTarget;
     const maintenanceIssues = stateApi?.getMaintenanceIssues?.() ??
       (Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : []);
+    const travelTasks = stateApi?.getTravelTasks?.() ??
+      (Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : []);
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -76,6 +78,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       maintenance: {
         issues: maintenanceIssues,
         hasIssues: maintenanceIssues.length > 0,
+      },
+      travelTasks: {
+        tasks: travelTasks,
+        hasTasks: travelTasks.length > 0,
       },
       actorContext: {
         actorId: linkedActorId,
@@ -108,6 +114,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const addIssueForm = root.querySelector("[data-action='maintenance-issue-form']");
     addIssueForm?.addEventListener("submit", this.#onMaintenanceIssueSubmit.bind(this));
+
+    const addTravelTaskForm = root.querySelector("[data-action='travel-task-form']");
+    addTravelTaskForm?.addEventListener("submit", this.#onTravelTaskSubmit.bind(this));
 
     const resolveIssueButtons = root.querySelectorAll("[data-action='resolve-maintenance-issue']");
     for (const button of resolveIssueButtons) {
@@ -203,6 +212,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const formData = new FormData(form);
     const title = String(formData.get("issueTitle") ?? "").trim();
     const severity = String(formData.get("issueSeverity") ?? "minor").trim();
+    const recommendedStation = String(formData.get("issueRecommendedStation") ?? "").trim();
+    const recommendedSkill = String(formData.get("issueRecommendedSkill") ?? "").trim();
+    const taskType = String(formData.get("issueTaskType") ?? "maintenance").trim();
+    const notes = String(formData.get("issueNotes") ?? "").trim();
 
     if (!title) {
       return;
@@ -211,6 +224,47 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     await stateApi.addMaintenanceIssue?.({
       title,
       severity,
+      source: "manual",
+      status: "open",
+      taskType,
+      checkType: "skill",
+      recommendedStation,
+      recommendedSkill,
+      notes,
+    });
+
+    form.reset();
+    this.render({ force: true });
+  }
+
+  async #onTravelTaskSubmit(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!form || !stateApi) {
+      return;
+    }
+
+    const formData = new FormData(form);
+    const title = String(formData.get("travelTaskTitle") ?? "").trim();
+    const taskType = String(formData.get("travelTaskType") ?? "travel").trim();
+    const checkType = String(formData.get("travelTaskCheckType") ?? "skill").trim();
+    const recommendedStation = String(formData.get("travelTaskRecommendedStation") ?? "").trim();
+    const recommendedSkill = String(formData.get("travelTaskRecommendedSkill") ?? "").trim();
+    const summary = String(formData.get("travelTaskSummary") ?? "").trim();
+
+    if (!title) {
+      return;
+    }
+
+    await stateApi.addTravelTask?.({
+      title,
+      taskType,
+      checkType,
+      recommendedStation,
+      recommendedSkill,
+      summary,
       source: "manual",
       status: "open",
     });

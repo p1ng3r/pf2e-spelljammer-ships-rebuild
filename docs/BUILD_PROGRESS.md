@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the first lightweight Arcflight maintenance placeholder pass so upkeep pressure is visible and table-usable without adding simulation complexity.
+Deliver the first Arcflight crew-check scaffold pass so travel and maintenance tasks can carry station/skill guidance without adding roll automation.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -41,6 +41,23 @@ Deliver the first lightweight Arcflight maintenance placeholder pass so upkeep p
     - minimal manual add control (title + severity)
     - per-issue resolve action
   - Day advancement behavior remains deterministic and lightweight; no random maintenance generation added yet.
+- Arcflight crew-check scaffold pass added:
+  - Shared Arcflight travel state now includes a lightweight `travelTasks` list for manual task tracking.
+  - Travel task and maintenance issue records now support future check metadata:
+    - `taskType`
+    - `checkType`
+    - `recommendedStation`
+    - `recommendedSkill`
+    - `notes` / `summary`
+  - Added small state/API helpers for the scaffold direction:
+    - `getTravelTasks`
+    - `addTravelTask`
+    - `updateMaintenanceIssue`
+    - `setMaintenanceIssueTask`
+  - Ship Management now shows a compact **Travel Tasks / Maintenance Tasks** readout:
+    - manual travel task add form
+    - manual maintenance issue add form with optional station/skill/task fields
+    - open-item rows display recommended station + skill for table adjudication
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -60,23 +77,28 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.getMaintenanceIssues()` returns currently open maintenance issues.
 - `state.resolveMaintenanceIssue(issueId)` removes/resolves a selected issue from the list.
 - In-app Maintenance controls support manual issue creation and one-click issue resolution.
+- `state.addTravelTask(...)` appends a simple open travel task to Arcflight shared state.
+- `state.getTravelTasks()` returns currently open travel tasks.
+- `state.setMaintenanceIssueTask(issueId, taskPatch)` updates only task/check recommendation metadata for an issue.
+- In-app task controls support manual station/skill recommendations while issue resolution remains manual.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
 - Travel day advancement still uses placeholder progress/pressure behavior.
 - Maintenance pressure remains a separate placeholder value from explicit maintenance issue entries.
+- Travel and maintenance records now carry lightweight crew-check recommendation metadata only (no automated rolling).
 - Travel posture supports simple state changes via app control.
 - Route logic is placeholder-level only (destination + simple leg target fields).
-- Maintenance issues are manual placeholders only (no procedural generation yet).
+- Travel tasks and maintenance issues are manual placeholders only (no procedural generation yet).
 - No travel randomization or encounter tables yet.
 - No real combat mechanics yet.
 - No upgrades/cargo/reputation systems yet.
 
 ## Next Recommended Pass
 Keep Arcflight focused and incremental:
-- table-test whether maintenance issue severity should influence placeholder pressure display (still without deep subsystem rules)
-- continue compact readability polish based on live Foundry table testing
-- continue deferring navigation engines and route-generation complexity
+- table-test whether recommended station/skill fields are sufficient for GM adjudication before adding check execution helpers
+- add minimal completion/archive handling for travel tasks if table use needs history visibility
+- continue deferring automation-heavy subsystems (rolling, event generation, deep maintenance simulation)
 
 ## Known Issues / Cleanup
 - Decide whether sector naming should use `currentSector` in parallel with `currentHex` or stay hex-only for now.
@@ -95,3 +117,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight route-leg placeholder pass**: destination/leg editing plus leg-complete status in Ship Management.
 - **Arcflight compact UX pass**: scroll-friendly app body, denser travel summary layout, and in-app Reset Leg Progress action.
 - **Arcflight maintenance placeholder pass**: shared maintenance issue list + simple API helpers + compact Ship Management maintenance controls.
+- **Arcflight crew-check scaffold pass**: travel task list + maintenance task metadata + compact station/skill guidance readout in Ship Management.
