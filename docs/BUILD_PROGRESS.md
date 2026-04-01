@@ -652,3 +652,28 @@ Keep Arcflight focused and incremental:
   - event -> `travelEvents`
   - task -> `travelTasks`
   - issue -> `maintenanceIssues`
+
+## Arcflight player incident popup UI pass (2026-04-01)
+- Added a dedicated player-facing incident popup app for Arcflight records:
+  - `PlayerArcflightIncidentApp` (`scripts/ui/player-arcflight-incident-app.js`)
+  - `templates/app/player-arcflight-incident-app.hbs`
+- Player Arcflight list rows for active situations, ship problems, and crew responses now include **Open** actions that launch the popup for the clicked incident record.
+- Popup data is sourced from the same live ship record collections already used by the player Arcflight view:
+  - events (`travelEvents`)
+  - issues (`maintenanceIssues`)
+  - tasks (`travelTasks`)
+- Popup is explicitly player-safe and only surfaces public/player-facing record fields plus lightweight guidance:
+  - title
+  - public summary
+  - public outcome/risk
+  - source type
+  - severity
+  - recommended station
+  - recommended skill
+  - current status
+  - off-station penalty reminder when recommended station guidance exists
+- Added popup actions:
+  - **Attempt Check** reuses the existing player station Roll Check flow and roll-capture path.
+  - **Request Help** reuses the existing shared station-request creation flow.
+  - **Close** closes the popup window cleanly.
+- Existing player list view sections and station briefing flows were preserved; this pass is additive and does not add auto-resolution, automated DC logic, or effect execution.
