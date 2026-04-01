@@ -152,6 +152,43 @@ function toDegreeSlug(value) {
   return null;
 }
 
+function extractTotalFromRollData(rollData) {
+  if (!rollData) {
+    return null;
+  }
+
+  const directTotal = Number(rollData.total);
+  if (Number.isFinite(directTotal)) {
+    return directTotal;
+  }
+
+  const innerRollTotal = Number(rollData.roll?.total);
+  if (Number.isFinite(innerRollTotal)) {
+    return innerRollTotal;
+  }
+
+  const nestedRollTotal = Number(rollData.rolls?.[0]?.total);
+  if (Number.isFinite(nestedRollTotal)) {
+    return nestedRollTotal;
+  }
+
+  return null;
+}
+
+function extractDegreeFromRollData(rollData) {
+  if (!rollData) {
+    return null;
+  }
+
+  return toDegreeSlug(
+    rollData?.degreeOfSuccess ??
+      rollData?.options?.degreeOfSuccess ??
+      rollData?.flags?.pf2e?.context?.outcome?.value ??
+      rollData?.flags?.pf2e?.context?.outcome ??
+      null,
+  );
+}
+
 function toPriorityWeight(record) {
   const status = String(record?.status ?? "open").trim().toLowerCase();
   const severity = String(record?.severity ?? "minor").trim().toLowerCase();
@@ -471,19 +508,22 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     );
 
     if (actingActor.skills?.[recommendedSkill]?.check?.roll) {
-      const rollMessage = await actingActor.skills[recommendedSkill].check.roll({
+      const checkResult = await actingActor.skills[recommendedSkill].check.roll({
         event,
         skill: recommendedSkill,
         flavor: chatFlavor,
       });
 
+      const checkResultTotal = extractTotalFromRollData(checkResult);
+      const checkResultDegree = extractDegreeFromRollData(checkResult);
       await this.#recordStationRollAttempt({
         stationId,
         sourceType,
         sourceId,
         actingActor,
         recommendedSkill,
-        rollResult: rollMessage,
+        total: checkResultTotal,
+        degree: checkResultDegree,
       });
       return;
     }
@@ -500,24 +540,16 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       sourceId,
       actingActor,
       recommendedSkill,
-      rollResult: fallbackRollMessage ?? roll,
+      total: extractTotalFromRollData(roll) ?? extractTotalFromRollData(fallbackRollMessage),
+      degree: extractDegreeFromRollData(roll) ?? extractDegreeFromRollData(fallbackRollMessage),
     });
   }
 
-  async #recordStationRollAttempt({ stationId, sourceType, sourceId, actingActor, recommendedSkill, rollResult }) {
+  async #recordStationRollAttempt({ stationId, sourceType, sourceId, actingActor, recommendedSkill, total, degree }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!stateApi?.recordStationRollAttempt) {
       return;
     }
-
-    const rollData = rollResult?.rolls?.[0] ?? rollResult?.roll ?? rollResult ?? null;
-    const total = Number(rollData?.total);
-    const degree = toDegreeSlug(
-      rollResult?.flags?.pf2e?.context?.outcome?.value ??
-        rollResult?.flags?.pf2e?.context?.outcome ??
-        rollResult?.options?.degreeOfSuccess ??
-        null,
-    );
 
     this.#ignoreNextLiveRefreshCount += 1;
     stateApi.recordStationRollAttempt(

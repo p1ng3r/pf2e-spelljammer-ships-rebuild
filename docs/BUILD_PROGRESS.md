@@ -584,3 +584,14 @@ Keep Arcflight focused and incremental:
 - Assignment rows are wired to the existing shared state model (`crew.stations[stationId].actorId` + `isNpcCrew`) with no new assignment schema.
 - Character actor picker is currently scoped to `game.actors` documents with actor type `character` for a clean first pass.
 - Live-refresh remains on the existing shared hook path; player station Roll Check actor resolution immediately uses updated assignments.
+
+## Arcflight player station roll total capture reliability fix pass (2026-04-01)
+- Root cause: player roll capture preferred message-oriented return shapes (`check.roll()` return value interpreted like chat output, plus fallback `roll.toMessage()` preference) instead of explicitly prioritizing the evaluated roll object that reliably carries numeric `total`.
+- Player Arcflight roll capture now extracts roll data from explicit raw roll/check result shapes first:
+  - PF2E skill check path captures from `actingActor.skills[skill].check.roll(...)` result object.
+  - Fallback path captures from evaluated `Roll` (`new Roll(...).evaluate()`), with chat message used only as a secondary metadata source.
+- Added compact explicit extraction helpers in the player Arcflight UI layer:
+  - `extractTotalFromRollData(...)`
+  - `extractDegreeFromRollData(...)`
+- Shared station roll attempt write path is unchanged in shape (`total`, `degree`, etc.) but now receives pre-extracted values rather than re-parsing a potentially message-shaped object.
+- Chat output and player Roll Check behavior are preserved; adjudication and Apply Latest Roll remain manual-first.
