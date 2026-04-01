@@ -117,6 +117,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   #shipStateUpdatedHookId = null;
   #refreshTimeoutId = null;
   #ignoreNextLiveRefreshCount = 0;
+  #viewShipId = null;
 
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-ship-management`,
@@ -142,8 +143,18 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const api = game?.[API_NAMESPACE] ?? null;
     const stateApi = api?.state ?? null;
     const actorApi = api?.actors ?? null;
-    const shipState = stateApi?.getActiveShipState?.() ?? null;
-    const travelState = stateApi?.getTravelState?.() ?? shipState?.arcflight ?? null;
+    const activeShipId = stateApi?.getActiveShipId?.() ?? null;
+    const resolvedViewShipId = this.#viewShipId ?? activeShipId;
+    const shipState = resolvedViewShipId
+      ? stateApi?.getShipState?.({ shipId: resolvedViewShipId }) ?? null
+      : stateApi?.getActiveShipState?.() ?? null;
+
+    if (!this.#viewShipId && shipState?.identity?.shipId) {
+      this.#viewShipId = shipState.identity.shipId;
+    }
+
+    const viewShipOptions = this.#getViewShipStateOptions();
+    const travelState = stateApi?.getTravelState?.(viewShipOptions) ?? shipState?.arcflight ?? null;
     const linkedActorId = shipState?.identity?.actorId ?? null;
     const linkedActor = linkedActorId ? actorApi?.resolveActor?.(linkedActorId) ?? null : null;
     const postureOptions = (stateApi?.travelPostures ?? DEFAULT_POSTURES).map((posture) => ({
@@ -335,7 +346,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         rows: stationAssignmentRows,
         hasAssignableActors: assignableActors.length > 0,
       },
-      activeShipId: stateApi?.getActiveShipId?.() ?? null,
+      activeShipId: this.#viewShipId ?? activeShipId,
       routeStatus: {
         legTarget,
         legProgress,
@@ -529,7 +540,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const assignedActorId = String(actorSelect?.value ?? "").trim();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.assignStationActor?.(stationId, assignedActorId || null);
+      await stateApi.assignStationActor?.(stationId, assignedActorId || null, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -544,7 +555,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.clearStationActor?.(stationId);
+      await stateApi.clearStationActor?.(stationId, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1065,6 +1076,14 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     this.render({ force: true });
   }
 
+  #getViewShipStateOptions() {
+    if (!this.#viewShipId) {
+      return {};
+    }
+
+    return { shipId: this.#viewShipId };
+  }
+
   async close(options) {
     this.#teardownLiveRefreshSubscription();
     return super.close(options);
@@ -1256,10 +1275,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         return;
       }
 
-      const stateApi = game?.[API_NAMESPACE]?.state;
-      const activeShipId = stateApi?.getActiveShipState?.()?.identity?.shipId ?? null;
+      const observedShipId = this.#viewShipId;
       const changedShipId = payload?.shipId ?? null;
-      if (!activeShipId || changedShipId !== activeShipId) {
+      if (!observedShipId || changedShipId !== observedShipId) {
         return;
       }
 
