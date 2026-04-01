@@ -190,6 +190,10 @@ function normalizeStationRequestSourceType(value) {
   return allowedSourceTypes.includes(sourceType) ? sourceType : "task";
 }
 
+function normalizeRollAttemptSourceType(value) {
+  return normalizeStationRequestSourceType(value);
+}
+
 function normalizeOptionalDc(value) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -201,6 +205,58 @@ function normalizeOptionalDc(value) {
   }
 
   return Math.floor(numericValue);
+}
+
+function normalizeNullableNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+
+  return numericValue;
+}
+
+function normalizeNullableDegree(value) {
+  const degree = normalizeIssueText(value, "").toLowerCase();
+  if (degree === "criticalsuccess") {
+    return "criticalSuccess";
+  }
+
+  if (degree === "criticalfailure") {
+    return "criticalFailure";
+  }
+
+  if (degree === "success") {
+    return "success";
+  }
+
+  if (degree === "failure") {
+    return "failure";
+  }
+
+  return null;
+}
+
+function createStationRollAttempt(attemptOrPartial = {}) {
+  const fallbackId = `station-roll-attempt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
+
+  return {
+    id: normalizeIssueText(attemptOrPartial.id, generatedId),
+    stationId: normalizeRecommendedStation(attemptOrPartial.stationId),
+    sourceType: normalizeRollAttemptSourceType(attemptOrPartial.sourceType),
+    sourceId: normalizeIssueText(attemptOrPartial.sourceId, "") || null,
+    actorId: normalizeIssueText(attemptOrPartial.actorId, "") || null,
+    actorName: normalizeIssueText(attemptOrPartial.actorName, "Unknown Actor"),
+    skill: normalizeRecommendedSkill(attemptOrPartial.skill),
+    total: normalizeNullableNumber(attemptOrPartial.total),
+    degree: normalizeNullableDegree(attemptOrPartial.degree),
+    createdAt: Number.isFinite(Number(attemptOrPartial.createdAt)) ? Number(attemptOrPartial.createdAt) : Date.now(),
+  };
 }
 
 function createMaintenanceIssue(issueOrPartial = {}) {
@@ -323,6 +379,7 @@ function createDefaultArcflightState() {
     travelTasks: [],
     travelEvents: [],
     stationRequests: [],
+    stationRollAttempts: [],
     maintenancePressure: 0,
     maintenanceIssues: [],
     encounterPressure: 0,
@@ -887,6 +944,62 @@ export function addStationRequest(index, requestOrPartial = {}, options = {}) {
       return {
         ...travelState,
         stationRequests: [...stationRequests, nextRequest],
+      };
+    },
+    options,
+  );
+}
+
+export function getStationRollAttempts(index, options = {}) {
+  const travelState = getTravelState(index, options);
+  if (!travelState) {
+    return [];
+  }
+
+  return Array.isArray(travelState.stationRollAttempts) ? travelState.stationRollAttempts : [];
+}
+
+export function getLatestStationRollAttempt(index, filter = {}, options = {}) {
+  const attempts = getStationRollAttempts(index, options);
+  const stationId = normalizeRecommendedStation(filter?.stationId);
+  const sourceType = normalizeRollAttemptSourceType(filter?.sourceType);
+  const sourceId = normalizeIssueText(filter?.sourceId, "");
+
+  if (!stationId || !sourceId) {
+    return null;
+  }
+
+  const matchingAttempts = attempts.filter(
+    (attempt) =>
+      attempt?.stationId === stationId &&
+      attempt?.sourceType === sourceType &&
+      attempt?.sourceId === sourceId,
+  );
+
+  if (!matchingAttempts.length) {
+    return null;
+  }
+
+  return matchingAttempts.reduce((latest, current) =>
+    Number(current?.createdAt ?? 0) > Number(latest?.createdAt ?? 0) ? current : latest);
+}
+
+export function recordStationRollAttempt(index, attemptOrPartial = {}, options = {}) {
+  const nextAttempt = createStationRollAttempt(attemptOrPartial);
+  if (!nextAttempt.stationId || !nextAttempt.sourceId || !nextAttempt.skill) {
+    return getShipState(index, options);
+  }
+
+  return updateTravelState(
+    index,
+    (travelState) => {
+      const stationRollAttempts = Array.isArray(travelState.stationRollAttempts) ? travelState.stationRollAttempts : [];
+      const nextAttempts = [...stationRollAttempts, nextAttempt];
+      const maxAttempts = 200;
+
+      return {
+        ...travelState,
+        stationRollAttempts: nextAttempts.slice(Math.max(0, nextAttempts.length - maxAttempts)),
       };
     },
     options,

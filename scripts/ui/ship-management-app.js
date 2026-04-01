@@ -108,6 +108,39 @@ function getEffectiveAttemptValue(attemptedValue, recommendedValue) {
   };
 }
 
+function toAttemptDegreeLabel(degree) {
+  const normalized = String(degree ?? "").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized === "criticalSuccess") {
+    return "Critical Success";
+  }
+
+  if (normalized === "criticalFailure") {
+    return "Critical Failure";
+  }
+
+  return toReadableSlugLabel(normalized);
+}
+
+function toCapturedRollSummary(attempt, stationLabelsById, skillLabelsByValue) {
+  if (!attempt) {
+    return null;
+  }
+
+  const actorName = toSentenceOrFallback(attempt.actorName, "Unknown Actor");
+  const stationLabel = stationLabelsById[attempt.stationId] ?? toReadableSlugLabel(attempt.stationId);
+  const skillLabel = skillLabelsByValue[attempt.skill] ?? toReadableSlugLabel(attempt.skill);
+  const totalLabel = Number.isFinite(Number(attempt.total)) ? Math.floor(Number(attempt.total)) : "?";
+  const degreeLabel = toAttemptDegreeLabel(attempt.degree);
+
+  return degreeLabel
+    ? `Player roll: ${actorName} (${stationLabel}) rolled ${skillLabel} ${totalLabel} (${degreeLabel}).`
+    : `Player roll: ${actorName} (${stationLabel}) rolled ${skillLabel} ${totalLabel}.`;
+}
+
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #pendingBodyScrollState = null;
   #showResolvedTravelTasks = false;
@@ -213,6 +246,24 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         name: actor.name ?? actor.id,
       }));
     const stationAssignments = shipState?.crew?.stations ?? {};
+    const stationRollAttempts = stateApi?.getStationRollAttempts?.(viewShipOptions) ??
+      (Array.isArray(travelState?.stationRollAttempts) ? travelState.stationRollAttempts : []);
+    const latestAttemptByPromptKey = stationRollAttempts.reduce((accumulator, attempt) => {
+      const stationId = String(attempt?.stationId ?? "").trim();
+      const sourceType = String(attempt?.sourceType ?? "").trim();
+      const sourceId = String(attempt?.sourceId ?? "").trim();
+      if (!stationId || !sourceType || !sourceId) {
+        return accumulator;
+      }
+
+      const key = `${stationId}::${sourceType}::${sourceId}`;
+      const prior = accumulator[key] ?? null;
+      if (!prior || Number(attempt?.createdAt ?? 0) > Number(prior?.createdAt ?? 0)) {
+        accumulator[key] = attempt;
+      }
+
+      return accumulator;
+    }, {});
     const stationAssignmentRows = STATIONS.map((station) => {
       const stationAssignment = stationAssignments[station.id] ?? { actorId: null, isNpcCrew: false };
       const assignedActorId = String(stationAssignment.actorId ?? "").trim();
@@ -265,6 +316,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       };
     });
     const travelTaskViewModels = travelTasks.map((task) => {
+      const taskAttemptKey = `${String(task.recommendedStation ?? "").trim()}::task::${String(task.id ?? "").trim()}`;
+      const capturedRollSummary = toCapturedRollSummary(
+        latestAttemptByPromptKey[taskAttemptKey] ?? null,
+        stationLabelsById,
+        skillLabelsByValue,
+      );
       const stationAttemptValue = getEffectiveAttemptValue(task.attemptedByStation, task.recommendedStation);
       const skillAttemptValue = getEffectiveAttemptValue(task.attemptedSkill, task.recommendedSkill);
 
@@ -286,7 +343,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
           selected: outcomeTag.value === (task.outcomeTag ?? "none"),
         })),
         outcomeTagLabel: toOutcomeTagLabel(task.outcomeTag),
-        outcomeSummaryLabel: toOutcomeSummaryLabel(task),
+        outcomeSummaryLabel: capturedRollSummary ?? toOutcomeSummaryLabel(task),
+        attemptSummaryLabel: capturedRollSummary ??
+          toSentenceOrFallback(task.lastAttemptSummary || task.summary, "No attempt summary recorded yet."),
       };
     });
     const travelTasksById = travelTasks.reduce((accumulator, task) => {
@@ -297,6 +356,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return accumulator;
     }, {});
     const travelEventViewModels = travelEvents.map((travelEvent) => {
+      const eventAttemptKey =
+        `${String(travelEvent.recommendedStation ?? "").trim()}::event::${String(travelEvent.id ?? "").trim()}`;
+      const capturedRollSummary = toCapturedRollSummary(
+        latestAttemptByPromptKey[eventAttemptKey] ?? null,
+        stationLabelsById,
+        skillLabelsByValue,
+      );
       const stationAttemptValue = getEffectiveAttemptValue(
         travelEvent.attemptedByStation,
         travelEvent.recommendedStation,
@@ -322,16 +388,14 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         linkedTaskTitle: travelTasksById[travelEvent.linkedTaskId]?.title ?? null,
         dcLabel: Number.isFinite(Number(travelEvent.dc)) ? Math.floor(Number(travelEvent.dc)) : null,
         statusSummaryLabel: `Status: ${toReadableSlugLabel(travelEvent.status ?? "open")}`,
-        attemptSummaryLabel: toSentenceOrFallback(
-          travelEvent.lastAttemptSummary || travelEvent.summary,
-          "No attempt summary recorded yet.",
-        ),
+        attemptSummaryLabel: capturedRollSummary ??
+          toSentenceOrFallback(travelEvent.lastAttemptSummary || travelEvent.summary, "No attempt summary recorded yet."),
         outcomeTagOptions: outcomeTagOptions.map((outcomeTag) => ({
           ...outcomeTag,
           selected: outcomeTag.value === (travelEvent.outcomeTag ?? "none"),
         })),
         outcomeTagLabel: toOutcomeTagLabel(travelEvent.outcomeTag),
-        outcomeSummaryLabel: toOutcomeSummaryLabel(travelEvent),
+        outcomeSummaryLabel: capturedRollSummary ?? toOutcomeSummaryLabel(travelEvent),
       };
     });
 
@@ -354,6 +418,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       },
       maintenance: {
         issues: maintenanceIssues.map((issue) => ({
+          capturedRollSummary: toCapturedRollSummary(
+            latestAttemptByPromptKey[
+              `${String(issue.recommendedStation ?? "").trim()}::issue::${String(issue.id ?? "").trim()}`
+            ] ?? null,
+            stationLabelsById,
+            skillLabelsByValue,
+          ),
           ...issue,
           statusLabel: toReadableSlugLabel(issue.status ?? "open"),
           taskTypeLabel: toReadableSlugLabel(issue.taskType),
@@ -366,7 +437,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
             selected: outcomeTag.value === (issue.outcomeTag ?? "none"),
           })),
           outcomeTagLabel: toOutcomeTagLabel(issue.outcomeTag),
-          outcomeSummaryLabel: toOutcomeSummaryLabel(issue),
+          outcomeSummaryLabel: toCapturedRollSummary(
+            latestAttemptByPromptKey[
+              `${String(issue.recommendedStation ?? "").trim()}::issue::${String(issue.id ?? "").trim()}`
+            ] ?? null,
+            stationLabelsById,
+            skillLabelsByValue,
+          ) ?? toOutcomeSummaryLabel(issue),
         })),
         hasIssues: maintenanceIssues.length > 0,
         showResolved: this.#showResolvedMaintenanceIssues,

@@ -390,6 +390,29 @@ Keep Arcflight focused and incremental:
   - `shipState.crew.stations[stationId].actorId`
   - `shipState.crew.stations[stationId].isNpcCrew`
 
+## Arcflight player station roll capture pass (2026-04-01)
+- Added a lightweight shared Arcflight station roll-attempt collection:
+  - `arcflight.stationRollAttempts: []`
+- Added shared state/API helpers for compact player roll capture:
+  - `state.recordStationRollAttempt(attemptOrPartial, options?)`
+  - `state.getStationRollAttempts(options?)`
+  - `state.getLatestStationRollAttempt(filter, options?)`
+- Station roll attempt records are compact and tied to player station prompt source context:
+  - `id`
+  - `stationId`
+  - `sourceType` (`event` | `issue` | `task`)
+  - `sourceId`
+  - `actorId`
+  - `actorName`
+  - `skill`
+  - `total` (nullable number)
+  - `degree` (`criticalSuccess` | `success` | `failure` | `criticalFailure` | `null`)
+  - `createdAt`
+- Player Arcflight **Roll Check** behavior and chat output are preserved.
+- After each player **Roll Check**, the app now records a shared-state station roll attempt for the related prompt source.
+- Ship Management now surfaces the latest captured player roll summary for matching source rows (task/event/issue) using existing compact row summary areas.
+- Adjudication remains fully manual; no automatic success/failure or DC resolution was added.
+
 
 ## Ship Management station assignment persistence fix pass (2026-04-01)
 - Root cause: Ship Management station assignment actions (`Assign / Save`, `Clear`) depended on implicit active-ship context when calling state helpers, so in multi-ship/multi-window runtime use they could write to the wrong ship state while the UI row still reflected a different ship context.

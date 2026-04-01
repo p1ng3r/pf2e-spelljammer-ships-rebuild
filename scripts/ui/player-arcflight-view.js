@@ -131,6 +131,27 @@ function toSkillCheckLabel(skillSlug, skillLabelsByValue) {
   return skillLabelsByValue[normalizedSkill] ?? toLabel(normalizedSkill);
 }
 
+function toDegreeSlug(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized.includes("critical") && normalized.includes("success")) {
+    return "criticalSuccess";
+  }
+
+  if (normalized.includes("critical") && normalized.includes("failure")) {
+    return "criticalFailure";
+  }
+
+  if (normalized === "success" || normalized.includes("success")) {
+    return "success";
+  }
+
+  if (normalized === "failure" || normalized.includes("failure")) {
+    return "failure";
+  }
+
+  return null;
+}
+
 function toPriorityWeight(record) {
   const status = String(record?.status ?? "open").trim().toLowerCase();
   const severity = String(record?.severity ?? "minor").trim().toLowerCase();
@@ -450,19 +471,69 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     );
 
     if (actingActor.skills?.[recommendedSkill]?.check?.roll) {
-      await actingActor.skills[recommendedSkill].check.roll({
+      const rollMessage = await actingActor.skills[recommendedSkill].check.roll({
         event,
         skill: recommendedSkill,
         flavor: chatFlavor,
+      });
+
+      await this.#recordStationRollAttempt({
+        stationId,
+        sourceType,
+        sourceId,
+        actingActor,
+        recommendedSkill,
+        rollResult: rollMessage,
       });
       return;
     }
 
     const roll = await new Roll(`1d20 + ${modifier}`).evaluate();
-    await roll.toMessage({
+    const fallbackRollMessage = await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor: actingActor }),
       flavor: chatFlavor,
     });
+
+    await this.#recordStationRollAttempt({
+      stationId,
+      sourceType,
+      sourceId,
+      actingActor,
+      recommendedSkill,
+      rollResult: fallbackRollMessage ?? roll,
+    });
+  }
+
+  async #recordStationRollAttempt({ stationId, sourceType, sourceId, actingActor, recommendedSkill, rollResult }) {
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    if (!stateApi?.recordStationRollAttempt) {
+      return;
+    }
+
+    const rollData = rollResult?.rolls?.[0] ?? rollResult?.roll ?? rollResult ?? null;
+    const total = Number(rollData?.total);
+    const degree = toDegreeSlug(
+      rollResult?.flags?.pf2e?.context?.outcome?.value ??
+        rollResult?.flags?.pf2e?.context?.outcome ??
+        rollResult?.options?.degreeOfSuccess ??
+        null,
+    );
+
+    this.#ignoreNextLiveRefreshCount += 1;
+    stateApi.recordStationRollAttempt(
+      {
+        stationId,
+        sourceType,
+        sourceId,
+        actorId: actingActor?.id ?? null,
+        actorName: actingActor?.name ?? "Unknown Actor",
+        skill: recommendedSkill,
+        total: Number.isFinite(total) ? total : null,
+        degree: degree ?? null,
+        createdAt: Date.now(),
+      },
+      this.#shipContext,
+    );
   }
 
   #resolveAssignedStationActor(stationId) {
