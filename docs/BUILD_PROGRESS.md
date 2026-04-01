@@ -377,6 +377,18 @@ Keep Arcflight focused and incremental:
 - Existing event DC behavior is preserved and unchanged.
 - DC behavior remains manual-only (no automated DC math and no roll execution).
 
+
+## Ship Management station assignment persistence fix pass (2026-04-01)
+- Root cause: Ship Management station assignment actions (`Assign / Save`, `Clear`) depended on implicit active-ship context when calling state helpers, so in multi-ship/multi-window runtime use they could write to the wrong ship state while the UI row still reflected a different ship context.
+- Ship Management now captures and keeps a per-window viewed ship id (`#viewShipId`) and resolves UI data from that ship context instead of re-resolving from whichever ship is currently active globally.
+- Station assignment actions now pass explicit ship context to shared-state helpers:
+  - `assignStationActor(stationId, actorId, { shipId })`
+  - `clearStationActor(stationId, { shipId })`
+- Live-refresh filtering now keys off the window's viewed ship id rather than global active-ship id, preserving refresh behavior while preventing cross-ship refresh confusion.
+- Shared station assignment state path is unchanged:
+  - `shipState.crew.stations[stationId].actorId`
+  - `shipState.crew.stations[stationId].isNpcCrew`
+
 ## Player Arcflight read-only view pass (2026-04-01)
 - Added a separate player-facing Arcflight status app (`PlayerArcflightViewApp`) for PF2E vehicle-linked ship state.
 - Added API launcher/read helpers:
