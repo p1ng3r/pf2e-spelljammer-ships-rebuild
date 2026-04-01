@@ -15,10 +15,20 @@ For broader design intent, see `docs/REBUILD_DESIGN_INTENT.md`.
 ## Hard Rules
 - Treat old combat/state code as archived reference only unless the user explicitly asks to salvage from it.
 - Do not recreate old planner/support-window complexity unless explicitly requested.
-- Prefer simple, explicit, readable state over clever abstractions.
+- Keep architecture simple, explicit, and readable.
 - Keep travel and combat tied to one shared ship state model.
 - Challenge complexity early. If a design adds bookkeeping, edge cases, or hidden state, prefer the simpler alternative.
 - Build the smallest stable vertical slice first.
+- Preserve the rebuild design intent in `docs/REBUILD_DESIGN_INTENT.md`.
+
+## Pass Size and File Change Rules
+- Default maximum: change at most 5 files in a normal implementation pass.
+- Smaller passes are preferred when possible.
+- New files/folders are allowed when they improve clarity or modularity.
+- Do not avoid creating a new file if forcing code into an existing file would make the architecture worse.
+- Avoid unnecessary file sprawl.
+- Keep changes scoped and deliberate.
+- Update `docs/BUILD_PROGRESS.md` after meaningful implementation passes.
 
 ## Current Build Order
 Implement in this order unless the user explicitly changes priorities:
