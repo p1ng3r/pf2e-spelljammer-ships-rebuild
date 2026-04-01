@@ -81,6 +81,7 @@
                 <p><strong>State:</strong> {{situation.statusText}} · {{situation.urgencyText}}</p>
                 <p><strong>Prompt:</strong> {{situation.promptText}}</p>
                 <p><strong>Summary:</strong> {{situation.summaryText}}</p>
+                <button type="button" data-player-open-incident data-source-type="{{situation.sourceType}}" data-source-id="{{situation.sourceId}}">Open</button>
               </li>
             {{/each}}
           </ul>
@@ -99,6 +100,7 @@
                 <p><strong>State:</strong> {{problem.statusText}} · {{problem.urgencyText}}</p>
                 <p><strong>Prompt:</strong> {{problem.promptText}}</p>
                 <p><strong>Summary:</strong> {{problem.summaryText}}</p>
+                <button type="button" data-player-open-incident data-source-type="{{problem.sourceType}}" data-source-id="{{problem.sourceId}}">Open</button>
               </li>
             {{/each}}
           </ul>
@@ -118,6 +120,7 @@
                 <p><strong>Prompt:</strong> {{response.promptText}}</p>
                 <p><strong>Response:</strong> {{response.summaryText}}</p>
                 <p><strong>Risk / Consequence:</strong> {{response.riskText}}</p>
+                <button type="button" data-player-open-incident data-source-type="{{response.sourceType}}" data-source-id="{{response.sourceId}}">Open</button>
               </li>
             {{/each}}
           </ul>

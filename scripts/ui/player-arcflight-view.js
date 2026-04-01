@@ -1,5 +1,6 @@
 import { API_NAMESPACE, MODULE_ID, MODULE_TITLE, STATIONS, TRAVEL_TERM } from "../config/constants.js";
 import { PF2E_CORE_SKILLS } from "../state/ship-state.js";
+import { PlayerArcflightIncidentApp } from "./player-arcflight-incident-app.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -50,6 +51,15 @@ function toUrgencyText(value) {
   }
 
   return "Low urgency";
+}
+
+function toSeverityText(value) {
+  const normalized = String(value ?? "minor").trim().toLowerCase();
+  if (!normalized) {
+    return "Minor";
+  }
+
+  return toLabel(normalized, "Minor");
 }
 
 function buildStationLabelsById() {
@@ -295,6 +305,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   #shipStateUpdatedHookId = null;
   #refreshTimeoutId = null;
   #ignoreNextLiveRefreshCount = 0;
+  #incidentAppsByKey = new Map();
 
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-player-arcflight-view`,
@@ -381,6 +392,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         urgencyText: toUrgencyText(eventRecord.severity),
         summaryText: toText(eventRecord.publicSummary, "No public details yet."),
         promptText: mapPrompt(eventRecord, stationLabelsById, skillLabelsByValue),
+        sourceType: "event",
+        sourceId: eventRecord.id ?? "",
       })),
       shipProblems: openIssues.map((issueRecord) => ({
         title: toText(issueRecord.title, "Unnamed problem"),
@@ -388,6 +401,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         urgencyText: toUrgencyText(issueRecord.severity),
         summaryText: toText(issueRecord.publicSummary, "No public details yet."),
         promptText: mapPrompt(issueRecord, stationLabelsById, skillLabelsByValue),
+        sourceType: "issue",
+        sourceId: issueRecord.id ?? "",
       })),
       crewResponses: responseTasks.map((taskRecord) => ({
         title: toText(taskRecord.title, "Unnamed crew response"),
@@ -395,6 +410,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         summaryText: toText(taskRecord.publicSummary, "No public details yet."),
         riskText: toText(taskRecord.publicOutcome, "Outcome still uncertain."),
         promptText: mapPrompt(taskRecord, stationLabelsById, skillLabelsByValue),
+        sourceType: "task",
+        sourceId: taskRecord.id ?? "",
       })),
       stationPrompts: buildStationPrompts(stationPromptSourceRecords, stationLabelsById, skillLabelsByValue).map(
         (stationPrompt) => ({
@@ -428,6 +445,11 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     for (const button of rollButtons) {
       button.addEventListener("click", this.#onStationRollCheckClick.bind(this));
     }
+
+    const incidentOpenButtons = this.element.querySelectorAll("[data-player-open-incident]");
+    for (const button of incidentOpenButtons) {
+      button.addEventListener("click", this.#onOpenIncidentClick.bind(this));
+    }
   }
 
   async #onStationRequestSubmit(event) {
@@ -451,19 +473,13 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       return;
     }
 
-    this.#ignoreNextLiveRefreshCount += 1;
-    stateApi.addStationRequest(
-      {
-        stationId,
-        sourceType,
-        sourceId,
-        title,
-        status: "requested",
-        requestText: `${requestActionLabel}: ${title}`,
-        summary: "Player station intent recorded.",
-      },
-      this.#shipContext,
-    );
+    await this.#submitStationRequest({
+      stationId,
+      sourceType,
+      sourceId,
+      title,
+      requestActionLabel: requestActionLabel || "Request Help",
+    });
   }
 
   async #onStationRollCheckClick(event) {
@@ -476,6 +492,17 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     const recommendedSkill = String(button?.dataset?.recommendedSkill ?? "").trim().toLowerCase();
     const title = String(button?.dataset?.title ?? "").trim() || "Station task";
 
+    await this.#runStationRollCheck({
+      stationId,
+      sourceType,
+      sourceId,
+      title,
+      recommendedSkill,
+      event,
+    });
+  }
+
+  async #runStationRollCheck({ stationId, sourceType, sourceId, title, recommendedSkill, event = null }) {
     if (!stationId || !sourceType || !sourceId || !recommendedSkill) {
       ui.notifications?.warn("This station briefing does not have a recommended skill to roll yet.");
       return;
@@ -545,6 +572,142 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     });
   }
 
+  async #submitStationRequest({ stationId, sourceType, sourceId, title, requestActionLabel }) {
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    if (!stateApi?.addStationRequest) {
+      return;
+    }
+
+    if (!stationId || !sourceType || !sourceId) {
+      ui.notifications?.warn("This incident does not have a recommended station yet. Ask your GM for assignment guidance.");
+      return;
+    }
+
+    this.#ignoreNextLiveRefreshCount += 1;
+    stateApi.addStationRequest(
+      {
+        stationId,
+        sourceType,
+        sourceId,
+        title: title || "Station request",
+        status: "requested",
+        requestText: `${requestActionLabel}: ${title || "Station request"}`,
+        summary: "Player station intent recorded.",
+      },
+      this.#shipContext,
+    );
+  }
+
+  async #onOpenIncidentClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const sourceType = String(button?.dataset?.sourceType ?? "").trim().toLowerCase();
+    const sourceId = String(button?.dataset?.sourceId ?? "").trim();
+    this.#openIncidentPopup(sourceType, sourceId);
+  }
+
+  #openIncidentPopup(sourceType, sourceId) {
+    const incident = this.#resolveIncidentForPopup(sourceType, sourceId);
+    if (!incident) {
+      ui.notifications?.warn("Could not find that Arcflight incident in the current ship state.");
+      return;
+    }
+
+    const popupKey = `${incident.sourceType}::${incident.sourceId}`;
+    const existingApp = this.#incidentAppsByKey.get(popupKey) ?? null;
+    if (existingApp?.rendered) {
+      existingApp.bringToFront();
+      return;
+    }
+
+    const popupApp = new PlayerArcflightIncidentApp({
+      incident,
+      onAttemptCheck: async (popupIncident, clickEvent) =>
+        this.#runStationRollCheck({
+          stationId: popupIncident.recommendedStation,
+          sourceType: popupIncident.sourceType,
+          sourceId: popupIncident.sourceId,
+          title: popupIncident.title,
+          recommendedSkill: popupIncident.recommendedSkill,
+          event: clickEvent,
+        }),
+      onRequestHelp: async (popupIncident) =>
+        this.#submitStationRequest({
+          stationId: popupIncident.recommendedStation,
+          sourceType: popupIncident.sourceType,
+          sourceId: popupIncident.sourceId,
+          title: popupIncident.title,
+          requestActionLabel: "Request Help",
+        }),
+    });
+
+    const originalClose = popupApp.close.bind(popupApp);
+    popupApp.close = async (...closeArgs) => {
+      this.#incidentAppsByKey.delete(popupKey);
+      return originalClose(...closeArgs);
+    };
+
+    this.#incidentAppsByKey.set(popupKey, popupApp);
+    popupApp.render({ force: true });
+  }
+
+  #resolveIncidentForPopup(sourceType, sourceId) {
+    const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
+    const normalizedSourceId = String(sourceId ?? "").trim();
+    if (!normalizedSourceType || !normalizedSourceId) {
+      return null;
+    }
+
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    const explicitTarget = hasExplicitShipContext(this.#shipContext);
+    const targetShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
+    const shipState = targetShipState ?? (explicitTarget ? null : stateApi?.getActiveShipState?.() ?? null);
+    const travelState = shipState?.arcflight ?? null;
+    if (!travelState) {
+      return null;
+    }
+
+    const stationLabelsById = buildStationLabelsById();
+    const skillLabelsByValue = buildSkillLabelsByValue();
+    const sourceCollection =
+      normalizedSourceType === "event"
+        ? Array.isArray(travelState.travelEvents)
+          ? travelState.travelEvents
+          : []
+        : normalizedSourceType === "issue"
+          ? Array.isArray(travelState.maintenanceIssues)
+            ? travelState.maintenanceIssues
+            : []
+          : Array.isArray(travelState.travelTasks)
+            ? travelState.travelTasks
+            : [];
+
+    const sourceRecord = sourceCollection.find((record) => String(record?.id ?? "").trim() === normalizedSourceId) ?? null;
+    if (!sourceRecord) {
+      return null;
+    }
+
+    const recommendedStation = String(sourceRecord.recommendedStation ?? "").trim().toLowerCase();
+    const recommendedSkill = String(sourceRecord.recommendedSkill ?? "").trim().toLowerCase();
+
+    return {
+      sourceType: normalizedSourceType,
+      sourceId: normalizedSourceId,
+      sourceLabel: toSourceLabel(normalizedSourceType),
+      title: toText(sourceRecord.title, "Unnamed incident"),
+      publicSummary: toText(sourceRecord.publicSummary, "No public details yet."),
+      publicOutcome: toText(sourceRecord.publicOutcome, "Outcome still uncertain."),
+      severityText: toSeverityText(sourceRecord.severity),
+      statusText: toStatusText(sourceRecord.status),
+      recommendedStation: recommendedStation || "",
+      recommendedStationLabel: stationLabelsById[recommendedStation] ?? "Any station",
+      recommendedSkill: recommendedSkill || "",
+      recommendedSkillLabel: recommendedSkill ? toSkillCheckLabel(recommendedSkill, skillLabelsByValue) : "Appropriate skill",
+      hasOffStationPenaltyNote: Boolean(recommendedStation),
+    };
+  }
+
   async #recordStationRollAttempt({ stationId, sourceType, sourceId, actingActor, recommendedSkill, total, degree }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!stateApi?.recordStationRollAttempt) {
@@ -587,6 +750,12 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   }
 
   async close(options) {
+    for (const incidentApp of this.#incidentAppsByKey.values()) {
+      if (incidentApp?.rendered) {
+        await incidentApp.close({ force: true });
+      }
+    }
+    this.#incidentAppsByKey.clear();
     this.#teardownLiveRefreshSubscription();
     return super.close(options);
   }
