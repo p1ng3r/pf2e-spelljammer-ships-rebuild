@@ -402,5 +402,40 @@ Keep Arcflight focused and incremental:
 - GM/internal admin fields remain hidden in player view:
   - no `dc`
   - no `outcomeTag`
+- no `linkedTaskId` / `hasLinkedTask`
+- no internal notes/metadata fields or raw GM workflow controls
+
+## Player Arcflight station intent request pass (2026-04-01)
+- Added a lightweight shared Arcflight `stationRequests` collection for player intent signaling.
+- Added shared state/API helpers:
+  - `state.getStationRequests(options?)`
+  - `state.addStationRequest(requestOrPartial, options?)`
+- Station request records are intentionally compact and manual-only:
+  - `id`
+  - `stationId`
+  - `sourceType`
+  - `sourceId`
+  - `title`
+  - `status` (`requested`, `active`, `resolved`)
+  - `requestText`
+  - `summary`
+- Player Arcflight **Station Briefings** now include one-click station intent actions per briefing item:
+  - **Respond** for situation/event prompts
+  - **Take Point** for ship-problem/issue prompts
+  - **Request Action** for crew-response/task prompts
+- Clicking a station intent action now creates a station request tied to station + source prompt id in shared state.
+- Duplicate unresolved station requests for the same station+source prompt are prevented for this pass to keep the flow clean.
+- Player Arcflight view now shows simple player-safe station intent state when already signaled:
+  - `Requested`
+  - `In progress`
+  - `Handled`
+- Workflow remains manual-only:
+  - no permission layer
+  - no approval queue
+  - no roll/DC automation
+  - no adjudication engine
+- GM/internal admin details remain hidden in the player-facing app:
+  - no `dc`
+  - no `outcomeTag`
   - no `linkedTaskId` / `hasLinkedTask`
-  - no internal notes/metadata fields or raw GM workflow controls
+  - no internal notes or backend-only jargon

@@ -27,6 +27,8 @@ import {
   updateMaintenanceIssue,
   setMaintenanceIssueTask,
   resolveMaintenanceIssue,
+  getStationRequests,
+  addStationRequest,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
@@ -256,6 +258,9 @@ export function createModuleApi() {
         setMaintenanceIssueTask(shipStateIndex, issueId, taskPatch, options),
       resolveMaintenanceIssue: (issueId, options) =>
         resolveMaintenanceIssue(shipStateIndex, issueId, options),
+      getStationRequests: (options) => getStationRequests(shipStateIndex, options),
+      addStationRequest: (requestOrPartial, options) =>
+        addStationRequest(shipStateIndex, requestOrPartial, options),
       setTravelPosture,
       travelPostures: TRAVEL_POSTURES,
 
