@@ -454,6 +454,8 @@ function createArcflightInstanceFromTemplate(template, instancePatch = {}) {
     sourceTemplateOutcomes: template.outcomes,
     sourceTemplateRisk: template.player.risk,
     sourceTemplateResolutionTexts: template.player.resolutionTexts,
+    publicSummary: template.player.summary,
+    publicOutcome: template.player.risk,
   };
 
   return {
@@ -510,6 +512,8 @@ export function spawnArcflightTemplateInstance(index, templateOrId, instancePatc
             dc: instanceRecord.playable.dc,
             summary: instanceRecord.playable.summary,
             notes: instanceRecord.playable.notes,
+            publicSummary: instanceRecord.playable.publicSummary,
+            publicOutcome: instanceRecord.playable.publicOutcome,
           }),
         ];
       }
@@ -529,7 +533,8 @@ export function spawnArcflightTemplateInstance(index, templateOrId, instancePatc
             recommendedStation: instanceRecord.playable.recommendedStation,
             recommendedSkill: instanceRecord.playable.recommendedSkill,
             notes: instanceRecord.playable.notes,
-            resultSummary: instanceRecord.playable.summary,
+            publicSummary: instanceRecord.playable.publicSummary,
+            publicOutcome: instanceRecord.playable.publicOutcome,
           }),
         ];
       }
@@ -549,6 +554,8 @@ export function spawnArcflightTemplateInstance(index, templateOrId, instancePatc
             recommendedSkill: instanceRecord.playable.recommendedSkill,
             summary: instanceRecord.playable.summary,
             notes: instanceRecord.playable.notes,
+            publicSummary: instanceRecord.playable.publicSummary,
+            publicOutcome: instanceRecord.playable.publicOutcome,
           }),
         ];
       }

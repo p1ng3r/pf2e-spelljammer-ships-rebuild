@@ -624,3 +624,14 @@ Keep Arcflight focused and incremental:
   - no compendium browser UI
   - no automatic DC resolution
   - no automatic effect executor
+
+## Arcflight premade spawn player-field integration fix pass (2026-04-01)
+- Root cause fixed: premade template spawn wrote GM/internal live-record text fields (`summary`, `notes`, and for issues `resultSummary`) but did not explicitly populate player-facing live-record fields consumed by the current Player Arcflight view (`publicSummary`, `publicOutcome`).
+- Spawn mapping now explicitly sets player-safe fields from template player text:
+  - `template.player.summary` -> spawned record `publicSummary`
+  - `template.player.risk` -> spawned record `publicOutcome`
+- Corrected spawned record mapping for all premade template types:
+  - event templates
+  - task templates
+  - issue templates
+- Issue spawn behavior now avoids using `resultSummary` as initial player-facing text; player-facing text is carried in `publicSummary`/`publicOutcome` while existing GM flow fields (`summary`, `notes`, etc.) remain intact where applicable.
