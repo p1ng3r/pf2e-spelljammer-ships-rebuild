@@ -635,3 +635,20 @@ Keep Arcflight focused and incremental:
   - task templates
   - issue templates
 - Issue spawn behavior now avoids using `resultSummary` as initial player-facing text; player-facing text is carried in `publicSummary`/`publicOutcome` while existing GM flow fields (`summary`, `notes`, etc.) remain intact where applicable.
+
+## Arcflight GM premade template spawning UI pass (2026-04-01)
+- Ship Management now includes a compact GM-facing **Premade Arcflight Templates** section.
+- The section reads templates from shared state/API via `state.getArcflightTemplates(options?)` using the app's current viewed-ship context.
+- Each template row now shows quick-identification fields:
+  - title
+  - type
+  - severity
+  - recommended station
+  - recommended skill
+- Each template row now includes a **Spawn** action wired to shared state/API:
+  - `state.spawnArcflightTemplateInstance(templateId, {}, { shipId })`
+- Spawn actions preserve existing viewed-ship behavior by passing explicit view context options, so the created live record is written to the currently viewed ship.
+- Existing live Arcflight loops remain unchanged and continue to receive spawned records through the existing collections:
+  - event -> `travelEvents`
+  - task -> `travelTasks`
+  - issue -> `maintenanceIssues`
