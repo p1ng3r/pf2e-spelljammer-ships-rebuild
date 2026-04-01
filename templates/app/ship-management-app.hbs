@@ -5,39 +5,70 @@
   </header>
 
   {{#if hasShipState}}
-    <article>
+    <article class="ship-management-body">
       <h3>{{shipState.identity.name}}</h3>
-      <p><strong>Ship ID:</strong> <code>{{activeShipId}}</code></p>
-      <p><strong>Linked Actor ID:</strong>
-        {{#if actorContext.actorId}}
-          <code>{{actorContext.actorId}}</code>
-        {{else}}
-          <em>Not linked yet</em>
-        {{/if}}
-      </p>
-      <p><strong>Linked Actor Name:</strong>
-        {{#if actorContext.actorName}}
-          {{actorContext.actorName}}
-        {{else if actorContext.missingActor}}
-          <em>Missing actor document</em>
-        {{else}}
-          <em>Not linked yet</em>
-        {{/if}}
-      </p>
-      <p><strong>Linked Actor Type:</strong>
-        {{#if actorContext.actorType}}
-          <code>{{actorContext.actorType}}</code>
-        {{else if actorContext.missingActor}}
-          <em>Unknown</em>
-        {{else}}
-          <em>Not linked yet</em>
-        {{/if}}
-      </p>
-      <p><strong>Level:</strong> {{shipState.identity.level}}</p>
+      <div class="ship-management-meta-grid">
+        <p><strong>Ship ID:</strong> <code>{{activeShipId}}</code></p>
+        <p><strong>Level:</strong> {{shipState.identity.level}}</p>
+        <p><strong>Linked Actor ID:</strong>
+          {{#if actorContext.actorId}}
+            <code>{{actorContext.actorId}}</code>
+          {{else}}
+            <em>Not linked yet</em>
+          {{/if}}
+        </p>
+        <p><strong>Linked Actor Name:</strong>
+          {{#if actorContext.actorName}}
+            {{actorContext.actorName}}
+          {{else if actorContext.missingActor}}
+            <em>Missing actor document</em>
+          {{else}}
+            <em>Not linked yet</em>
+          {{/if}}
+        </p>
+        <p><strong>Linked Actor Type:</strong>
+          {{#if actorContext.actorType}}
+            <code>{{actorContext.actorType}}</code>
+          {{else if actorContext.missingActor}}
+            <em>Unknown</em>
+          {{else}}
+            <em>Not linked yet</em>
+          {{/if}}
+        </p>
+      </div>
 
-      <h4>Travel (Arcflight)</h4>
+      <h4 class="travel-heading">Travel (Arcflight)</h4>
+      <section class="travel-summary-grid">
+        <p><strong>Days Elapsed:</strong> {{travelState.daysElapsed}}</p>
+        <p><strong>Days Into Leg:</strong> {{travelState.daysIntoCurrentLeg}}</p>
+        <p><strong>Leg Progress:</strong> {{travelState.legProgress}} / {{routeStatus.legTarget}}</p>
+        <p><strong>Progress/Day:</strong> {{travelState.progressPerDay}}</p>
+        <p><strong>Current Hex:</strong>
+          {{#if travelState.currentHex}}
+            <code>{{travelState.currentHex}}</code>
+          {{else}}
+            <em>Not set</em>
+          {{/if}}
+        </p>
+        <p><strong>Destination:</strong>
+          {{#if travelState.destination}}
+            <code>{{travelState.destination}}</code>
+          {{else}}
+            <em>Not set</em>
+          {{/if}}
+        </p>
+        <p><strong>Maintenance Pressure:</strong> {{travelState.maintenancePressure}}</p>
+        <p><strong>Encounter Pressure:</strong> {{travelState.encounterPressure}}</p>
+        <p><strong>Leg Status:</strong>
+          {{#if routeStatus.legComplete}}
+            <span>Leg Complete</span>
+          {{else}}
+            <span>In Progress</span>
+          {{/if}}
+        </p>
+      </section>
+
       <section class="travel-controls">
-        <h5>Travel Controls</h5>
         <p class="travel-controls__current-posture">
           <strong>Current Posture:</strong>
           <span class="travel-controls__posture-pill">{{travelState.posture}}</span>
@@ -73,36 +104,9 @@
             <input type="number" name="legProgressMax" min="1" step="1" value="{{travelState.legProgressMax}}" />
           </label>
           <button type="submit">Save Route Leg</button>
+          <button type="button" data-action="reset-leg-progress">Reset Leg Progress</button>
         </form>
-        <p><strong>Leg Progress Status:</strong> {{routeStatus.legProgress}} / {{routeStatus.legTarget}}</p>
-        <p><strong>Leg Status:</strong>
-          {{#if routeStatus.legComplete}}
-            <span>Leg Complete</span>
-          {{else}}
-            <span>In Progress</span>
-          {{/if}}
-        </p>
       </section>
-
-      <p><strong>Days Elapsed:</strong> {{travelState.daysElapsed}}</p>
-      <p><strong>Current Hex:</strong>
-        {{#if travelState.currentHex}}
-          <code>{{travelState.currentHex}}</code>
-        {{else}}
-          <em>Not set</em>
-        {{/if}}
-      </p>
-      <p><strong>Destination:</strong>
-        {{#if travelState.destination}}
-          <code>{{travelState.destination}}</code>
-        {{else}}
-          <em>Not set</em>
-        {{/if}}
-      </p>
-      <p><strong>Leg Progress:</strong> {{travelState.legProgress}} ({{travelState.progressPerDay}}/day)</p>
-      <p><strong>Days Into Current Leg:</strong> {{travelState.daysIntoCurrentLeg}}</p>
-      <p><strong>Maintenance Pressure:</strong> {{travelState.maintenancePressure}}</p>
-      <p><strong>Encounter Pressure:</strong> {{travelState.encounterPressure}}</p>
 
       <h4>Stations</h4>
       <ul>

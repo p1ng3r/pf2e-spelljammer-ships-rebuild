@@ -4,7 +4,7 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight.
 
 ## Current Branch Focus
-Deliver the next Arcflight vertical slice by adding a lightweight route-leg / destination placeholder flow wired through the shared state/API model.
+Deliver the next Arcflight vertical slice by improving compact/scroll-friendly travel UX and adding a tiny route-leg reset action in Ship Management.
 
 ## Completed So Far
 - Foundation constants/config added.
@@ -28,6 +28,11 @@ Deliver the next Arcflight vertical slice by adding a lightweight route-leg / de
   - Lightweight travel helpers added for destination and leg editing (`setTravelDestination`, `setTravelLeg`).
   - Ship Management now has a compact **Route / Destination** form to edit destination + leg target values.
   - Ship Management shows explicit current-leg progress vs target and a simple **Leg Complete** indicator.
+- Arcflight compact UX + route reset pass added:
+  - Ship Management app content now uses a dedicated scrollable body region so larger content stays usable in a fixed window.
+  - Ship metadata and travel readouts are grouped into denser grid summaries to reduce vertical sprawl.
+  - Travel controls and route form spacing were tightened for a compact table-facing layout.
+  - Added a lightweight **Reset Leg Progress** action that resets placeholder current-leg progress (`legProgress`) and day count (`daysIntoCurrentLeg`) without auto-advancing destination/arrival.
 
 ## Tested in Foundry
 Confirmed in prior implementation passes:
@@ -42,6 +47,7 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 - `state.setTravelLeg(...)` writes route-leg target values.
 - `state.advanceTravelDay()` continues incrementing leg progress.
 - Route status in-app flips to **Leg Complete** when `legProgress >= legProgressMax`.
+- `Reset Leg Progress` in-app action zeroes `legProgress` and `daysIntoCurrentLeg` while keeping destination and leg target values intact.
 
 ## Current State of the Module
 - Arcflight uses a single shared-state travel model.
@@ -54,8 +60,8 @@ This pass is a light vertical slice and is ready for in-Foundry validation of:
 
 ## Next Recommended Pass
 Keep Arcflight focused and incremental:
-- add optional one-click reset for current leg progress once table flow is validated
-- add minimal travel summary language for table-facing clarity
+- validate reset-leg table flow and decide whether to expose a second explicit **Start New Leg** alias or keep one reset action
+- continue compact readability polish based on live Foundry table testing
 - continue deferring navigation engines and route-generation complexity
 
 ## Known Issues / Cleanup
@@ -72,3 +78,4 @@ Keep Arcflight focused and incremental:
 - **Arcflight scaffold pass**: minimal travel state model, travel API helpers, and Ship Management travel readout.
 - **Arcflight controls pass**: in-app Advance Day and posture controls wired through shared API/state.
 - **Arcflight route-leg placeholder pass**: destination/leg editing plus leg-complete status in Ship Management.
+- **Arcflight compact UX pass**: scroll-friendly app body, denser travel summary layout, and in-app Reset Leg Progress action.
