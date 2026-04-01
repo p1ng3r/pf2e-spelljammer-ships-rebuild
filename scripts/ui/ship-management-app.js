@@ -57,6 +57,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const legTarget = parsePositiveNumber(travelState?.legProgressMax, 1);
     const legProgress = Number(travelState?.legProgress ?? 0);
     const legComplete = legTarget > 0 && legProgress >= legTarget;
+    const maintenanceIssues = stateApi?.getMaintenanceIssues?.() ??
+      (Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : []);
 
     return {
       moduleTitle: MODULE_TITLE,
@@ -70,6 +72,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         legTarget,
         legProgress,
         legComplete,
+      },
+      maintenance: {
+        issues: maintenanceIssues,
+        hasIssues: maintenanceIssues.length > 0,
       },
       actorContext: {
         actorId: linkedActorId,
@@ -99,6 +105,14 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     const resetLegButton = root.querySelector("[data-action='reset-leg-progress']");
     resetLegButton?.addEventListener("click", this.#onResetLegProgressClick.bind(this));
+
+    const addIssueForm = root.querySelector("[data-action='maintenance-issue-form']");
+    addIssueForm?.addEventListener("submit", this.#onMaintenanceIssueSubmit.bind(this));
+
+    const resolveIssueButtons = root.querySelectorAll("[data-action='resolve-maintenance-issue']");
+    for (const button of resolveIssueButtons) {
+      button.addEventListener("click", this.#onResolveMaintenanceIssueClick.bind(this));
+    }
   }
 
   async #onAdvanceDayClick(event) {
@@ -174,6 +188,48 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       daysIntoCurrentLeg: 0,
     });
 
+    this.render({ force: true });
+  }
+
+  async #onMaintenanceIssueSubmit(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!form || !stateApi) {
+      return;
+    }
+
+    const formData = new FormData(form);
+    const title = String(formData.get("issueTitle") ?? "").trim();
+    const severity = String(formData.get("issueSeverity") ?? "minor").trim();
+
+    if (!title) {
+      return;
+    }
+
+    await stateApi.addMaintenanceIssue?.({
+      title,
+      severity,
+      source: "manual",
+      status: "open",
+    });
+
+    form.reset();
+    this.render({ force: true });
+  }
+
+  async #onResolveMaintenanceIssueClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const issueId = button?.dataset?.issueId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!issueId || !stateApi) {
+      return;
+    }
+
+    await stateApi.resolveMaintenanceIssue?.(issueId);
     this.render({ force: true });
   }
 }
