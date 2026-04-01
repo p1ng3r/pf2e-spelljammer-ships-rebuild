@@ -89,6 +89,9 @@ function getEffectiveAttemptValue(attemptedValue, recommendedValue) {
 
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #pendingBodyScrollState = null;
+  #showResolvedTravelTasks = false;
+  #showResolvedMaintenanceIssues = false;
+  #showResolvedTravelEvents = false;
 
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-ship-management`,
@@ -126,12 +129,20 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const legTarget = parsePositiveNumber(travelState?.legProgressMax, 1);
     const legProgress = Number(travelState?.legProgress ?? 0);
     const legComplete = legTarget > 0 && legProgress >= legTarget;
-    const maintenanceIssues = stateApi?.getMaintenanceIssues?.() ??
+    const maintenanceIssues = stateApi?.getMaintenanceIssues?.({
+        includeResolved: this.#showResolvedMaintenanceIssues,
+      }) ??
       (Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : []);
-    const travelTasks = stateApi?.getTravelTasks?.() ??
+    const travelTasks = stateApi?.getTravelTasks?.({ includeResolved: this.#showResolvedTravelTasks }) ??
       (Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : []);
-    const travelEvents = stateApi?.getTravelEvents?.() ??
+    const travelEvents = stateApi?.getTravelEvents?.({ includeResolved: this.#showResolvedTravelEvents }) ??
       (Array.isArray(travelState?.travelEvents) ? travelState.travelEvents : []);
+    const allMaintenanceIssues = Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : [];
+    const allTravelTasks = Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : [];
+    const allTravelEvents = Array.isArray(travelState?.travelEvents) ? travelState.travelEvents : [];
+    const openMaintenanceIssueCount = allMaintenanceIssues.filter((issue) => issue?.status !== "resolved").length;
+    const openTravelTaskCount = allTravelTasks.filter((task) => task?.status !== "resolved").length;
+    const openTravelEventCount = allTravelEvents.filter((travelEvent) => travelEvent?.status !== "resolved").length;
     const stationOptions = STATIONS.map((station) => ({ value: station.id, label: station.label }));
     const skillOptions = PF2E_CORE_SKILLS.map((skill) => ({ value: skill.value, label: skill.label }));
     const taskTypeOptions = CREW_TASK_TYPES.map((taskType) => ({
@@ -228,20 +239,28 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       maintenance: {
         issues: maintenanceIssues.map((issue) => ({
           ...issue,
+          statusLabel: toReadableSlugLabel(issue.status ?? "open"),
           taskTypeLabel: toReadableSlugLabel(issue.taskType),
           checkTypeLabel: toReadableSlugLabel(issue.checkType),
           recommendedStationLabel: stationLabelsById[issue.recommendedStation] ?? null,
           recommendedSkillLabel: skillLabelsByValue[issue.recommendedSkill] ?? toReadableSlugLabel(issue.recommendedSkill),
+          outcomeSummaryLabel: toSentenceOrFallback(issue.resultSummary, "No outcome recorded yet."),
         })),
         hasIssues: maintenanceIssues.length > 0,
+        showResolved: this.#showResolvedMaintenanceIssues,
+        openCount: openMaintenanceIssueCount,
       },
       travelTasks: {
         tasks: travelTaskViewModels,
         hasTasks: travelTasks.length > 0,
+        showResolved: this.#showResolvedTravelTasks,
+        openCount: openTravelTaskCount,
       },
       travelEvents: {
         events: travelEventViewModels,
         hasEvents: travelEvents.length > 0,
+        showResolved: this.#showResolvedTravelEvents,
+        openCount: openTravelEventCount,
       },
       taskTypeOptions,
       checkTypeOptions,
@@ -318,6 +337,26 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const createTaskFromEventButtons = root.querySelectorAll("[data-action='create-task-from-event']");
     for (const button of createTaskFromEventButtons) {
       button.addEventListener("click", this.#onCreateTaskFromEventClick.bind(this));
+    }
+
+    const resolvedToggleInputs = root.querySelectorAll("[data-action='toggle-resolved-visibility']");
+    for (const input of resolvedToggleInputs) {
+      input.addEventListener("change", this.#onResolvedVisibilityToggle.bind(this));
+    }
+
+    const saveTaskOutcomeButtons = root.querySelectorAll("[data-action='save-travel-task-outcome']");
+    for (const button of saveTaskOutcomeButtons) {
+      button.addEventListener("click", this.#onSaveTravelTaskOutcomeClick.bind(this));
+    }
+
+    const saveIssueOutcomeButtons = root.querySelectorAll("[data-action='save-maintenance-issue-outcome']");
+    for (const button of saveIssueOutcomeButtons) {
+      button.addEventListener("click", this.#onSaveMaintenanceIssueOutcomeClick.bind(this));
+    }
+
+    const saveEventOutcomeButtons = root.querySelectorAll("[data-action='save-travel-event-outcome']");
+    for (const button of saveEventOutcomeButtons) {
+      button.addEventListener("click", this.#onSaveTravelEventOutcomeClick.bind(this));
     }
   }
 
@@ -538,6 +577,27 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }, event.currentTarget);
   }
 
+  async #onSaveTravelTaskOutcomeClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const taskId = button?.dataset?.taskId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!taskId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-travel-task-id]");
+    const outcomeInput = row?.querySelector("[name='travelTaskOutcomeSummary']");
+    const resultSummary = String(outcomeInput?.value ?? "").trim();
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateTravelTask?.(taskId, {
+        resultSummary: resultSummary || null,
+      });
+    }, event.currentTarget);
+  }
+
   async #onTravelEventSubmit(event) {
     event.preventDefault();
 
@@ -625,6 +685,27 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }, event.currentTarget);
   }
 
+  async #onSaveTravelEventOutcomeClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const eventId = button?.dataset?.eventId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!eventId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-travel-event-id]");
+    const outcomeInput = row?.querySelector("[name='travelEventOutcomeSummary']");
+    const resultSummary = String(outcomeInput?.value ?? "").trim();
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateTravelEvent?.(eventId, {
+        resultSummary: resultSummary || null,
+      });
+    }, event.currentTarget);
+  }
+
   async #onCreateTaskFromEventClick(event) {
     event.preventDefault();
 
@@ -638,6 +719,45 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.createTravelTaskFromEvent?.(eventId);
     }, event.currentTarget);
+  }
+
+  async #onSaveMaintenanceIssueOutcomeClick(event) {
+    event.preventDefault();
+
+    const button = event.currentTarget;
+    const issueId = button?.dataset?.issueId ?? "";
+    const stateApi = game?.[API_NAMESPACE]?.state;
+    if (!issueId || !stateApi) {
+      return;
+    }
+
+    const row = button.closest("[data-maintenance-issue-id]");
+    const outcomeInput = row?.querySelector("[name='maintenanceIssueOutcomeSummary']");
+    const resultSummary = String(outcomeInput?.value ?? "").trim();
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {
+      await stateApi.updateMaintenanceIssue?.(issueId, {
+        resultSummary: resultSummary || null,
+      });
+    }, event.currentTarget);
+  }
+
+  async #onResolvedVisibilityToggle(event) {
+    const input = event.currentTarget;
+    const group = String(input?.dataset?.group ?? "").trim();
+    const checked = Boolean(input?.checked);
+
+    if (group === "travel-tasks") {
+      this.#showResolvedTravelTasks = checked;
+    } else if (group === "maintenance-issues") {
+      this.#showResolvedMaintenanceIssues = checked;
+    } else if (group === "travel-events") {
+      this.#showResolvedTravelEvents = checked;
+    } else {
+      return;
+    }
+
+    await this.#rerenderWithPreservedBodyScroll(async () => {}, event.currentTarget);
   }
 
   async #rerenderWithPreservedBodyScroll(action, sourceElement = null) {
