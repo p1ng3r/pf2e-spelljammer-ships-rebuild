@@ -38,6 +38,24 @@ function toReadableSlugLabel(value) {
     .join(" ");
 }
 
+function toSentenceOrFallback(value, fallback) {
+  const normalized = String(value ?? "").trim();
+  return normalized || fallback;
+}
+
+function toEventOutcomeSummaryLabel(eventRecord) {
+  const resultSummary = String(eventRecord?.resultSummary ?? "").trim();
+  if (resultSummary) {
+    return resultSummary;
+  }
+
+  if ((eventRecord?.status ?? "") === "resolved") {
+    return "Resolved manually by GM.";
+  }
+
+  return "No outcome recorded yet.";
+}
+
 function resolveSkillValue(selectedSkill, customSkill) {
   if (selectedSkill === CUSTOM_SKILL_OPTION) {
     return String(customSkill ?? "").trim().toLowerCase();
@@ -171,6 +189,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return {
         ...travelEvent,
         statusLabel: toReadableSlugLabel(travelEvent.status ?? "open"),
+        severityLabel: toReadableSlugLabel(travelEvent.severity),
         eventTypeLabel: toReadableSlugLabel(travelEvent.eventType),
         checkTypeLabel: toReadableSlugLabel(travelEvent.checkType),
         recommendedStationLabel: stationLabelsById[travelEvent.recommendedStation] ?? null,
@@ -184,6 +203,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         attemptUsesRecommendedDefaults:
           stationAttemptValue.usesRecommendedDefault || skillAttemptValue.usesRecommendedDefault,
         linkedTaskTitle: travelTasksById[travelEvent.linkedTaskId]?.title ?? null,
+        statusSummaryLabel: `Status: ${toReadableSlugLabel(travelEvent.status ?? "open")}`,
+        attemptSummaryLabel: toSentenceOrFallback(
+          travelEvent.lastAttemptSummary || travelEvent.summary,
+          "No attempt summary recorded yet.",
+        ),
+        outcomeSummaryLabel: toEventOutcomeSummaryLabel(travelEvent),
       };
     });
 
