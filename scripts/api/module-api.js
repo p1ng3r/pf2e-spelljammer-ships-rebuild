@@ -182,6 +182,7 @@ function resetShipStates() {
 export function createModuleApi() {
   const knownUnresolvedIncidentKeysByShipId = new Map();
   const alertedIncidentKeysByShipId = new Map();
+  const receivedIncidentAlertKeysByShipId = new Map();
 
   const collectUnresolvedPlayerIncidentAlerts = (shipState) => {
     const travelState = shipState?.arcflight ?? null;
@@ -288,10 +289,25 @@ export function createModuleApi() {
       return;
     }
 
+    const shipId = String(incident.shipId ?? "").trim();
+    const sourceType = String(incident.sourceType ?? "").trim().toLowerCase();
+    const sourceId = String(incident.sourceId ?? "").trim();
+    if (!shipId || !sourceType || !sourceId) {
+      return;
+    }
+
+    const incidentKey = `${sourceType}::${sourceId}`;
+    const receivedKeys = receivedIncidentAlertKeysByShipId.get(shipId) ?? new Set();
+    if (receivedKeys.has(incidentKey)) {
+      return;
+    }
+    receivedKeys.add(incidentKey);
+    receivedIncidentAlertKeysByShipId.set(shipId, receivedKeys);
+
     showPlayerIncidentAlert({
-      shipId: incident.shipId ?? null,
-      sourceType: toText(incident.sourceType, "") || null,
-      sourceId: toText(incident.sourceId, "") || null,
+      shipId,
+      sourceType,
+      sourceId,
       title: toText(incident.title, "Arcflight Incident"),
       publicSummary: toText(incident.publicSummary, "Crew attention required."),
       recommendedStationLabel: toText(incident.recommendedStationLabel, "") || null,
