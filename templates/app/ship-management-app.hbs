@@ -43,6 +43,11 @@
         <p><strong>Days Into Leg:</strong> {{travelState.daysIntoCurrentLeg}}</p>
         <p><strong>Leg Progress:</strong> {{travelState.legProgress}} / {{routeStatus.legTarget}}</p>
         <p><strong>Progress/Day:</strong> {{travelState.progressPerDay}}</p>
+        <p><strong>Spell Engine Tier:</strong> {{galacticTravelStatus.spellEngineTier}}</p>
+        <p><strong>Days per Hex:</strong> {{galacticTravelStatus.daysPerHex}}</p>
+        <p><strong>Current Hex Progress:</strong> {{galacticTravelStatus.currentHexProgressLabel}}</p>
+        <p><strong>Days Remaining:</strong> {{galacticTravelStatus.daysRemainingInCurrentHex}}</p>
+        <p><strong>Completed Hexes:</strong> {{galacticTravelStatus.completedHexes}}</p>
         <p><strong>Current Hex:</strong>
           {{#if travelState.currentHex}}
             <code>{{travelState.currentHex}}</code>
@@ -98,6 +103,10 @@
           <label>
             <span>Leg Distance (hexes)</span>
             <input type="number" name="legDistance" min="1" step="1" value="{{travelState.legDistance}}" />
+          </label>
+          <label>
+            <span>Spell Engine Tier</span>
+            <input type="number" name="spellEngineTier" min="1" step="1" value="{{galacticTravelStatus.spellEngineTier}}" />
           </label>
           <label>
             <span>Leg Target Progress</span>
