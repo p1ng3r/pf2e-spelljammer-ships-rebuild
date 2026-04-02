@@ -405,6 +405,37 @@ function toVoyageStatus(travelState) {
   };
 }
 
+function buildAssignableActorOptions() {
+  return Array.from(game.actors ?? [])
+    .filter((actor) => actor?.type === "character")
+    .sort((left, right) => String(left?.name ?? "").localeCompare(String(right?.name ?? "")))
+    .map((actor) => ({
+      value: actor.id,
+      label: actor.name ?? actor.id,
+    }));
+}
+
+function toStationAssignmentRows(shipState, actorApi, assignableActorOptions) {
+  const stationAssignments = shipState?.crew?.stations ?? {};
+
+  return STATIONS.map((station) => {
+    const stationAssignment = stationAssignments[station.id] ?? { actorId: null, isNpcCrew: false };
+    const assignedActorId = String(stationAssignment.actorId ?? "").trim();
+    const assignedActor = assignedActorId ? actorApi?.resolveActor?.(assignedActorId) ?? null : null;
+
+    return {
+      stationId: station.id,
+      stationLabel: station.label,
+      assignedActorId,
+      assignedActorName: assignedActor?.name ?? (assignedActorId ? "Missing actor document" : "Unassigned"),
+      actorOptions: assignableActorOptions.map((option) => ({
+        ...option,
+        selected: option.value === assignedActorId,
+      })),
+    };
+  });
+}
+
 export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #shipContext = null;
   #shipStateUpdatedHookId = null;
@@ -443,6 +474,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   async _prepareContext() {
     const api = game?.[API_NAMESPACE] ?? null;
     const stateApi = api?.state ?? null;
+    const actorApi = api?.actors ?? null;
 
     const explicitTarget = hasExplicitShipContext(this.#shipContext);
     const targetShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
@@ -458,6 +490,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     const stationLabelsById = buildStationLabelsById();
     const skillLabelsByValue = buildSkillLabelsByValue();
+    const assignableActorOptions = buildAssignableActorOptions();
+    const stationAssignmentRows = toStationAssignmentRows(shipState, actorApi, assignableActorOptions);
     const arcflightLogEntries = stateApi?.getArcflightLogEntries?.(this.#shipContext) ??
       (Array.isArray(travelState.logEntries) ? travelState.logEntries : []);
     const stationRequests = stateApi?.getStationRequests?.() ?? (Array.isArray(travelState.stationRequests) ? travelState.stationRequests : []);
@@ -508,7 +542,12 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     return {
       moduleTitle: MODULE_TITLE,
       hasShipState: true,
+      isGm: Boolean(game.user?.isGM),
       shipName: shipState.identity?.name ?? "Unnamed Ship",
+      stationAssignments: {
+        rows: stationAssignmentRows,
+        hasAssignableActors: assignableActorOptions.length > 0,
+      },
       voyage: toVoyageStatus(travelState),
       arcflightLog: {
         entries: toArcflightLogEntriesView(arcflightLogEntries, publicOutcomeBySourceKey),
@@ -578,6 +617,63 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     for (const button of incidentOpenButtons) {
       button.addEventListener("click", this.#onOpenIncidentClick.bind(this));
     }
+
+    if (game.user?.isGM) {
+      const assignStationButtons = this.element.querySelectorAll("[data-player-assign-station-actor]");
+      for (const button of assignStationButtons) {
+        button.addEventListener("click", this.#onAssignStationActorClick.bind(this));
+      }
+
+      const clearStationButtons = this.element.querySelectorAll("[data-player-clear-station-actor]");
+      for (const button of clearStationButtons) {
+        button.addEventListener("click", this.#onClearStationActorClick.bind(this));
+      }
+    }
+  }
+
+  async #onAssignStationActorClick(event) {
+    event.preventDefault();
+
+    if (!game.user?.isGM) {
+      ui.notifications?.warn("Only the GM can edit station assignments.");
+      return;
+    }
+
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    const button = event.currentTarget;
+    const row = button?.closest?.("[data-station-id]") ?? null;
+    const stationId = String(button?.dataset?.stationId ?? "").trim().toLowerCase();
+    const actorSelect = row?.querySelector?.("select[name='stationAssignedActorId']") ?? null;
+    const assignedActorId = String(actorSelect?.value ?? "").trim();
+
+    if (!stationId || !stateApi?.assignStationActor) {
+      return;
+    }
+
+    this.#ignoreNextLiveRefreshCount += 1;
+    await stateApi.assignStationActor(stationId, assignedActorId || null, this.#shipContext);
+    this.#renderAfterLocalStateWrite();
+  }
+
+  async #onClearStationActorClick(event) {
+    event.preventDefault();
+
+    if (!game.user?.isGM) {
+      ui.notifications?.warn("Only the GM can edit station assignments.");
+      return;
+    }
+
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    const button = event.currentTarget;
+    const stationId = String(button?.dataset?.stationId ?? "").trim().toLowerCase();
+
+    if (!stationId || !stateApi?.clearStationActor) {
+      return;
+    }
+
+    this.#ignoreNextLiveRefreshCount += 1;
+    await stateApi.clearStationActor(stationId, this.#shipContext);
+    this.#renderAfterLocalStateWrite();
   }
 
   async #onStationRequestSubmit(event) {

@@ -45,6 +45,43 @@
       </section>
 
       <section>
+        <h4>Station Assignments</h4>
+        <ul>
+          {{#each stationAssignments.rows as |assignment|}}
+            <li data-station-id="{{assignment.stationId}}">
+              <strong>{{assignment.stationLabel}}</strong>
+              <p><strong>Assigned Crew:</strong> {{assignment.assignedActorName}}</p>
+              {{#if @root.isGm}}
+                {{#if @root.stationAssignments.hasAssignableActors}}
+                  <label>
+                    <span>Assign Character</span>
+                    <select name="stationAssignedActorId">
+                      <option value="">Unassigned</option>
+                      {{#each assignment.actorOptions as |actor|}}
+                        <option value="{{actor.value}}" {{#if actor.selected}}selected{{/if}}>
+                          {{actor.label}}
+                        </option>
+                      {{/each}}
+                    </select>
+                  </label>
+                  <div>
+                    <button type="button" data-player-assign-station-actor data-station-id="{{assignment.stationId}}">
+                      Assign / Save
+                    </button>
+                    <button type="button" data-player-clear-station-actor data-station-id="{{assignment.stationId}}">
+                      Clear
+                    </button>
+                  </div>
+                {{else}}
+                  <p><em>No character actors are available for station assignment.</em></p>
+                {{/if}}
+              {{/if}}
+            </li>
+          {{/each}}
+        </ul>
+      </section>
+
+      <section>
         <h4>Station Briefings</h4>
         {{#if stationPrompts.length}}
           <ul>
