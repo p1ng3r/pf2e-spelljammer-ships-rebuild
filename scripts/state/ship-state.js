@@ -1048,15 +1048,13 @@ export function executeArcflightOutcomeEffects(
         normalizedResultTier,
       );
 
-      if (!outcome || !Array.isArray(outcome.effects) || !outcome.effects.length) {
-        return shipState;
-      }
-
-      const effectSummaryText = normalizeTaskNotes(summaryText) ?? outcome.summary;
+      const normalizedSummaryText = normalizeTaskNotes(summaryText);
+      const effectSummaryText = normalizedSummaryText ?? normalizeTaskNotes(outcome?.summary);
       const targetIncident = incidentIndex >= 0 ? collection[incidentIndex] : incident;
+      const outcomeEffects = Array.isArray(outcome?.effects) ? outcome.effects : [];
       const effectRuntimeByIndex = [];
 
-      for (const [effectIndex, rawEffect] of outcome.effects.entries()) {
+      for (const [effectIndex, rawEffect] of outcomeEffects.entries()) {
         const effect = normalizeArcflightEffect(rawEffect);
         const runtimeMeta = applyArcflightEffect({
           shipState,
@@ -1073,15 +1071,15 @@ export function executeArcflightOutcomeEffects(
         effectRuntimeByIndex[effectIndex] = runtimeMeta ?? {};
       }
 
-      const effectSummaryLines = buildArcflightEffectSummaryLines(outcome.effects, effectRuntimeByIndex);
-      const fallbackSummaryLine = normalizeTaskNotes(effectSummaryText) ?? "Template effects applied.";
+      const effectSummaryLines = buildArcflightEffectSummaryLines(outcomeEffects, effectRuntimeByIndex);
+      const fallbackSummaryLine = effectSummaryText ?? "No template effects applied.";
       const effectSummary = effectSummaryLines.length ? effectSummaryLines.join(" ") : fallbackSummaryLine;
       const gmText = buildArcflightResolutionLogText({
         sourceTitle: targetIncident?.title ?? "Arcflight",
         resultTier: normalizedResultTier,
         effectSummary,
       });
-      const playerSummarySource = normalizeTaskNotes(summaryText) ?? normalizeTaskNotes(outcome.summary) ?? effectSummary;
+      const playerSummarySource = normalizedSummaryText ?? normalizeTaskNotes(outcome?.summary) ?? effectSummary;
       const publicText = buildArcflightResolutionLogText({
         sourceTitle: targetIncident?.title ?? "Arcflight",
         resultTier: normalizedResultTier,
