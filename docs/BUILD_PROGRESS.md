@@ -4,9 +4,27 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output.
 
 ## Current Branch Focus
-Deliver a small Arcflight station assignment UX vertical slice: add a GM-facing assignment workflow in Ship Management while preserving shared-state station resolution used by player Roll Check.
+Deliver Arcflight effect execution MVP: after automated incident resolution determines result tier, execute a safe subset of template outcome effects against the shared live ship state.
 
 ## Completed So Far
+- Arcflight effect executor MVP pass added:
+  - Added shared-state outcome execution helper:
+    - `executeArcflightOutcomeEffects(index, effectContext, options?)`
+  - Outcome block resolution for automated incident results now follows:
+    - live incident `sourceTemplateOutcomes[resultTier]` when present
+    - fallback to source template lookup via `sourceTemplateId`/`templateId`
+  - Supported effect execution now includes:
+    - `adjustResource`
+    - `adjustArcflightValue`
+    - `setStatus`
+    - `resolveSelf`
+    - `addLogEntry`
+  - Effect execution is intentionally bounded/safe:
+    - unsupported/unimplemented types (including `spawnTemplate`) are skipped without crashing resolution flow
+    - missing/empty outcome blocks fail gracefully without breaking the existing automated resolution path
+  - `addLogEntry` effect appends through the existing bounded Arcflight log behavior (`ARCFLIGHT_LOG_ENTRY_MAX`).
+  - Player automated incident resolution flow now invokes outcome effect execution after writing the existing incident update + resolution log entry, preserving prior MVP behavior while adding real state impact.
+  - Template-spawned incidents now persist `sourceTemplateId` + `sourceTemplateOutcomes` on live travel events/tasks/issues so outcome execution can prefer live incident-carried outcome data.
 - Arcflight live-refresh UX pass added:
   - Added centralized shared-state update signaling via module hook:
     - `game.pf2eSpelljammerShipsRebuild.hooks.shipStateUpdated`

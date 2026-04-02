@@ -878,6 +878,24 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       this.#shipContext,
     );
 
+    this.#ignoreNextLiveRefreshCount += 1;
+    stateApi.executeArcflightOutcomeEffects?.(
+      {
+        sourceType: popupIncident.sourceType,
+        sourceId: popupIncident.sourceId,
+        resultTier,
+        summaryText: resultSummary,
+        logContext: {
+          stationId: rollAttempt.stationId,
+          actorId: rollAttempt.actorId,
+          actorName: rollAttempt.actorName,
+          skill: rollAttempt.recommendedSkill,
+          total: adjustedTotal,
+        },
+      },
+      this.#shipContext,
+    );
+
     this.#showIncidentResolutionMessage({
       title: popupIncident.title,
       adjustedTotal,

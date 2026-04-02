@@ -285,12 +285,19 @@ function normalizeArcflightTemplateType(value) {
 }
 
 function normalizeArcflightEffectType(value) {
-  const effectType = normalizeIssueText(value, "addLogEntry");
-  return ARCFLIGHT_EFFECT_TYPES.includes(effectType) ? effectType : "addLogEntry";
+  const effectType = normalizeIssueText(value, "");
+  return ARCFLIGHT_EFFECT_TYPES.includes(effectType) ? effectType : null;
 }
 
 function normalizeArcflightEffect(effectOrPartial = {}) {
   const effectType = normalizeArcflightEffectType(effectOrPartial?.type);
+  if (!effectType) {
+    return {
+      type: "unsupported",
+      originalType: normalizeIssueText(effectOrPartial?.type, ""),
+    };
+  }
+
   const normalizedEffect = {
     type: effectType,
   };
@@ -332,6 +339,14 @@ function normalizeArcflightOutcome(outcomeOrPartial = {}) {
     followUps: followUps.map((entry) => normalizeIssueText(entry, "")).filter(Boolean),
     logEntry: normalizeTaskNotes(outcomeOrPartial.logEntry),
   };
+}
+
+function normalizeArcflightOutcomes(value) {
+  const outcomesInput = value && typeof value === "object" ? value : {};
+  return ARCFLIGHT_TEMPLATE_OUTCOME_KEYS.reduce((acc, key) => {
+    acc[key] = normalizeArcflightOutcome(outcomesInput[key]);
+    return acc;
+  }, {});
 }
 
 function normalizeResolutionTexts(value = {}) {
@@ -388,10 +403,7 @@ export function createArcflightTemplate(templateOrPartial = {}) {
       checkType: normalizeCheckType(templateOrPartial?.check?.checkType),
       publicDcVisible: Boolean(templateOrPartial?.check?.publicDcVisible),
     },
-    outcomes: ARCFLIGHT_TEMPLATE_OUTCOME_KEYS.reduce((acc, key) => {
-      acc[key] = normalizeArcflightOutcome(outcomesInput[key]);
-      return acc;
-    }, {}),
+    outcomes: normalizeArcflightOutcomes(outcomesInput),
   };
 }
 
@@ -512,6 +524,8 @@ export function spawnArcflightTemplateInstance(index, templateOrId, instancePatc
             dc: instanceRecord.playable.dc,
             summary: instanceRecord.playable.summary,
             notes: instanceRecord.playable.notes,
+            sourceTemplateId: instanceRecord.playable.sourceTemplateId,
+            sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
             publicSummary: instanceRecord.playable.publicSummary,
             publicOutcome: instanceRecord.playable.publicOutcome,
           }),
@@ -533,6 +547,8 @@ export function spawnArcflightTemplateInstance(index, templateOrId, instancePatc
             recommendedStation: instanceRecord.playable.recommendedStation,
             recommendedSkill: instanceRecord.playable.recommendedSkill,
             notes: instanceRecord.playable.notes,
+            sourceTemplateId: instanceRecord.playable.sourceTemplateId,
+            sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
             publicSummary: instanceRecord.playable.publicSummary,
             publicOutcome: instanceRecord.playable.publicOutcome,
           }),
@@ -554,6 +570,8 @@ export function spawnArcflightTemplateInstance(index, templateOrId, instancePatc
             recommendedSkill: instanceRecord.playable.recommendedSkill,
             summary: instanceRecord.playable.summary,
             notes: instanceRecord.playable.notes,
+            sourceTemplateId: instanceRecord.playable.sourceTemplateId,
+            sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
             publicSummary: instanceRecord.playable.publicSummary,
             publicOutcome: instanceRecord.playable.publicOutcome,
           }),
@@ -590,6 +608,150 @@ function trimArcflightLogEntries(entries = []) {
   return entries.slice(Math.max(0, entries.length - ARCFLIGHT_LOG_ENTRY_MAX));
 }
 
+function applyEffectMode(currentValue, mode, amount) {
+  const normalizedMode = normalizeIssueText(mode, "add").toLowerCase();
+  const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  const safeCurrent = Number.isFinite(Number(currentValue)) ? Number(currentValue) : 0;
+
+  if (normalizedMode === "set") {
+    return safeAmount;
+  }
+
+  if (normalizedMode === "subtract") {
+    return safeCurrent - safeAmount;
+  }
+
+  return safeCurrent + safeAmount;
+}
+
+function resolveIncidentCollection(travelState, sourceType) {
+  if (sourceType === "event") {
+    return Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
+  }
+
+  if (sourceType === "issue") {
+    return Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+  }
+
+  if (sourceType === "task") {
+    return Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
+  }
+
+  return [];
+}
+
+function resolveOutcomeBlockFromIncidentOrTemplate(shipState, sourceType, sourceId, resultTier) {
+  const travelState = shipState?.arcflight ?? createDefaultArcflightState();
+  const collection = resolveIncidentCollection(travelState, sourceType);
+  const incidentIndex = collection.findIndex((record) => String(record?.id ?? "").trim() === sourceId);
+  if (incidentIndex < 0) {
+    return { collection, incidentIndex, incident: null, outcome: null };
+  }
+
+  const incident = collection[incidentIndex];
+  const liveOutcome = incident?.sourceTemplateOutcomes?.[resultTier];
+  if (liveOutcome) {
+    return {
+      collection,
+      incidentIndex,
+      incident,
+      outcome: normalizeArcflightOutcome(liveOutcome),
+    };
+  }
+
+  const sourceTemplateId = normalizeIssueText(incident?.sourceTemplateId ?? incident?.templateId, "");
+  const templates = Array.isArray(travelState.templates) && travelState.templates.length
+    ? normalizeArcflightTemplateCollection(travelState.templates)
+    : normalizeArcflightTemplateCollection(ARCFLIGHT_STARTER_TEMPLATES);
+  const sourceTemplate = templates.find((template) => template.id === sourceTemplateId) ?? null;
+  const fallbackOutcome = sourceTemplate?.outcomes?.[resultTier] ?? null;
+
+  return {
+    collection,
+    incidentIndex,
+    incident,
+    outcome: fallbackOutcome ? normalizeArcflightOutcome(fallbackOutcome) : null,
+  };
+}
+
+function applyArcflightEffect({
+  shipState,
+  travelState,
+  incident,
+  sourceType,
+  sourceId,
+  resultTier,
+  effect,
+  effectSummaryText,
+  logContext = {},
+}) {
+  if (!effect || typeof effect !== "object") {
+    return;
+  }
+
+  const effectType = normalizeArcflightEffectType(effect.type);
+  if (!effectType || effect.type === "unsupported") {
+    return;
+  }
+
+  if (effectType === "adjustResource") {
+    const key = normalizeIssueText(effect.key, "").toLowerCase();
+    if (!key || !shipState.resources || !(key in shipState.resources)) {
+      return;
+    }
+
+    shipState.resources[key] = applyEffectMode(shipState.resources[key], effect.mode, effect.value);
+    return;
+  }
+
+  if (effectType === "adjustArcflightValue") {
+    const key = normalizeIssueText(effect.key, "");
+    if (!key || !travelState || !(key in travelState)) {
+      return;
+    }
+
+    travelState[key] = applyEffectMode(travelState[key], effect.mode, effect.value);
+    return;
+  }
+
+  if (effectType === "setStatus") {
+    if (!incident) {
+      return;
+    }
+
+    incident.status = normalizeTravelTaskStatus(effect.status);
+    return;
+  }
+
+  if (effectType === "resolveSelf") {
+    if (!incident) {
+      return;
+    }
+
+    incident.status = "resolved";
+    return;
+  }
+
+  if (effectType === "addLogEntry") {
+    const logEntries = Array.isArray(travelState.logEntries) ? travelState.logEntries : [];
+    const text = normalizeIssueText(effect.text, effectSummaryText || "Arcflight effect applied.");
+    const nextLogEntry = normalizeArcflightLogEntry({
+      type: sourceType,
+      sourceId,
+      sourceTitle: incident?.title ?? "Arcflight",
+      stationId: logContext.stationId,
+      actorId: logContext.actorId,
+      actorName: logContext.actorName,
+      skill: logContext.skill,
+      total: logContext.total,
+      result: resultTier,
+      text,
+    });
+    travelState.logEntries = trimArcflightLogEntries([...logEntries, nextLogEntry]);
+    return;
+  }
+}
+
 export function getArcflightLogEntries(index, options = {}) {
   const travelState = getTravelState(index, options);
   if (!travelState) {
@@ -616,6 +778,59 @@ export function addArcflightLogEntry(index, entryOrPartial = {}, options = {}) {
   );
 }
 
+export function executeArcflightOutcomeEffects(
+  index,
+  { sourceType, sourceId, resultTier, summaryText = null, logContext = {} } = {},
+  options = {},
+) {
+  const normalizedSourceType = normalizeStationRequestSourceType(sourceType);
+  const normalizedSourceId = normalizeIssueText(sourceId, "");
+  const normalizedResultTier = normalizeNullableDegree(resultTier);
+  if (!normalizedSourceId || !normalizedResultTier) {
+    return getShipState(index, options);
+  }
+
+  return updateShipState(
+    index,
+    (shipState) => {
+      const travelState = shipState.arcflight ?? createDefaultArcflightState();
+      shipState.arcflight = travelState;
+
+      const { collection, incidentIndex, incident, outcome } = resolveOutcomeBlockFromIncidentOrTemplate(
+        shipState,
+        normalizedSourceType,
+        normalizedSourceId,
+        normalizedResultTier,
+      );
+
+      if (!outcome || !Array.isArray(outcome.effects) || !outcome.effects.length) {
+        return shipState;
+      }
+
+      const effectSummaryText = normalizeTaskNotes(summaryText) ?? outcome.summary;
+      const targetIncident = incidentIndex >= 0 ? collection[incidentIndex] : incident;
+
+      for (const rawEffect of outcome.effects) {
+        const effect = normalizeArcflightEffect(rawEffect);
+        applyArcflightEffect({
+          shipState,
+          travelState,
+          incident: targetIncident,
+          sourceType: normalizedSourceType,
+          sourceId: normalizedSourceId,
+          resultTier: normalizedResultTier,
+          effect,
+          effectSummaryText,
+          logContext,
+        });
+      }
+
+      return shipState;
+    },
+    options,
+  );
+}
+
 function createMaintenanceIssue(issueOrPartial = {}) {
   const fallbackId = `issue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const generatedId = globalThis.foundry?.utils?.randomID?.() ?? fallbackId;
@@ -632,6 +847,11 @@ function createMaintenanceIssue(issueOrPartial = {}) {
     recommendedStation: normalizeRecommendedStation(issueOrPartial.recommendedStation),
     recommendedSkill: normalizeRecommendedSkill(issueOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(issueOrPartial.notes),
+    sourceTemplateId: normalizeIssueText(issueOrPartial.sourceTemplateId, "") || null,
+    sourceTemplateOutcomes:
+      issueOrPartial.sourceTemplateOutcomes && typeof issueOrPartial.sourceTemplateOutcomes === "object"
+        ? normalizeArcflightOutcomes(issueOrPartial.sourceTemplateOutcomes)
+        : null,
     lastAttemptSummary: normalizeTaskNotes(issueOrPartial.lastAttemptSummary),
     attemptedByStation: normalizeRecommendedStation(issueOrPartial.attemptedByStation),
     attemptedSkill: normalizeRecommendedSkill(issueOrPartial.attemptedSkill),
@@ -657,6 +877,11 @@ function createTravelTask(taskOrPartial = {}) {
     recommendedStation: normalizeRecommendedStation(taskOrPartial.recommendedStation),
     recommendedSkill: normalizeRecommendedSkill(taskOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(taskOrPartial.notes),
+    sourceTemplateId: normalizeIssueText(taskOrPartial.sourceTemplateId, "") || null,
+    sourceTemplateOutcomes:
+      taskOrPartial.sourceTemplateOutcomes && typeof taskOrPartial.sourceTemplateOutcomes === "object"
+        ? normalizeArcflightOutcomes(taskOrPartial.sourceTemplateOutcomes)
+        : null,
     summary: normalizeTaskNotes(taskOrPartial.summary),
     publicSummary: normalizePublicBriefingText(taskOrPartial.publicSummary),
     lastAttemptSummary: normalizeTaskNotes(taskOrPartial.lastAttemptSummary),
@@ -686,6 +911,11 @@ function createTravelEvent(eventOrPartial = {}) {
     checkType: normalizeCheckType(eventOrPartial.checkType),
     dc: normalizeOptionalDc(eventOrPartial.dc),
     notes: normalizeTaskNotes(eventOrPartial.notes),
+    sourceTemplateId: normalizeIssueText(eventOrPartial.sourceTemplateId, "") || null,
+    sourceTemplateOutcomes:
+      eventOrPartial.sourceTemplateOutcomes && typeof eventOrPartial.sourceTemplateOutcomes === "object"
+        ? normalizeArcflightOutcomes(eventOrPartial.sourceTemplateOutcomes)
+        : null,
     summary: normalizeTaskNotes(eventOrPartial.summary),
     publicSummary: normalizePublicBriefingText(eventOrPartial.publicSummary),
     lastAttemptSummary: normalizeTaskNotes(eventOrPartial.lastAttemptSummary),
