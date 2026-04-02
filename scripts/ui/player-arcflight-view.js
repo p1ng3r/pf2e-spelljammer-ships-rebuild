@@ -1140,6 +1140,16 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     return super.close(options);
   }
 
+  openIncidentFromSource(sourceType, sourceId) {
+    const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
+    const normalizedSourceId = String(sourceId ?? "").trim();
+    if (!normalizedSourceType || !normalizedSourceId) {
+      return;
+    }
+
+    this.#openIncidentPopup(normalizedSourceType, normalizedSourceId);
+  }
+
   #ensureLiveRefreshSubscription() {
     if (this.#shipStateUpdatedHookId !== null) {
       return;
