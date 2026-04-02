@@ -724,3 +724,28 @@ Keep Arcflight focused and incremental:
   - DC
   - result tier
   - player-facing resolution text from template resolution text when available.
+
+## Arcflight automated incident off-station fix pass (2026-04-02)
+- Fixed blocking gameplay bug in incident auto-resolution where off-station penalty could never trigger.
+- Root cause:
+  - popup Attempt Check always passed `recommendedStation` into station roll
+  - adjudication then compared returned `rollAttempt.stationId` to `recommendedStation`
+  - values were always identical, so off-station branch was never true.
+- Added a minimal player popup acting-station selector:
+  - station picker now renders in the incident popup
+  - defaults to the recommended station
+  - allows intentional off-station attempts.
+- Attempt Check now passes the selected acting station into the existing roll/adjudication path.
+- Automated adjudication now compares:
+  - chosen acting station
+  - recommended station
+  - and applies off-station penalty only when they differ.
+- Result message now makes adjusted totals explicit for off-station attempts:
+  - shows station context
+  - shows adjusted total and raw roll/penalty breakdown when applicable.
+- Arcflight log/live incident updates now persist the actual acting station chosen in popup (not implicitly the recommended station).
+- Existing scope remains unchanged:
+  - no nat20/nat1 adjustment
+  - no effect execution
+  - no follow-up spawning
+  - no assist/teamwork expansion.

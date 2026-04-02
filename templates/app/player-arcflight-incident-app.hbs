@@ -12,6 +12,14 @@
       <p><strong>Severity:</strong> {{incident.severityText}}</p>
       <p><strong>Recommended station:</strong> {{incident.recommendedStationLabel}}</p>
       <p><strong>Recommended skill:</strong> {{incident.recommendedSkillLabel}}</p>
+      <label>
+        <strong>Acting station:</strong>
+        <select name="actingStationId">
+          {{#each incident.actingStationOptions as |station|}}
+            <option value="{{station.id}}" {{#if station.selected}}selected{{/if}}>{{station.label}}</option>
+          {{/each}}
+        </select>
+      </label>
 
       <section>
         <h4>What is happening</h4>

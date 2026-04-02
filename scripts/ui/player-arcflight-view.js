@@ -141,6 +141,15 @@ function toSkillCheckLabel(skillSlug, skillLabelsByValue) {
   return skillLabelsByValue[normalizedSkill] ?? toLabel(normalizedSkill);
 }
 
+function toStationLabel(stationId) {
+  const normalizedStationId = String(stationId ?? "").trim().toLowerCase();
+  if (!normalizedStationId) {
+    return "Unknown station";
+  }
+
+  return STATIONS.find((station) => station.id === normalizedStationId)?.label ?? toLabel(normalizedStationId);
+}
+
 function toDegreeSlug(value) {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized.includes("critical") && normalized.includes("success")) {
@@ -662,7 +671,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     const popupApp = new PlayerArcflightIncidentApp({
       incident,
-      onAttemptCheck: async (popupIncident, clickEvent) => this.#attemptIncidentResolution(popupIncident, clickEvent),
+      onAttemptCheck: async (popupIncident, clickEvent, actingStationId) =>
+        this.#attemptIncidentResolution(popupIncident, clickEvent, actingStationId),
       onRequestHelp: async (popupIncident) =>
         this.#submitStationRequest({
           stationId: popupIncident.recommendedStation,
@@ -750,7 +760,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     };
   }
 
-  async #attemptIncidentResolution(popupIncident, clickEvent = null) {
+  async #attemptIncidentResolution(popupIncident, clickEvent = null, selectedStationId = null) {
     const dc = Number(popupIncident?.dc);
     if (!Number.isFinite(dc) || dc <= 0) {
       ui.notifications?.warn("This incident does not have a valid DC yet. Ask the GM to set one first.");
@@ -767,8 +777,14 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       return;
     }
 
+    const actingStationId = String(selectedStationId ?? popupIncident.recommendedStation ?? "").trim().toLowerCase();
+    if (!actingStationId) {
+      ui.notifications?.warn("Choose an acting station before attempting this incident.");
+      return;
+    }
+
     const rollAttempt = await this.#runStationRollCheck({
-      stationId: popupIncident.recommendedStation,
+      stationId: actingStationId,
       sourceType: popupIncident.sourceType,
       sourceId: popupIncident.sourceId,
       title: popupIncident.title,
@@ -780,7 +796,6 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       return;
     }
 
-    const actingStationId = String(rollAttempt.stationId ?? "").trim().toLowerCase();
     const recommendedStationId = String(popupIncident.recommendedStation ?? "").trim().toLowerCase();
     const offStationPenalty = Number.isFinite(Number(popupIncident.offStationPenalty))
       ? Math.floor(Number(popupIncident.offStationPenalty))
@@ -804,6 +819,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       resolutionText,
       isOffStation,
       offStationPenalty,
+      recommendedStationId,
     });
   }
 
@@ -817,6 +833,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     resolutionText,
     isOffStation,
     offStationPenalty,
+    recommendedStationId,
   }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!stateApi) {
@@ -864,16 +881,41 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     this.#showIncidentResolutionMessage({
       title: popupIncident.title,
       adjustedTotal,
+      rolledTotal: rollAttempt.total,
       dc,
       resultTierLabel,
       resolutionText,
+      actingStationId: rollAttempt.stationId,
+      recommendedStationId,
+      isOffStation,
+      offStationPenalty,
     });
   }
 
-  #showIncidentResolutionMessage({ title, adjustedTotal, dc, resultTierLabel, resolutionText }) {
+  #showIncidentResolutionMessage({
+    title,
+    adjustedTotal,
+    rolledTotal,
+    dc,
+    resultTierLabel,
+    resolutionText,
+    actingStationId,
+    recommendedStationId,
+    isOffStation,
+    offStationPenalty,
+  }) {
+    const actingStationLabel = toStationLabel(actingStationId);
+    const recommendedStationLabel = toStationLabel(recommendedStationId);
+    const totalLine = isOffStation
+      ? `<strong>Total:</strong> ${adjustedTotal} (<strong>Roll:</strong> ${rolledTotal}, <strong>Off-station:</strong> ${offStationPenalty}) vs <strong>DC:</strong> ${dc}`
+      : `<strong>Total:</strong> ${adjustedTotal} vs <strong>DC:</strong> ${dc}`;
+    const stationLine = isOffStation
+      ? `<strong>Station:</strong> ${actingStationLabel} (off-station from ${recommendedStationLabel})`
+      : `<strong>Station:</strong> ${actingStationLabel}`;
     const content =
       `<p><strong>${title}</strong></p>` +
-      `<p><strong>Total:</strong> ${adjustedTotal} vs <strong>DC:</strong> ${dc}</p>` +
+      `<p>${stationLine}</p>` +
+      `<p>${totalLine}</p>` +
       `<p><strong>Result:</strong> ${resultTierLabel}</p>` +
       `<p>${resolutionText}</p>`;
 
@@ -889,7 +931,10 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       return;
     }
 
-    ui.notifications?.info(`${title}: ${resultTierLabel}. Total ${adjustedTotal} vs DC ${dc}. ${resolutionText}`);
+    const totalSummary = isOffStation
+      ? `Total ${adjustedTotal} (roll ${rolledTotal}, off-station ${offStationPenalty}) vs DC ${dc}`
+      : `Total ${adjustedTotal} vs DC ${dc}`;
+    ui.notifications?.info(`${title}: ${resultTierLabel}. ${totalSummary}. ${resolutionText}`);
   }
 
   async #recordStationRollAttempt({ stationId, sourceType, sourceId, actingActor, recommendedSkill, total, degree }) {
