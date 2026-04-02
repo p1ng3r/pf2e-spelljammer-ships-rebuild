@@ -248,6 +248,57 @@ function toResultTierLabel(resultTier) {
   return "Unknown";
 }
 
+function toArcflightLogResultLabel(result) {
+  const normalized = String(result ?? "").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized === "criticalSuccess") {
+    return "Critical Success";
+  }
+
+  if (normalized === "criticalFailure") {
+    return "Critical Failure";
+  }
+
+  return toLabel(normalized);
+}
+
+function toPublicLogText(entry, publicOutcomeBySourceKey) {
+  const type = String(entry?.type ?? "").trim().toLowerCase();
+  const sourceId = String(entry?.sourceId ?? "").trim();
+  const sourceKey = `${type}::${sourceId}`;
+  const publicOutcome = toText(publicOutcomeBySourceKey[sourceKey], "");
+  if (publicOutcome) {
+    return publicOutcome;
+  }
+
+  return "Arcflight activity updated.";
+}
+
+function toArcflightLogEntriesView(logEntries = [], publicOutcomeBySourceKey = {}) {
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return [...logEntries]
+    .reverse()
+    .map((entry, index) => ({
+      id: entry.id ?? `arcflight-log-entry-${index}`,
+      orderLabel: `#${index + 1}`,
+      timestampLabel: Number.isFinite(Number(entry.timestamp))
+        ? formatter.format(new Date(Number(entry.timestamp)))
+        : "Unknown time",
+      sourceTitleLabel: toText(entry.sourceTitle, "Arcflight"),
+      resultLabel: toArcflightLogResultLabel(entry.result),
+      textLabel: toPublicLogText(entry, publicOutcomeBySourceKey),
+    }));
+}
+
 function toPriorityWeight(record) {
   const status = String(record?.status ?? "open").trim().toLowerCase();
   const severity = String(record?.severity ?? "minor").trim().toLowerCase();
@@ -402,6 +453,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     const stationLabelsById = buildStationLabelsById();
     const skillLabelsByValue = buildSkillLabelsByValue();
+    const arcflightLogEntries = stateApi?.getArcflightLogEntries?.(this.#shipContext) ??
+      (Array.isArray(travelState.logEntries) ? travelState.logEntries : []);
     const stationRequests = stateApi?.getStationRequests?.() ?? (Array.isArray(travelState.stationRequests) ? travelState.stationRequests : []);
     const stationRequestByPromptKey = stationRequests.reduce((accumulator, request) => {
       const stationId = String(request?.stationId ?? "").trim();
@@ -424,6 +477,23 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     const responseTasks = (Array.isArray(travelState.travelTasks) ? travelState.travelTasks : []).filter(
       (taskRecord) => taskRecord?.status === "open" || taskRecord?.status === "attempted",
     );
+    const publicOutcomeBySourceKey = [
+      ...(Array.isArray(travelState.travelEvents) ? travelState.travelEvents : []).map((record) => ({ ...record, sourceType: "event" })),
+      ...(Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : []).map((record) => ({
+        ...record,
+        sourceType: "issue",
+      })),
+      ...(Array.isArray(travelState.travelTasks) ? travelState.travelTasks : []).map((record) => ({ ...record, sourceType: "task" })),
+    ].reduce((accumulator, record) => {
+      const sourceType = String(record?.sourceType ?? "").trim();
+      const sourceId = String(record?.id ?? "").trim();
+      if (!sourceType || !sourceId) {
+        return accumulator;
+      }
+
+      accumulator[`${sourceType}::${sourceId}`] = toText(record.publicOutcome, "");
+      return accumulator;
+    }, {});
     const stationPromptSourceRecords = [
       ...openEvents.map((eventRecord) => ({ ...eventRecord, source: "event" })),
       ...openIssues.map((issueRecord) => ({ ...issueRecord, source: "issue" })),
@@ -435,6 +505,10 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       hasShipState: true,
       shipName: shipState.identity?.name ?? "Unnamed Ship",
       voyage: toVoyageStatus(travelState),
+      arcflightLog: {
+        entries: toArcflightLogEntriesView(arcflightLogEntries, publicOutcomeBySourceKey),
+        hasEntries: arcflightLogEntries.length > 0,
+      },
       activeSituations: openEvents.map((eventRecord) => ({
         title: toText(eventRecord.title, "Unnamed situation"),
         statusText: toStatusText(eventRecord.status),

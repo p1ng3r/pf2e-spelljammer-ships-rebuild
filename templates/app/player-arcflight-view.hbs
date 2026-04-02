@@ -21,6 +21,29 @@
         </ul>
       </section>
 
+      <section class="arcflight-log-panel">
+        <h4>Recent Arcflight Activity</h4>
+        {{#if arcflightLog.hasEntries}}
+          <ul class="arcflight-log-list">
+            {{#each arcflightLog.entries as |entry|}}
+              <li class="arcflight-log-list__row">
+                <p class="arcflight-log-list__meta">
+                  <strong>{{entry.orderLabel}}</strong>
+                  <span>{{entry.timestampLabel}}</span>
+                  <span>{{entry.sourceTitleLabel}}</span>
+                  {{#if entry.resultLabel}}
+                    <span>{{entry.resultLabel}}</span>
+                  {{/if}}
+                </p>
+                <p class="arcflight-log-list__text">{{entry.textLabel}}</p>
+              </li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p><em>No recent Arcflight activity.</em></p>
+        {{/if}}
+      </section>
+
       <section>
         <h4>Station Briefings</h4>
         {{#if stationPrompts.length}}

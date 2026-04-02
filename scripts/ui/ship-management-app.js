@@ -77,6 +77,46 @@ function toOutcomeSummaryLabel(record) {
   return toEventOutcomeSummaryLabel(record);
 }
 
+function toArcflightLogResultLabel(result) {
+  const normalized = String(result ?? "").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized === "criticalSuccess") {
+    return "Critical Success";
+  }
+
+  if (normalized === "criticalFailure") {
+    return "Critical Failure";
+  }
+
+  return toReadableSlugLabel(normalized);
+}
+
+function toArcflightLogEntriesView(logEntries = []) {
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return [...logEntries]
+    .reverse()
+    .map((entry, index) => ({
+      id: entry.id ?? `arcflight-log-entry-${index}`,
+      orderLabel: `#${index + 1}`,
+      timestampLabel: Number.isFinite(Number(entry.timestamp))
+        ? formatter.format(new Date(Number(entry.timestamp)))
+        : "Unknown time",
+      sourceTitleLabel: toSentenceOrFallback(entry.sourceTitle, "Arcflight"),
+      resultLabel: toArcflightLogResultLabel(entry.result),
+      textLabel: toSentenceOrFallback(entry.text, "Arcflight activity updated."),
+    }));
+}
+
 function resolveSkillValue(selectedSkill, customSkill) {
   if (selectedSkill === CUSTOM_SKILL_OPTION) {
     return String(customSkill ?? "").trim().toLowerCase();
@@ -277,6 +317,8 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const stationAssignments = shipState?.crew?.stations ?? {};
     const stationRollAttempts = stateApi?.getStationRollAttempts?.(viewShipOptions) ??
       (Array.isArray(travelState?.stationRollAttempts) ? travelState.stationRollAttempts : []);
+    const arcflightLogEntries = stateApi?.getArcflightLogEntries?.(viewShipOptions) ??
+      (Array.isArray(travelState?.logEntries) ? travelState.logEntries : []);
     const latestAttemptByPromptKey = stationRollAttempts.reduce((accumulator, attempt) => {
       const stationId = String(attempt?.stationId ?? "").trim();
       const sourceType = String(attempt?.sourceType ?? "").trim();
@@ -504,6 +546,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         hasRequests: stationRequests.length > 0,
         showResolved: this.#showResolvedStationRequests,
         openCount: openStationRequestCount,
+      },
+      arcflightLog: {
+        entries: toArcflightLogEntriesView(arcflightLogEntries),
+        hasEntries: arcflightLogEntries.length > 0,
       },
       arcflightTemplates: {
         templates: arcflightTemplateViewModels,
