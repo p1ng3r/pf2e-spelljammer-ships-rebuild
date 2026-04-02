@@ -411,6 +411,9 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   #refreshTimeoutId = null;
   #ignoreNextLiveRefreshCount = 0;
   #incidentAppsByKey = new Map();
+  #knownUnresolvedIncidentKeys = new Set();
+  #alertedIncidentKeys = new Set();
+  #hasInitializedIncidentAlertState = false;
 
   static DEFAULT_OPTIONS = {
     id: `${MODULE_ID}-player-arcflight-view`,
@@ -563,6 +566,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   _onRender(context, options) {
     super._onRender(context, options);
     this.#ensureLiveRefreshSubscription();
+    this.#processIncidentAlerts();
 
     const requestForms = this.element.querySelectorAll("[data-player-station-request-form]");
     for (const form of requestForms) {
@@ -1053,6 +1057,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   }
 
   #renderAfterLocalStateWrite() {
+    this.#processIncidentAlerts();
+
     if (!this.rendered) {
       return;
     }
@@ -1161,6 +1167,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         return;
       }
 
+      this.#processIncidentAlerts();
+
       if (this.#refreshTimeoutId) {
         clearTimeout(this.#refreshTimeoutId);
       }
@@ -1205,5 +1213,127 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     this.#shipStateUpdatedHookId = null;
     this.#ignoreNextLiveRefreshCount = 0;
+    this.#knownUnresolvedIncidentKeys.clear();
+    this.#alertedIncidentKeys.clear();
+    this.#hasInitializedIncidentAlertState = false;
+  }
+
+  #processIncidentAlerts() {
+    const unresolvedIncidents = this.#collectUnresolvedPlayerIncidents();
+    const nextKnownIncidentKeys = new Set(unresolvedIncidents.map((incident) => incident.key));
+
+    if (!this.#hasInitializedIncidentAlertState) {
+      this.#knownUnresolvedIncidentKeys = nextKnownIncidentKeys;
+      this.#hasInitializedIncidentAlertState = true;
+      return;
+    }
+
+    for (const incident of unresolvedIncidents) {
+      if (this.#knownUnresolvedIncidentKeys.has(incident.key)) {
+        continue;
+      }
+
+      if (this.#alertedIncidentKeys.has(incident.key)) {
+        continue;
+      }
+
+      this.#showPlayerIncidentAlert(incident);
+      this.#alertedIncidentKeys.add(incident.key);
+    }
+
+    this.#knownUnresolvedIncidentKeys = nextKnownIncidentKeys;
+  }
+
+  #collectUnresolvedPlayerIncidents() {
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    const explicitTarget = hasExplicitShipContext(this.#shipContext);
+    const targetShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
+    const shipState = targetShipState ?? (explicitTarget ? null : stateApi?.getActiveShipState?.() ?? null);
+    const travelState = shipState?.arcflight ?? null;
+    if (!travelState) {
+      return [];
+    }
+
+    const stationLabelsById = buildStationLabelsById();
+    const skillLabelsByValue = buildSkillLabelsByValue();
+
+    const toIncidentAlertRecord = (record, sourceType) => {
+      const sourceId = String(record?.id ?? "").trim();
+      if (!sourceId) {
+        return null;
+      }
+
+      const status = String(record?.status ?? "open").trim().toLowerCase();
+      if (status === "resolved") {
+        return null;
+      }
+
+      const recommendedStation = String(record?.recommendedStation ?? "").trim().toLowerCase();
+      const recommendedSkill = String(record?.recommendedSkill ?? "").trim().toLowerCase();
+
+      return {
+        key: `${sourceType}::${sourceId}`,
+        sourceType,
+        sourceId,
+        title: toText(record?.title, "Arcflight Incident"),
+        publicSummary: toText(record?.publicSummary, "Crew attention required."),
+        recommendedStationLabel: recommendedStation ? stationLabelsById[recommendedStation] ?? toLabel(recommendedStation) : null,
+        recommendedSkillLabel: recommendedSkill ? skillLabelsByValue[recommendedSkill] ?? toLabel(recommendedSkill) : null,
+      };
+    };
+
+    const unresolvedEvents = (Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [])
+      .map((record) => toIncidentAlertRecord(record, "event"))
+      .filter(Boolean);
+    const unresolvedIssues = (Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [])
+      .map((record) => toIncidentAlertRecord(record, "issue"))
+      .filter(Boolean);
+    const unresolvedTasks = (Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [])
+      .map((record) => toIncidentAlertRecord(record, "task"))
+      .filter(Boolean);
+
+    return [...unresolvedEvents, ...unresolvedIssues, ...unresolvedTasks];
+  }
+
+  #showPlayerIncidentAlert(incident) {
+    const recommendationLine = incident.recommendedStationLabel && incident.recommendedSkillLabel
+      ? `${incident.recommendedStationLabel} · ${incident.recommendedSkillLabel}`
+      : incident.recommendedStationLabel
+        ? incident.recommendedStationLabel
+        : incident.recommendedSkillLabel
+          ? incident.recommendedSkillLabel
+          : null;
+
+    const messageParts = [
+      `${TRAVEL_TERM} alert: ${incident.title}`,
+      incident.publicSummary,
+    ];
+    if (recommendationLine) {
+      messageParts.push(`Recommended: ${recommendationLine}`);
+    }
+
+    ui.notifications?.info(messageParts.join(" — "));
+
+    const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
+    if (!dialogClass?.confirm || !this.rendered) {
+      return;
+    }
+
+    const recommendationText = recommendationLine ? `<p><strong>Recommended:</strong> ${recommendationLine}</p>` : "";
+    dialogClass.confirm({
+      window: { title: `${TRAVEL_TERM} Incident Alert` },
+      content:
+        `<p><strong>${incident.title}</strong></p>` +
+        `<p>${incident.publicSummary}</p>` +
+        recommendationText +
+        `<p>Open the incident now?</p>`,
+      yes: {
+        label: "Open Incident",
+        callback: () => this.#openIncidentPopup(incident.sourceType, incident.sourceId),
+      },
+      no: {
+        label: "Later",
+      },
+    });
   }
 }
