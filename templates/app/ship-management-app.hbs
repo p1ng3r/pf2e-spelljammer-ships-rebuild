@@ -48,6 +48,9 @@
         <p><strong>Current Hex Progress:</strong> {{galacticTravelStatus.currentHexProgressLabel}}</p>
         <p><strong>Days Remaining:</strong> {{galacticTravelStatus.daysRemainingInCurrentHex}}</p>
         <p><strong>Completed Hexes:</strong> {{galacticTravelStatus.completedHexes}}</p>
+        <p><strong>Remaining Galactic Hexes:</strong> {{galacticTravelStatus.remainingGalacticHexes}}</p>
+        <p><strong>Route ETA (Days):</strong> {{galacticTravelStatus.estimatedDaysRemaining}}</p>
+        <p><strong>Route ETA:</strong> {{galacticTravelStatus.etaLabel}}</p>
         <p><strong>Current Hex:</strong>
           {{#if travelState.currentHex}}
             <code>{{travelState.currentHex}}</code>
@@ -107,6 +110,17 @@
           <label>
             <span>Spell Engine Tier</span>
             <input type="number" name="spellEngineTier" min="1" step="1" value="{{galacticTravelStatus.spellEngineTier}}" />
+          </label>
+          <label>
+            <span>Remaining Galactic Hexes</span>
+            <input
+              type="number"
+              name="remainingGalacticHexes"
+              min="0"
+              step="1"
+              value="{{galacticTravelStatus.remainingGalacticHexes}}"
+            />
+            <small>Includes current in-progress hex.</small>
           </label>
           <label>
             <span>Leg Target Progress</span>
