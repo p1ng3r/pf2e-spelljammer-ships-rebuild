@@ -691,6 +691,7 @@ function normalizeArcflightLogEntry(entryOrPartial = {}) {
     total: normalizeNullableNumber(entryOrPartial.total),
     result: normalizeNullableDegree(entryOrPartial.result),
     text: normalizeIssueText(entryOrPartial.text, "Arcflight log entry."),
+    publicText: normalizeTaskNotes(entryOrPartial.publicText),
   };
 }
 
@@ -712,6 +713,103 @@ function applyEffectMode(currentValue, mode, amount) {
   }
 
   return safeCurrent + safeAmount;
+}
+
+function toArcflightResultTierLabel(resultTier) {
+  if (resultTier === "criticalSuccess") {
+    return "Critical Success";
+  }
+
+  if (resultTier === "criticalFailure") {
+    return "Critical Failure";
+  }
+
+  if (resultTier === "success") {
+    return "Success";
+  }
+
+  if (resultTier === "failure") {
+    return "Failure";
+  }
+
+  return "Unknown";
+}
+
+function toArcflightKeyLabel(value) {
+  return String(value ?? "")
+    .trim()
+    .split(/[-_]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function toArcflightEffectModeSummary(mode, amount) {
+  const normalizedMode = normalizeIssueText(mode, "add").toLowerCase();
+  const safeAmount = Number.isFinite(Number(amount)) ? Math.abs(Number(amount)) : 0;
+
+  if (normalizedMode === "set") {
+    return `set to ${safeAmount}`;
+  }
+
+  if (normalizedMode === "subtract") {
+    return `reduced by ${safeAmount}`;
+  }
+
+  return `increased by ${safeAmount}`;
+}
+
+function buildArcflightResolutionLogText({ sourceTitle, resultTier, effectSummary }) {
+  const incidentTitle = normalizeIssueText(sourceTitle, "Arcflight");
+  const tierLabel = toArcflightResultTierLabel(resultTier);
+  const effectLine = normalizeIssueText(effectSummary, "No template effects applied.");
+  return `${incidentTitle} — ${tierLabel} — ${effectLine}`;
+}
+
+function buildArcflightEffectSummaryLines(rawEffects = [], effectRuntimeByIndex = []) {
+  const summaryLines = [];
+
+  for (let index = 0; index < rawEffects.length; index += 1) {
+    const normalizedEffect = normalizeArcflightEffect(rawEffects[index]);
+    const runtimeMeta = effectRuntimeByIndex[index] ?? {};
+
+    if (normalizedEffect.type === "adjustResource") {
+      const keyLabel = toArcflightKeyLabel(normalizedEffect.key) || "Ship Resource";
+      summaryLines.push(`${keyLabel} ${toArcflightEffectModeSummary(normalizedEffect.mode, normalizedEffect.value)}.`);
+      continue;
+    }
+
+    if (normalizedEffect.type === "adjustArcflightValue") {
+      const keyLabel = toArcflightKeyLabel(normalizedEffect.key) || "Arcflight Value";
+      summaryLines.push(`${keyLabel} ${toArcflightEffectModeSummary(normalizedEffect.mode, normalizedEffect.value)}.`);
+      continue;
+    }
+
+    if (normalizedEffect.type === "setStatus") {
+      const statusLabel = toArcflightKeyLabel(normalizedEffect.status) || "Updated";
+      summaryLines.push(`Incident status set to ${statusLabel}.`);
+      continue;
+    }
+
+    if (normalizedEffect.type === "resolveSelf") {
+      summaryLines.push("Incident resolved.");
+      continue;
+    }
+
+    if (normalizedEffect.type === "addLogEntry") {
+      const effectText = normalizeTaskNotes(normalizedEffect.text);
+      if (effectText) {
+        summaryLines.push(effectText.endsWith(".") ? effectText : `${effectText}.`);
+      }
+      continue;
+    }
+
+    if (normalizedEffect.type === "spawnTemplate" && runtimeMeta.spawnedTitle) {
+      summaryLines.push(`Spawned follow-up incident: ${runtimeMeta.spawnedTitle}.`);
+    }
+  }
+
+  return summaryLines.filter(Boolean);
 }
 
 function resolveIncidentCollection(travelState, sourceType) {
@@ -786,6 +884,7 @@ function applyArcflightEffect({
   effect,
   effectSummaryText,
   logContext = {},
+  suppressEffectLog = false,
 }) {
   if (!effect || typeof effect !== "object") {
     return;
@@ -835,6 +934,10 @@ function applyArcflightEffect({
   }
 
   if (effectType === "addLogEntry") {
+    if (suppressEffectLog) {
+      return;
+    }
+
     const logEntries = Array.isArray(travelState.logEntries) ? travelState.logEntries : [];
     const text = normalizeIssueText(effect.text, effectSummaryText || "Arcflight effect applied.");
     const nextLogEntry = normalizeArcflightLogEntry({
@@ -867,7 +970,11 @@ function applyArcflightEffect({
     shipState.arcflight = nextTravelState;
 
     if (!instanceRecord) {
-      return;
+      return { spawnedTitle: null };
+    }
+
+    if (suppressEffectLog) {
+      return { spawnedTitle: instanceRecord.title };
     }
 
     const logEntries = Array.isArray(nextTravelState.logEntries) ? nextTravelState.logEntries : [];
@@ -884,7 +991,10 @@ function applyArcflightEffect({
       text: `Follow-up incident spawned: ${instanceRecord.title}.`,
     });
     nextTravelState.logEntries = trimArcflightLogEntries([...logEntries, nextLogEntry]);
+    return { spawnedTitle: instanceRecord.title };
   }
+
+  return {};
 }
 
 export function getArcflightLogEntries(index, options = {}) {
@@ -944,10 +1054,11 @@ export function executeArcflightOutcomeEffects(
 
       const effectSummaryText = normalizeTaskNotes(summaryText) ?? outcome.summary;
       const targetIncident = incidentIndex >= 0 ? collection[incidentIndex] : incident;
+      const effectRuntimeByIndex = [];
 
-      for (const rawEffect of outcome.effects) {
+      for (const [effectIndex, rawEffect] of outcome.effects.entries()) {
         const effect = normalizeArcflightEffect(rawEffect);
-        applyArcflightEffect({
+        const runtimeMeta = applyArcflightEffect({
           shipState,
           travelState,
           incident: targetIncident,
@@ -957,8 +1068,40 @@ export function executeArcflightOutcomeEffects(
           effect,
           effectSummaryText,
           logContext,
+          suppressEffectLog: true,
         });
+        effectRuntimeByIndex[effectIndex] = runtimeMeta ?? {};
       }
+
+      const effectSummaryLines = buildArcflightEffectSummaryLines(outcome.effects, effectRuntimeByIndex);
+      const fallbackSummaryLine = normalizeTaskNotes(effectSummaryText) ?? "Template effects applied.";
+      const effectSummary = effectSummaryLines.length ? effectSummaryLines.join(" ") : fallbackSummaryLine;
+      const gmText = buildArcflightResolutionLogText({
+        sourceTitle: targetIncident?.title ?? "Arcflight",
+        resultTier: normalizedResultTier,
+        effectSummary,
+      });
+      const playerSummarySource = normalizeTaskNotes(summaryText) ?? normalizeTaskNotes(outcome.summary) ?? effectSummary;
+      const publicText = buildArcflightResolutionLogText({
+        sourceTitle: targetIncident?.title ?? "Arcflight",
+        resultTier: normalizedResultTier,
+        effectSummary: playerSummarySource,
+      });
+      const existingLogEntries = Array.isArray(travelState.logEntries) ? travelState.logEntries : [];
+      const nextLogEntry = normalizeArcflightLogEntry({
+        type: normalizedSourceType,
+        sourceId: normalizedSourceId,
+        sourceTitle: targetIncident?.title ?? "Arcflight",
+        stationId: logContext.stationId,
+        actorId: logContext.actorId,
+        actorName: logContext.actorName,
+        skill: logContext.skill,
+        total: logContext.total,
+        result: normalizedResultTier,
+        text: gmText,
+        publicText,
+      });
+      travelState.logEntries = trimArcflightLogEntries([...existingLogEntries, nextLogEntry]);
 
       return shipState;
     },

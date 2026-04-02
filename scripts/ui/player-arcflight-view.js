@@ -266,6 +266,11 @@ function toArcflightLogResultLabel(result) {
 }
 
 function toPublicLogText(entry, publicOutcomeBySourceKey) {
+  const explicitPublicText = toText(entry?.publicText, "");
+  if (explicitPublicText) {
+    return explicitPublicText;
+  }
+
   const type = String(entry?.type ?? "").trim().toLowerCase();
   const sourceId = String(entry?.sourceId ?? "").trim();
   const sourceKey = `${type}::${sourceId}`;
@@ -936,29 +941,12 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     }
 
     this.#ignoreNextLiveRefreshCount += 1;
-    stateApi.addArcflightLogEntry?.(
-      {
-        type: popupIncident.sourceType,
-        sourceId: popupIncident.sourceId,
-        sourceTitle: popupIncident.title,
-        stationId: rollAttempt.stationId,
-        actorId: rollAttempt.actorId,
-        actorName: rollAttempt.actorName,
-        skill: rollAttempt.recommendedSkill,
-        total: adjustedTotal,
-        result: resultTier,
-        text: resultSummary,
-      },
-      this.#shipContext,
-    );
-
-    this.#ignoreNextLiveRefreshCount += 1;
     stateApi.executeArcflightOutcomeEffects?.(
       {
         sourceType: popupIncident.sourceType,
         sourceId: popupIncident.sourceId,
         resultTier,
-        summaryText: resultSummary,
+        summaryText: resolutionText,
         logContext: {
           stationId: rollAttempt.stationId,
           actorId: rollAttempt.actorId,
