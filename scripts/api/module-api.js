@@ -41,6 +41,7 @@ import {
   spawnArcflightTemplateInstance,
   getArcflightLogEntries,
   addArcflightLogEntry,
+  executeArcflightOutcomeEffects,
   DEFAULT_SHARED_SHIP_ID,
 } from "../state/ship-state.js";
 import { ShipManagementApp } from "../ui/ship-management-app.js";
@@ -389,6 +390,10 @@ export function createModuleApi() {
       addArcflightLogEntry: wrapStateMutation(
         (entryOrPartial, options) => addArcflightLogEntry(shipStateIndex, entryOrPartial, options),
         { source: "addArcflightLogEntry" },
+      ),
+      executeArcflightOutcomeEffects: wrapStateMutation(
+        (effectContext, options) => executeArcflightOutcomeEffects(shipStateIndex, effectContext, options),
+        { source: "executeArcflightOutcomeEffects" },
       ),
       setTravelPosture,
       travelPostures: TRAVEL_POSTURES,
