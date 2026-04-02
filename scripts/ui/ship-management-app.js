@@ -210,6 +210,15 @@ function appendSummaryLine(existingValue, lineToAppend) {
   return `${existing}\n${line}`;
 }
 
+function ensureGmShipManagementAccess() {
+  if (game.user?.isGM) {
+    return true;
+  }
+
+  ui.notifications?.warn("Only the GM can open Ship Management.");
+  return false;
+}
+
 export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #pendingBodyScrollState = null;
   #showResolvedTravelTasks = false;
@@ -242,6 +251,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   };
 
   async _prepareContext() {
+    if (!ensureGmShipManagementAccess()) {
+      return {};
+    }
+
     const api = game?.[API_NAMESPACE] ?? null;
     const stateApi = api?.state ?? null;
     const actorApi = api?.actors ?? null;
@@ -572,6 +585,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
   }
 
   _onRender(context, options) {
+    if (!ensureGmShipManagementAccess()) {
+      void this.close();
+      return;
+    }
+
     super._onRender(context, options);
     this.#ensureLiveRefreshSubscription();
 
