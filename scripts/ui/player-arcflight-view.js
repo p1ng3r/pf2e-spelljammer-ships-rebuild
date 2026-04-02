@@ -199,6 +199,46 @@ function extractDegreeFromRollData(rollData) {
   );
 }
 
+function determineIncidentResultTier(total, dc) {
+  if (!Number.isFinite(total) || !Number.isFinite(dc)) {
+    return null;
+  }
+
+  if (total >= dc + 10) {
+    return "criticalSuccess";
+  }
+
+  if (total >= dc) {
+    return "success";
+  }
+
+  if (total <= dc - 10) {
+    return "criticalFailure";
+  }
+
+  return "failure";
+}
+
+function toResultTierLabel(resultTier) {
+  if (resultTier === "criticalSuccess") {
+    return "Critical Success";
+  }
+
+  if (resultTier === "criticalFailure") {
+    return "Critical Failure";
+  }
+
+  if (resultTier === "success") {
+    return "Success";
+  }
+
+  if (resultTier === "failure") {
+    return "Failure";
+  }
+
+  return "Unknown";
+}
+
 function toPriorityWeight(record) {
   const status = String(record?.status ?? "open").trim().toLowerCase();
   const severity = String(record?.severity ?? "minor").trim().toLowerCase();
@@ -505,13 +545,13 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   async #runStationRollCheck({ stationId, sourceType, sourceId, title, recommendedSkill, event = null }) {
     if (!stationId || !sourceType || !sourceId || !recommendedSkill) {
       ui.notifications?.warn("This station briefing does not have a recommended skill to roll yet.");
-      return;
+      return null;
     }
 
     const actingActor = this.#resolveAssignedStationActor(stationId);
     if (!actingActor) {
       ui.notifications?.warn("No assigned character was found for this station. Ask the GM to set station crew.");
-      return;
+      return null;
     }
 
     const skillLabelsByValue = buildSkillLabelsByValue();
@@ -543,7 +583,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
       const checkResultTotal = extractTotalFromRollData(checkResult);
       const checkResultDegree = extractDegreeFromRollData(checkResult);
-      await this.#recordStationRollAttempt({
+      return this.#recordStationRollAttempt({
         stationId,
         sourceType,
         sourceId,
@@ -552,7 +592,6 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         total: checkResultTotal,
         degree: checkResultDegree,
       });
-      return;
     }
 
     const roll = await new Roll(`1d20 + ${modifier}`).evaluate();
@@ -561,7 +600,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       flavor: chatFlavor,
     });
 
-    await this.#recordStationRollAttempt({
+    return this.#recordStationRollAttempt({
       stationId,
       sourceType,
       sourceId,
@@ -623,15 +662,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     const popupApp = new PlayerArcflightIncidentApp({
       incident,
-      onAttemptCheck: async (popupIncident, clickEvent) =>
-        this.#runStationRollCheck({
-          stationId: popupIncident.recommendedStation,
-          sourceType: popupIncident.sourceType,
-          sourceId: popupIncident.sourceId,
-          title: popupIncident.title,
-          recommendedSkill: popupIncident.recommendedSkill,
-          event: clickEvent,
-        }),
+      onAttemptCheck: async (popupIncident, clickEvent) => this.#attemptIncidentResolution(popupIncident, clickEvent),
       onRequestHelp: async (popupIncident) =>
         this.#submitStationRequest({
           stationId: popupIncident.recommendedStation,
@@ -690,6 +721,14 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     const recommendedStation = String(sourceRecord.recommendedStation ?? "").trim().toLowerCase();
     const recommendedSkill = String(sourceRecord.recommendedSkill ?? "").trim().toLowerCase();
+    const sourceTemplateId = String(sourceRecord.sourceTemplateId ?? "").trim();
+    const sourceTemplate = sourceTemplateId ? stateApi?.getArcflightTemplateById?.(sourceTemplateId, this.#shipContext) ?? null : null;
+    const sourceTemplateResolutionTexts = sourceRecord.sourceTemplateResolutionTexts ?? sourceTemplate?.player?.resolutionTexts ?? {};
+    const sourceTemplateOffStationPenalty = Number.isFinite(Number(sourceRecord.offStationPenalty))
+      ? Math.floor(Number(sourceRecord.offStationPenalty))
+      : Number.isFinite(Number(sourceTemplate?.stationRules?.offStationPenalty))
+        ? Math.floor(Number(sourceTemplate.stationRules.offStationPenalty))
+        : -2;
 
     return {
       sourceType: normalizedSourceType,
@@ -704,31 +743,189 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       recommendedStationLabel: stationLabelsById[recommendedStation] ?? "Any station",
       recommendedSkill: recommendedSkill || "",
       recommendedSkillLabel: recommendedSkill ? toSkillCheckLabel(recommendedSkill, skillLabelsByValue) : "Appropriate skill",
+      dc: Number.isFinite(Number(sourceRecord.dc)) ? Number(sourceRecord.dc) : null,
+      sourceTemplateResolutionTexts,
+      offStationPenalty: sourceTemplateOffStationPenalty,
       hasOffStationPenaltyNote: Boolean(recommendedStation),
     };
+  }
+
+  async #attemptIncidentResolution(popupIncident, clickEvent = null) {
+    const dc = Number(popupIncident?.dc);
+    if (!Number.isFinite(dc) || dc <= 0) {
+      ui.notifications?.warn("This incident does not have a valid DC yet. Ask the GM to set one first.");
+      return;
+    }
+
+    if (!popupIncident?.recommendedSkill) {
+      ui.notifications?.warn("This incident does not have a recommended skill yet.");
+      return;
+    }
+
+    if (!popupIncident?.recommendedStation) {
+      ui.notifications?.warn("This incident does not have a recommended station yet. Ask the GM for station guidance.");
+      return;
+    }
+
+    const rollAttempt = await this.#runStationRollCheck({
+      stationId: popupIncident.recommendedStation,
+      sourceType: popupIncident.sourceType,
+      sourceId: popupIncident.sourceId,
+      title: popupIncident.title,
+      recommendedSkill: popupIncident.recommendedSkill,
+      event: clickEvent,
+    });
+    if (!rollAttempt || !Number.isFinite(rollAttempt.total)) {
+      ui.notifications?.warn("Could not resolve this incident because the roll total was unavailable.");
+      return;
+    }
+
+    const actingStationId = String(rollAttempt.stationId ?? "").trim().toLowerCase();
+    const recommendedStationId = String(popupIncident.recommendedStation ?? "").trim().toLowerCase();
+    const offStationPenalty = Number.isFinite(Number(popupIncident.offStationPenalty))
+      ? Math.floor(Number(popupIncident.offStationPenalty))
+      : -2;
+    const isOffStation = Boolean(actingStationId && recommendedStationId && actingStationId !== recommendedStationId);
+    const adjustedTotal = rollAttempt.total + (isOffStation ? offStationPenalty : 0);
+    const resultTier = determineIncidentResultTier(adjustedTotal, dc);
+    const resultTierLabel = toResultTierLabel(resultTier);
+    const resolutionText = toText(
+      popupIncident?.sourceTemplateResolutionTexts?.[resultTier],
+      popupIncident?.publicOutcome ?? "Outcome still uncertain.",
+    );
+
+    await this.#writeIncidentResolution({
+      popupIncident,
+      rollAttempt,
+      adjustedTotal,
+      dc,
+      resultTier,
+      resultTierLabel,
+      resolutionText,
+      isOffStation,
+      offStationPenalty,
+    });
+  }
+
+  async #writeIncidentResolution({
+    popupIncident,
+    rollAttempt,
+    adjustedTotal,
+    dc,
+    resultTier,
+    resultTierLabel,
+    resolutionText,
+    isOffStation,
+    offStationPenalty,
+  }) {
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
+    if (!stateApi) {
+      return;
+    }
+
+    const attemptSummary = isOffStation
+      ? `${rollAttempt.actorName} rolled ${rollAttempt.recommendedSkill} ${rollAttempt.total} (${offStationPenalty} off-station) => ${adjustedTotal} vs DC ${dc}.`
+      : `${rollAttempt.actorName} rolled ${rollAttempt.recommendedSkill} ${rollAttempt.total} vs DC ${dc}.`;
+    const resultSummary = `${resultTierLabel}: ${resolutionText}`;
+    const updatePatch = {
+      attemptedByStation: rollAttempt.stationId,
+      attemptedSkill: rollAttempt.recommendedSkill,
+      lastAttemptSummary: attemptSummary,
+      resultSummary,
+      status: resultTier === "success" || resultTier === "criticalSuccess" ? "resolved" : "attempted",
+    };
+
+    this.#ignoreNextLiveRefreshCount += 1;
+    if (popupIncident.sourceType === "event") {
+      stateApi.updateTravelEvent?.(popupIncident.sourceId, updatePatch, this.#shipContext);
+    } else if (popupIncident.sourceType === "task") {
+      stateApi.updateTravelTask?.(popupIncident.sourceId, updatePatch, this.#shipContext);
+    } else if (popupIncident.sourceType === "issue") {
+      stateApi.updateMaintenanceIssue?.(popupIncident.sourceId, updatePatch, this.#shipContext);
+    }
+
+    this.#ignoreNextLiveRefreshCount += 1;
+    stateApi.addArcflightLogEntry?.(
+      {
+        type: popupIncident.sourceType,
+        sourceId: popupIncident.sourceId,
+        sourceTitle: popupIncident.title,
+        stationId: rollAttempt.stationId,
+        actorId: rollAttempt.actorId,
+        actorName: rollAttempt.actorName,
+        skill: rollAttempt.recommendedSkill,
+        total: adjustedTotal,
+        result: resultTier,
+        text: resultSummary,
+      },
+      this.#shipContext,
+    );
+
+    this.#showIncidentResolutionMessage({
+      title: popupIncident.title,
+      adjustedTotal,
+      dc,
+      resultTierLabel,
+      resolutionText,
+    });
+  }
+
+  #showIncidentResolutionMessage({ title, adjustedTotal, dc, resultTierLabel, resolutionText }) {
+    const content =
+      `<p><strong>${title}</strong></p>` +
+      `<p><strong>Total:</strong> ${adjustedTotal} vs <strong>DC:</strong> ${dc}</p>` +
+      `<p><strong>Result:</strong> ${resultTierLabel}</p>` +
+      `<p>${resolutionText}</p>`;
+
+    const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
+    if (dialogClass?.prompt) {
+      dialogClass.prompt({
+        window: { title: `${TRAVEL_TERM} Incident Result` },
+        content,
+        ok: {
+          label: "OK",
+        },
+      });
+      return;
+    }
+
+    ui.notifications?.info(`${title}: ${resultTierLabel}. Total ${adjustedTotal} vs DC ${dc}. ${resolutionText}`);
   }
 
   async #recordStationRollAttempt({ stationId, sourceType, sourceId, actingActor, recommendedSkill, total, degree }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!stateApi?.recordStationRollAttempt) {
-      return;
+      return null;
     }
+
+    const attemptRecord = {
+      stationId,
+      sourceType,
+      sourceId,
+      actorId: actingActor?.id ?? null,
+      actorName: actingActor?.name ?? "Unknown Actor",
+      recommendedSkill,
+      total: Number.isFinite(total) ? total : null,
+      degree: degree ?? null,
+    };
 
     this.#ignoreNextLiveRefreshCount += 1;
     stateApi.recordStationRollAttempt(
       {
-        stationId,
-        sourceType,
-        sourceId,
-        actorId: actingActor?.id ?? null,
-        actorName: actingActor?.name ?? "Unknown Actor",
+        stationId: attemptRecord.stationId,
+        sourceType: attemptRecord.sourceType,
+        sourceId: attemptRecord.sourceId,
+        actorId: attemptRecord.actorId,
+        actorName: attemptRecord.actorName,
         skill: recommendedSkill,
-        total: Number.isFinite(total) ? total : null,
-        degree: degree ?? null,
+        total: attemptRecord.total,
+        degree: attemptRecord.degree,
         createdAt: Date.now(),
       },
       this.#shipContext,
     );
+
+    return attemptRecord;
   }
 
   #resolveAssignedStationActor(stationId) {
