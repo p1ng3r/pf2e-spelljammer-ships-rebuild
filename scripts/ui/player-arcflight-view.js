@@ -409,6 +409,20 @@ function toVoyageStatus(travelState) {
     (remainingGalacticHexes > 0
       ? `${estimatedDaysRemaining} day${estimatedDaysRemaining === 1 ? "" : "s"} remaining`
       : "Arrived");
+  const maintenancePressure = Math.max(0, Number(travelState?.maintenancePressure ?? 0));
+  const encounterPressure = Math.max(0, Number(travelState?.encounterPressure ?? 0));
+  const voyageInstability = Math.max(0, Number(travelState?.voyageInstability ?? 0));
+  const toPressureBand = (value) => {
+    if (value >= 5) {
+      return "Dangerous";
+    }
+
+    if (value >= 3) {
+      return "Noticeable";
+    }
+
+    return "Calm";
+  };
 
   return {
     term: TRAVEL_TERM,
@@ -425,6 +439,12 @@ function toVoyageStatus(travelState) {
     estimatedDaysRemaining,
     etaLabel,
     daysElapsed,
+    maintenancePressure,
+    maintenancePressureBand: toPressureBand(maintenancePressure),
+    encounterPressure,
+    encounterPressureBand: toPressureBand(encounterPressure),
+    voyageInstability,
+    voyageInstabilityBand: toPressureBand(voyageInstability),
     statusText: legProgress >= legTarget ? "Leg complete. Awaiting next heading." : "In transit.",
   };
 }
