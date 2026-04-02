@@ -677,3 +677,75 @@ Keep Arcflight focused and incremental:
   - **Request Help** reuses the existing shared station-request creation flow.
   - **Close** closes the popup window cleanly.
 - Existing player list view sections and station briefing flows were preserved; this pass is additive and does not add auto-resolution, automated DC logic, or effect execution.
+
+## Arcflight automated incident resolution MVP pass (2026-04-02)
+- Player Arcflight incident popup **Attempt Check** is now wired to a lightweight automated adjudication flow.
+- Automated Attempt flow now:
+  - runs the existing station roll path (including existing roll capture)
+  - reads DC from the live incident record
+  - compares adjusted total vs DC to determine:
+    - `criticalSuccess`
+    - `success`
+    - `failure`
+    - `criticalFailure`
+- Off-station penalty behavior in this pass:
+  - uses explicit live incident `offStationPenalty` when present
+  - otherwise uses source template `stationRules.offStationPenalty` when available
+  - otherwise defaults to `-2`
+- Result tier resolution in this pass is threshold-based MVP logic:
+  - `total >= dc + 10` => `criticalSuccess`
+  - `total >= dc` => `success`
+  - `total <= dc - 10` => `criticalFailure`
+  - otherwise => `failure`
+- Natural 20 / natural 1 degree adjustment is intentionally not applied yet in this pass (explicit MVP assumption).
+- Incident live-record updates now happen automatically after popup Attempt Check:
+  - writes `attemptedByStation`
+  - writes `attemptedSkill`
+  - writes `lastAttemptSummary`
+  - writes `resultSummary`
+  - sets status to:
+    - `resolved` on success/critical success
+    - `attempted` on failure/critical failure
+- Maintenance issue records now support the same lightweight attempt metadata shape as events/tasks:
+  - `lastAttemptSummary`
+  - `attemptedByStation`
+  - `attemptedSkill`
+  - plus `attempted` as a valid status.
+- Added one Arcflight log entry per automated attempt with compact adjudication fields:
+  - type
+  - sourceId/sourceTitle
+  - station/actor/skill
+  - adjusted total
+  - result
+  - player-facing result text
+- Player now receives a compact post-roll result message/dialog showing:
+  - incident title
+  - adjusted total
+  - DC
+  - result tier
+  - player-facing resolution text from template resolution text when available.
+
+## Arcflight automated incident off-station fix pass (2026-04-02)
+- Fixed blocking gameplay bug in incident auto-resolution where off-station penalty could never trigger.
+- Root cause:
+  - popup Attempt Check always passed `recommendedStation` into station roll
+  - adjudication then compared returned `rollAttempt.stationId` to `recommendedStation`
+  - values were always identical, so off-station branch was never true.
+- Added a minimal player popup acting-station selector:
+  - station picker now renders in the incident popup
+  - defaults to the recommended station
+  - allows intentional off-station attempts.
+- Attempt Check now passes the selected acting station into the existing roll/adjudication path.
+- Automated adjudication now compares:
+  - chosen acting station
+  - recommended station
+  - and applies off-station penalty only when they differ.
+- Result message now makes adjusted totals explicit for off-station attempts:
+  - shows station context
+  - shows adjusted total and raw roll/penalty breakdown when applicable.
+- Arcflight log/live incident updates now persist the actual acting station chosen in popup (not implicitly the recommended station).
+- Existing scope remains unchanged:
+  - no nat20/nat1 adjustment
+  - no effect execution
+  - no follow-up spawning
+  - no assist/teamwork expansion.

@@ -119,7 +119,7 @@ function normalizeIssueSeverity(value) {
 
 function normalizeIssueStatus(value) {
   const status = normalizeIssueText(value, "open").toLowerCase();
-  const allowedStatuses = ["open", "resolved"];
+  const allowedStatuses = ["open", "attempted", "resolved"];
   return allowedStatuses.includes(status) ? status : "open";
 }
 
@@ -632,6 +632,9 @@ function createMaintenanceIssue(issueOrPartial = {}) {
     recommendedStation: normalizeRecommendedStation(issueOrPartial.recommendedStation),
     recommendedSkill: normalizeRecommendedSkill(issueOrPartial.recommendedSkill),
     notes: normalizeTaskNotes(issueOrPartial.notes),
+    lastAttemptSummary: normalizeTaskNotes(issueOrPartial.lastAttemptSummary),
+    attemptedByStation: normalizeRecommendedStation(issueOrPartial.attemptedByStation),
+    attemptedSkill: normalizeRecommendedSkill(issueOrPartial.attemptedSkill),
     resultSummary: normalizeTaskNotes(issueOrPartial.resultSummary),
     publicSummary: normalizePublicBriefingText(issueOrPartial.publicSummary),
     publicOutcome: normalizePublicBriefingText(issueOrPartial.publicOutcome),

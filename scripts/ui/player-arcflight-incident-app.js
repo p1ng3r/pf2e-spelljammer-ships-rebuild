@@ -1,4 +1,4 @@
-import { MODULE_ID, MODULE_TITLE } from "../config/constants.js";
+import { MODULE_ID, MODULE_TITLE, STATIONS } from "../config/constants.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -60,6 +60,11 @@ export class PlayerArcflightIncidentApp extends HandlebarsApplicationMixin(Appli
         recommendedStationLabel: toText(this.#incident.recommendedStationLabel, "Any station"),
         recommendedSkillLabel: toText(this.#incident.recommendedSkillLabel, "Appropriate skill"),
         statusText: toText(this.#incident.statusText, "Open"),
+        actingStationOptions: STATIONS.map((station) => ({
+          id: station.id,
+          label: station.label,
+          selected: station.id === this.#incident.recommendedStation,
+        })),
       },
     };
   }
@@ -83,7 +88,9 @@ export class PlayerArcflightIncidentApp extends HandlebarsApplicationMixin(Appli
       return;
     }
 
-    await this.#onAttemptCheck(this.#incident, event);
+    const actingStationSelect = this.element?.querySelector("[name='actingStationId']");
+    const actingStationId = String(actingStationSelect?.value ?? this.#incident.recommendedStation ?? "").trim().toLowerCase();
+    await this.#onAttemptCheck(this.#incident, event, actingStationId);
   }
 
   async #onRequestHelpClick(event) {
