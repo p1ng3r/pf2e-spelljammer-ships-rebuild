@@ -23,12 +23,14 @@ Hooks.once("ready", () => {
       onclick: () => api.ui.openPlayerArcflightView(actor),
     });
 
-    buttons.unshift({
-      label: "Ship Mgmt",
-      class: "pf2e-spelljammer-ships-open-management",
-      icon: "fas fa-ship",
-      onclick: () => api.ui.openShipManagementForVehicleActor(actor),
-    });
+    if (game.user?.isGM) {
+      buttons.unshift({
+        label: "Ship Mgmt",
+        class: "pf2e-spelljammer-ships-open-management",
+        icon: "fas fa-ship",
+        onclick: () => api.ui.openShipManagementForVehicleActor(actor),
+      });
+    }
   });
 
   console.log(`${MODULE_TITLE} | ready`);

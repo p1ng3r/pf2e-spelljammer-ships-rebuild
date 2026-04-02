@@ -141,6 +141,15 @@ function getActorLaunchErrorMessage(error) {
   return error.message.slice(separatorIndex + 1).trim();
 }
 
+function ensureGmShipManagementAccess() {
+  if (game.user?.isGM) {
+    return true;
+  }
+
+  const message = "Only the GM can open Ship Management.";
+  ui.notifications?.warn(message);
+  return false;
+}
 
 function resolveActorOrOptions(actorOrOptions) {
   if (!actorOrOptions) {
@@ -534,6 +543,10 @@ export function createModuleApi() {
   };
 
   const openShipManagement = () => {
+    if (!ensureGmShipManagementAccess()) {
+      return null;
+    }
+
     const app = new ShipManagementApp();
     app.render({ force: true });
     return app;
@@ -596,6 +609,10 @@ export function createModuleApi() {
   };
 
   const openShipManagementForVehicleActor = (actorOrId, options = {}) => {
+    if (!ensureGmShipManagementAccess()) {
+      return null;
+    }
+
     try {
       initializeShipStateForVehicleActor(actorOrId, { ...options, setActive: true });
       return openShipManagement();
