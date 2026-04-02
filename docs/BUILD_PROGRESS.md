@@ -7,6 +7,12 @@ Active rebuild in progress. Arcflight now has a small user-facing control slice 
 Deliver Arcflight player UX consistency: ensure the primary player **Roll Check** action resolves incidents directly (result tier, incident update, outcome effects, and single recent-log write) without requiring a separate popup-only resolution path.
 
 ## Completed So Far
+- Arcflight authoritative actor-flag persistence + hydration MVP pass added:
+  - Ship state mutations now persist authoritative shared ship state to the linked PF2E vehicle actor under module flags (`flags.pf2e-spelljammer-ships-rebuild.shipState`) on GM clients.
+  - Vehicle-actor initialization/open paths now trigger hydration from actor-backed ship-state flags so actor-backed data is preferred over empty local in-memory defaults.
+  - Added one-flight hydration guard per ship to reduce duplicate concurrent hydrations during clustered open/init calls.
+  - Added actor flag update listener (`updateActor`) for PF2E vehicle actors so clients refresh local in-memory ship state when authoritative actor-backed module state changes.
+  - Existing ship-state update hook behavior remains active, and socket ship-state sync / player incident alert flows remain intact with actor flags now serving as durable source-of-truth storage.
 - Arcflight cross-client state sync MVP pass added:
   - Added module-socket ship-state sync payloads (`shipStateSync`) so authoritative GM-side ship mutations now broadcast a fresh ship snapshot to connected clients.
   - Added receive-side ship-state apply path that writes the synced ship payload into local `shipStateIndex` for the matching `shipId`.
