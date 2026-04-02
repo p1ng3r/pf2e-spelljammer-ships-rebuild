@@ -630,13 +630,13 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     });
   }
 
-  async #runStationRollCheck({ stationId, sourceType, sourceId, title, recommendedSkill, event = null }) {
+  async #runStationRollCheck({ stationId, sourceType, sourceId, title, recommendedSkill, event = null, shipContext = null }) {
     if (!stationId || !sourceType || !sourceId || !recommendedSkill) {
       ui.notifications?.warn("This station briefing does not have a recommended skill to roll yet.");
       return null;
     }
 
-    const actingActor = this.#resolveAssignedStationActor(stationId);
+    const actingActor = this.#resolveAssignedStationActor(stationId, shipContext);
     if (!actingActor) {
       ui.notifications?.warn("No assigned character was found for this station. Ask the GM to set station crew.");
       return null;
@@ -679,6 +679,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         recommendedSkill,
         total: checkResultTotal,
         degree: checkResultDegree,
+        shipContext,
       });
     }
 
@@ -696,6 +697,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       recommendedSkill,
       total: extractTotalFromRollData(roll) ?? extractTotalFromRollData(fallbackRollMessage),
       degree: extractDegreeFromRollData(roll) ?? extractDegreeFromRollData(fallbackRollMessage),
+      shipContext,
     });
   }
 
@@ -822,6 +824,10 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     return {
       sourceType: normalizedSourceType,
       sourceId: normalizedSourceId,
+      shipContext: {
+        shipId: shipState.identity?.shipId ?? null,
+        actorId: shipState.identity?.actorId ?? null,
+      },
       sourceLabel: toSourceLabel(normalizedSourceType),
       title: toText(sourceRecord.title, "Unnamed incident"),
       publicSummary: toText(sourceRecord.publicSummary, "No public details yet."),
@@ -869,6 +875,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       title: popupIncident.title,
       recommendedSkill: popupIncident.recommendedSkill,
       event: clickEvent,
+      shipContext: popupIncident.shipContext,
     });
     if (!rollAttempt || !Number.isFinite(rollAttempt.total)) {
       ui.notifications?.warn("Could not resolve this incident because the roll total was unavailable.");
@@ -899,6 +906,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       isOffStation,
       offStationPenalty,
       recommendedStationId,
+      shipContext: popupIncident.shipContext,
     });
   }
 
@@ -913,6 +921,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     isOffStation,
     offStationPenalty,
     recommendedStationId,
+    shipContext,
   }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!stateApi) {
@@ -933,11 +942,11 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
 
     this.#ignoreNextLiveRefreshCount += 1;
     if (popupIncident.sourceType === "event") {
-      stateApi.updateTravelEvent?.(popupIncident.sourceId, updatePatch, this.#shipContext);
+      stateApi.updateTravelEvent?.(popupIncident.sourceId, updatePatch, shipContext ?? this.#shipContext);
     } else if (popupIncident.sourceType === "task") {
-      stateApi.updateTravelTask?.(popupIncident.sourceId, updatePatch, this.#shipContext);
+      stateApi.updateTravelTask?.(popupIncident.sourceId, updatePatch, shipContext ?? this.#shipContext);
     } else if (popupIncident.sourceType === "issue") {
-      stateApi.updateMaintenanceIssue?.(popupIncident.sourceId, updatePatch, this.#shipContext);
+      stateApi.updateMaintenanceIssue?.(popupIncident.sourceId, updatePatch, shipContext ?? this.#shipContext);
     }
 
     this.#ignoreNextLiveRefreshCount += 1;
@@ -955,7 +964,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
           total: adjustedTotal,
         },
       },
-      this.#shipContext,
+      shipContext ?? this.#shipContext,
     );
 
     this.#showIncidentResolutionMessage({
@@ -1017,7 +1026,16 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     ui.notifications?.info(`${title}: ${resultTierLabel}. ${totalSummary}. ${resolutionText}`);
   }
 
-  async #recordStationRollAttempt({ stationId, sourceType, sourceId, actingActor, recommendedSkill, total, degree }) {
+  async #recordStationRollAttempt({
+    stationId,
+    sourceType,
+    sourceId,
+    actingActor,
+    recommendedSkill,
+    total,
+    degree,
+    shipContext = null,
+  }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!stateApi?.recordStationRollAttempt) {
       return null;
@@ -1047,21 +1065,22 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         degree: attemptRecord.degree,
         createdAt: Date.now(),
       },
-      this.#shipContext,
+      shipContext ?? this.#shipContext,
     );
 
     return attemptRecord;
   }
 
-  #resolveAssignedStationActor(stationId) {
+  #resolveAssignedStationActor(stationId, shipContext = null) {
     const normalizedStationId = String(stationId ?? "").trim().toLowerCase();
     if (!normalizedStationId) {
       return null;
     }
 
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
-    const explicitTarget = hasExplicitShipContext(this.#shipContext);
-    const targetShipState = stateApi?.getShipState?.(this.#shipContext) ?? null;
+    const effectiveShipContext = shipContext ?? this.#shipContext;
+    const explicitTarget = hasExplicitShipContext(effectiveShipContext);
+    const targetShipState = stateApi?.getShipState?.(effectiveShipContext) ?? null;
     const shipState = targetShipState ?? (explicitTarget ? null : stateApi?.getActiveShipState?.() ?? null);
     const assignedActorId = shipState?.crew?.stations?.[normalizedStationId]?.actorId ?? null;
     if (!assignedActorId) {
