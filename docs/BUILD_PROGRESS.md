@@ -7,6 +7,12 @@ Active rebuild in progress. Arcflight now has a small user-facing control slice 
 Deliver Arcflight player UX consistency: ensure the primary player **Roll Check** action resolves incidents directly (result tier, incident update, outcome effects, and single recent-log write) without requiring a separate popup-only resolution path.
 
 ## Completed So Far
+- Arcflight cross-client state sync MVP pass added:
+  - Added module-socket ship-state sync payloads (`shipStateSync`) so authoritative GM-side ship mutations now broadcast a fresh ship snapshot to connected clients.
+  - Added receive-side ship-state apply path that writes the synced ship payload into local `shipStateIndex` for the matching `shipId`.
+  - Socket-received ship sync updates now emit the existing shared `shipStateUpdated` hook, so open Ship Management / Player Arcflight views rerender without reopen/reload.
+  - Added explicit sync context guards (`skipSocketBroadcast`, `skipIncidentAlerts`) to prevent rebroadcast loops and duplicate local incident-alert generation on receiver clients.
+  - Arcflight incident alert socket flow remains intact and now pairs with shared state propagation so alerted incidents exist in player local state when the alert arrives.
 - Arcflight player incident alert scope fix added:
   - Arcflight incident alerts now run from a module-level ship-state mutation path instead of the Player Arcflight view lifecycle.
   - Players now receive immediate alert notifications for new unresolved player-facing incidents even when the Player Arcflight window is closed.
