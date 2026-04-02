@@ -484,6 +484,95 @@ function createArcflightInstanceFromTemplate(template, instancePatch = {}) {
   };
 }
 
+function appendSpawnedArcflightTemplateInstance(travelState, template, instancePatch = {}) {
+  if (!travelState || !template) {
+    return { nextTravelState: travelState, instanceRecord: null };
+  }
+
+  const instanceRecord = createArcflightInstanceFromTemplate(template, instancePatch);
+  const templateInstances = Array.isArray(travelState.templateInstances) ? travelState.templateInstances : [];
+  const travelEvents = Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
+  const travelTasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
+  const maintenanceIssues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
+
+  const nextTravelState = {
+    ...travelState,
+    templateInstances: [...templateInstances, instanceRecord],
+  };
+
+  if (template.type === "event") {
+    nextTravelState.travelEvents = [
+      ...travelEvents,
+      createTravelEvent({
+        id: instanceRecord.id,
+        title: instanceRecord.title,
+        severity: instanceRecord.playable.severity,
+        eventType: template.category,
+        status: instanceRecord.status,
+        source: instanceRecord.playable.source,
+        recommendedStation: instanceRecord.playable.recommendedStation,
+        recommendedSkill: instanceRecord.playable.recommendedSkill,
+        checkType: instanceRecord.playable.checkType,
+        dc: instanceRecord.playable.dc,
+        summary: instanceRecord.playable.summary,
+        notes: instanceRecord.playable.notes,
+        sourceTemplateId: instanceRecord.playable.sourceTemplateId,
+        sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
+        publicSummary: instanceRecord.playable.publicSummary,
+        publicOutcome: instanceRecord.playable.publicOutcome,
+      }),
+    ];
+  }
+
+  if (template.type === "issue") {
+    nextTravelState.maintenanceIssues = [
+      ...maintenanceIssues,
+      createMaintenanceIssue({
+        id: instanceRecord.id,
+        title: instanceRecord.title,
+        severity: instanceRecord.playable.severity,
+        status: "open",
+        source: instanceRecord.playable.source,
+        taskType: template.category,
+        checkType: instanceRecord.playable.checkType,
+        dc: instanceRecord.playable.dc,
+        recommendedStation: instanceRecord.playable.recommendedStation,
+        recommendedSkill: instanceRecord.playable.recommendedSkill,
+        notes: instanceRecord.playable.notes,
+        sourceTemplateId: instanceRecord.playable.sourceTemplateId,
+        sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
+        publicSummary: instanceRecord.playable.publicSummary,
+        publicOutcome: instanceRecord.playable.publicOutcome,
+      }),
+    ];
+  }
+
+  if (template.type === "task") {
+    nextTravelState.travelTasks = [
+      ...travelTasks,
+      createTravelTask({
+        id: instanceRecord.id,
+        title: instanceRecord.title,
+        status: instanceRecord.status,
+        source: instanceRecord.playable.source,
+        taskType: template.category,
+        checkType: instanceRecord.playable.checkType,
+        dc: instanceRecord.playable.dc,
+        recommendedStation: instanceRecord.playable.recommendedStation,
+        recommendedSkill: instanceRecord.playable.recommendedSkill,
+        summary: instanceRecord.playable.summary,
+        notes: instanceRecord.playable.notes,
+        sourceTemplateId: instanceRecord.playable.sourceTemplateId,
+        sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
+        publicSummary: instanceRecord.playable.publicSummary,
+        publicOutcome: instanceRecord.playable.publicOutcome,
+      }),
+    ];
+  }
+
+  return { nextTravelState, instanceRecord };
+}
+
 export function spawnArcflightTemplateInstance(index, templateOrId, instancePatch = {}, options = {}) {
   const template = typeof templateOrId === "string"
     ? getArcflightTemplateById(index, templateOrId, options)
@@ -493,91 +582,10 @@ export function spawnArcflightTemplateInstance(index, templateOrId, instancePatc
     return getShipState(index, options);
   }
 
-  const instanceRecord = createArcflightInstanceFromTemplate(template, instancePatch);
-
   return updateTravelState(
     index,
     (travelState) => {
-      const templateInstances = Array.isArray(travelState.templateInstances) ? travelState.templateInstances : [];
-      const travelEvents = Array.isArray(travelState.travelEvents) ? travelState.travelEvents : [];
-      const travelTasks = Array.isArray(travelState.travelTasks) ? travelState.travelTasks : [];
-      const maintenanceIssues = Array.isArray(travelState.maintenanceIssues) ? travelState.maintenanceIssues : [];
-
-      const nextTravelState = {
-        ...travelState,
-        templateInstances: [...templateInstances, instanceRecord],
-      };
-
-      if (template.type === "event") {
-        nextTravelState.travelEvents = [
-          ...travelEvents,
-          createTravelEvent({
-            id: instanceRecord.id,
-            title: instanceRecord.title,
-            severity: instanceRecord.playable.severity,
-            eventType: template.category,
-            status: instanceRecord.status,
-            source: instanceRecord.playable.source,
-            recommendedStation: instanceRecord.playable.recommendedStation,
-            recommendedSkill: instanceRecord.playable.recommendedSkill,
-            checkType: instanceRecord.playable.checkType,
-            dc: instanceRecord.playable.dc,
-            summary: instanceRecord.playable.summary,
-            notes: instanceRecord.playable.notes,
-            sourceTemplateId: instanceRecord.playable.sourceTemplateId,
-            sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
-            publicSummary: instanceRecord.playable.publicSummary,
-            publicOutcome: instanceRecord.playable.publicOutcome,
-          }),
-        ];
-      }
-
-      if (template.type === "issue") {
-        nextTravelState.maintenanceIssues = [
-          ...maintenanceIssues,
-          createMaintenanceIssue({
-            id: instanceRecord.id,
-            title: instanceRecord.title,
-            severity: instanceRecord.playable.severity,
-            status: "open",
-            source: instanceRecord.playable.source,
-            taskType: template.category,
-            checkType: instanceRecord.playable.checkType,
-            dc: instanceRecord.playable.dc,
-            recommendedStation: instanceRecord.playable.recommendedStation,
-            recommendedSkill: instanceRecord.playable.recommendedSkill,
-            notes: instanceRecord.playable.notes,
-            sourceTemplateId: instanceRecord.playable.sourceTemplateId,
-            sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
-            publicSummary: instanceRecord.playable.publicSummary,
-            publicOutcome: instanceRecord.playable.publicOutcome,
-          }),
-        ];
-      }
-
-      if (template.type === "task") {
-        nextTravelState.travelTasks = [
-          ...travelTasks,
-          createTravelTask({
-            id: instanceRecord.id,
-            title: instanceRecord.title,
-            status: instanceRecord.status,
-            source: instanceRecord.playable.source,
-            taskType: template.category,
-            checkType: instanceRecord.playable.checkType,
-            dc: instanceRecord.playable.dc,
-            recommendedStation: instanceRecord.playable.recommendedStation,
-            recommendedSkill: instanceRecord.playable.recommendedSkill,
-            summary: instanceRecord.playable.summary,
-            notes: instanceRecord.playable.notes,
-            sourceTemplateId: instanceRecord.playable.sourceTemplateId,
-            sourceTemplateOutcomes: instanceRecord.playable.sourceTemplateOutcomes,
-            publicSummary: instanceRecord.playable.publicSummary,
-            publicOutcome: instanceRecord.playable.publicOutcome,
-          }),
-        ];
-      }
-
+      const { nextTravelState } = appendSpawnedArcflightTemplateInstance(travelState, template, instancePatch);
       return nextTravelState;
     },
     options,
@@ -638,6 +646,18 @@ function resolveIncidentCollection(travelState, sourceType) {
   }
 
   return [];
+}
+
+function resolveArcflightSpawnTemplate(travelState, templateId) {
+  const normalizedTemplateId = normalizeIssueText(templateId, "");
+  if (!normalizedTemplateId) {
+    return null;
+  }
+
+  const templates = Array.isArray(travelState?.templates) && travelState.templates.length
+    ? normalizeArcflightTemplateCollection(travelState.templates)
+    : normalizeArcflightTemplateCollection(ARCFLIGHT_STARTER_TEMPLATES);
+  return templates.find((template) => template.id === normalizedTemplateId) ?? null;
 }
 
 function resolveOutcomeBlockFromIncidentOrTemplate(shipState, sourceType, sourceId, resultTier) {
@@ -749,6 +769,35 @@ function applyArcflightEffect({
     });
     travelState.logEntries = trimArcflightLogEntries([...logEntries, nextLogEntry]);
     return;
+  }
+
+  if (effectType === "spawnTemplate") {
+    const template = resolveArcflightSpawnTemplate(travelState, effect.templateId);
+    if (!template) {
+      return;
+    }
+
+    const { nextTravelState, instanceRecord } = appendSpawnedArcflightTemplateInstance(travelState, template);
+    shipState.arcflight = nextTravelState;
+
+    if (!instanceRecord) {
+      return;
+    }
+
+    const logEntries = Array.isArray(nextTravelState.logEntries) ? nextTravelState.logEntries : [];
+    const nextLogEntry = normalizeArcflightLogEntry({
+      type: sourceType,
+      sourceId,
+      sourceTitle: incident?.title ?? "Arcflight",
+      stationId: logContext.stationId,
+      actorId: logContext.actorId,
+      actorName: logContext.actorName,
+      skill: logContext.skill,
+      total: logContext.total,
+      result: resultTier,
+      text: `Follow-up incident spawned: ${instanceRecord.title}.`,
+    });
+    nextTravelState.logEntries = trimArcflightLogEntries([...logEntries, nextLogEntry]);
   }
 }
 
