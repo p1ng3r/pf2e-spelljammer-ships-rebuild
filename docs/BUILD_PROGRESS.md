@@ -1,12 +1,35 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present. Shared galactic route ETA fields are now wired into authoritative travel state so GM and player views show matching remaining-hex/day estimates from one model.
+Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present. Shared galactic route ETA fields are now wired into authoritative travel state so GM and player views show matching remaining-hex/day estimates from one model. Arcflight pressure-track MVP is now in place so daily advancement can raise pressure, overflow into incidents, and trigger a lightweight hex-completion beat.
 
 ## Current Branch Focus
-Deliver Arcflight route ETA MVP for galactic pacing: GM-editable remaining route hexes (including current hex), derived day estimate, and consistent GM/player display updates during day advancement.
+Deliver Arcflight pressure-track MVP for voyage pressure loop: posture-based daily pressure growth, deterministic overflow incident spawning/reset, and lightweight hex-completion beat logging.
 
 ## Completed So Far
+- Arcflight pressure tracks MVP pass added:
+  - Shared Arcflight travel state now includes:
+    - `maintenancePressure`
+    - `encounterPressure`
+    - `voyageInstability`
+  - Pressure tracks are normalized as a simple 0–6 model.
+  - Day advancement now applies locked posture mapping gains exactly:
+    - `cautious`: +0 / +0 / +0
+    - `standard`: +1 / +1 / +1
+    - `hard-push`: +2 / +1 / +1
+    - `silent-running`: +1 / +0 / +2
+  - Overflow behavior is centralized and deterministic:
+    - any track at `6+` overflows
+    - one matching player-facing incident is spawned per overflowing track
+    - that track resets to `3`
+  - Overflow incident routing for MVP:
+    - maintenance overflow -> maintenance issue
+    - encounter overflow -> travel event (encounter/hazard style)
+    - instability overflow -> travel event (navigation/magical instability style)
+  - Day advancement now fires a lightweight hex beat when a galactic hex completes:
+    - a concise Arcflight log entry records the beat
+  - Added concise Arcflight log entries for pressure overflow events and hex-completion beats.
+  - Pressure values are now visible in both Ship Management and Player Arcflight UI.
 - Arcflight galactic route ETA MVP pass added:
   - Shared Arcflight travel state now includes:
     - `remainingGalacticHexes`
