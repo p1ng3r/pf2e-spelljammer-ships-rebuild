@@ -4,9 +4,18 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present.
 
 ## Current Branch Focus
-Deliver Arcflight player UX consistency: ensure the primary player **Roll Check** action resolves incidents directly (result tier, incident update, outcome effects, and single recent-log write) without requiring a separate popup-only resolution path.
+Deliver Arcflight crew assignment MVP inside the Player Arcflight view: GM-assignment controls + player read-only roster visibility backed by authoritative shared ship-state persistence.
 
 ## Completed So Far
+- Arcflight crew assignment + persistence visibility MVP pass added:
+  - Player Arcflight view now includes a dedicated **Station Assignments** section that lists all rebuild roster stations and current assigned crew actor names from shared ship state.
+  - GM users now get inline assignment controls directly in Player Arcflight:
+    - character actor picker
+    - **Assign / Save**
+    - **Clear**
+  - Assignment controls call existing shared-state API methods (`assignStationActor`, `clearStationActor`) and continue writing to the authoritative `shipState.crew.stations[stationId]` model.
+  - Non-GM users see the same station roster as read-only with no assignment controls rendered.
+  - Existing player Arcflight incident/roll/request loop remains intact; this pass is additive and does not alter assist/teamwork logic.
 - Arcflight authoritative actor-flag persistence + hydration MVP pass added:
   - Ship state mutations now persist authoritative shared ship state to the linked PF2E vehicle actor under module flags (`flags.pf2e-spelljammer-ships-rebuild.shipState`) on GM clients.
   - Vehicle-actor initialization/open paths now trigger hydration from actor-backed ship-state flags so actor-backed data is preferred over empty local in-memory defaults.
