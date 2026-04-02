@@ -289,6 +289,87 @@ function normalizeArcflightEffectType(value) {
   return ARCFLIGHT_EFFECT_TYPES.includes(effectType) ? effectType : null;
 }
 
+function normalizeSpawnTemplateInstancePatch(instancePatchOrPartial = {}) {
+  if (!instancePatchOrPartial || typeof instancePatchOrPartial !== "object") {
+    return {};
+  }
+
+  const normalizedPatch = {};
+
+  if (Object.prototype.hasOwnProperty.call(instancePatchOrPartial, "title")) {
+    const title = normalizeIssueText(instancePatchOrPartial.title, "");
+    if (title) {
+      normalizedPatch.title = title;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(instancePatchOrPartial, "status")) {
+    normalizedPatch.status = normalizeTravelTaskStatus(instancePatchOrPartial.status);
+  }
+
+  const playableInput =
+    instancePatchOrPartial.playable && typeof instancePatchOrPartial.playable === "object"
+      ? instancePatchOrPartial.playable
+      : null;
+  if (playableInput) {
+    const playablePatch = {};
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "summary")) {
+      const summary = normalizeIssueText(playableInput.summary, "");
+      if (summary) {
+        playablePatch.summary = summary;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "notes")) {
+      const notes = normalizeIssueText(playableInput.notes, "");
+      if (notes) {
+        playablePatch.notes = notes;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "publicSummary")) {
+      const publicSummary = normalizePublicBriefingText(playableInput.publicSummary);
+      if (publicSummary) {
+        playablePatch.publicSummary = publicSummary;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "publicOutcome")) {
+      const publicOutcome = normalizePublicBriefingText(playableInput.publicOutcome);
+      if (publicOutcome) {
+        playablePatch.publicOutcome = publicOutcome;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "severity")) {
+      playablePatch.severity = normalizeIssueSeverity(playableInput.severity);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "recommendedStation")) {
+      playablePatch.recommendedStation = normalizeRecommendedStation(playableInput.recommendedStation);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "recommendedSkill")) {
+      playablePatch.recommendedSkill = normalizeRecommendedSkill(playableInput.recommendedSkill);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "checkType")) {
+      playablePatch.checkType = normalizeCheckType(playableInput.checkType);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(playableInput, "dc")) {
+      playablePatch.dc = normalizeOptionalDc(playableInput.dc);
+    }
+
+    if (Object.keys(playablePatch).length) {
+      normalizedPatch.playable = playablePatch;
+    }
+  }
+
+  return normalizedPatch;
+}
+
 function normalizeArcflightEffect(effectOrPartial = {}) {
   const effectType = normalizeArcflightEffectType(effectOrPartial?.type);
   if (!effectType) {
@@ -320,6 +401,7 @@ function normalizeArcflightEffect(effectOrPartial = {}) {
 
   if (effectType === "spawnTemplate") {
     normalizedEffect.templateId = normalizeIssueText(effectOrPartial.templateId, "") || null;
+    normalizedEffect.instancePatch = normalizeSpawnTemplateInstancePatch(effectOrPartial.instancePatch);
   }
 
   if (effectType === "addLogEntry") {
@@ -531,7 +613,7 @@ function appendSpawnedArcflightTemplateInstance(travelState, template, instanceP
         id: instanceRecord.id,
         title: instanceRecord.title,
         severity: instanceRecord.playable.severity,
-        status: "open",
+        status: instanceRecord.status,
         source: instanceRecord.playable.source,
         taskType: template.category,
         checkType: instanceRecord.playable.checkType,
@@ -777,7 +859,11 @@ function applyArcflightEffect({
       return;
     }
 
-    const { nextTravelState, instanceRecord } = appendSpawnedArcflightTemplateInstance(travelState, template);
+    const { nextTravelState, instanceRecord } = appendSpawnedArcflightTemplateInstance(
+      travelState,
+      template,
+      effect.instancePatch,
+    );
     shipState.arcflight = nextTravelState;
 
     if (!instanceRecord) {
