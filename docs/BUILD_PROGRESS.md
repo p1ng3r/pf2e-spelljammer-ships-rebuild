@@ -4,9 +4,19 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present.
 
 ## Current Branch Focus
-Deliver Arcflight resolution-summary MVP: keep Arcflight incident resolution readable in active play by writing one bounded recent-log summary per resolved incident with clear outcome/effect text.
+Deliver Arcflight player UX consistency: ensure the primary player **Roll Check** action resolves incidents directly (result tier, incident update, outcome effects, and single recent-log write) without requiring a separate popup-only resolution path.
 
 ## Completed So Far
+- Arcflight player roll-path UX mismatch fix added:
+  - Player Arcflight View station-briefing **Roll Check** now routes through the same incident resolution flow used by the incident popup attempt action when the source incident is available.
+  - Main player roll now directly performs end-to-end resolution in one click path:
+    - station roll
+    - result tier determination
+    - incident update/writeback
+    - shared outcome effect execution
+    - single recent Arcflight log write via the existing shared outcome executor
+  - Added a compact in-flight click guard on the main roll button (`data-roll-check-in-progress` + temporary disable) to reduce accidental double-submits and duplicate resolutions/log entries.
+  - Added a resolved-incident guard in player incident resolution flow to prevent repeat resolution attempts on already-resolved incidents.
 - Arcflight resolution-summary MVP pass added:
   - Arcflight outcome execution now builds a single clean resolution summary string for each resolved incident in the style:
     - `Incident Title — Result Tier — Applied effects (+ follow-up spawn when present).`

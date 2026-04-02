@@ -614,20 +614,38 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     event.preventDefault();
 
     const button = event.currentTarget;
+    if (!button || button.dataset?.rollCheckInProgress === "true") {
+      return;
+    }
+
+    button.dataset.rollCheckInProgress = "true";
+    button.disabled = true;
+
     const stationId = String(button?.dataset?.stationId ?? "").trim().toLowerCase();
     const sourceType = String(button?.dataset?.sourceType ?? "").trim().toLowerCase();
     const sourceId = String(button?.dataset?.sourceId ?? "").trim();
     const recommendedSkill = String(button?.dataset?.recommendedSkill ?? "").trim().toLowerCase();
     const title = String(button?.dataset?.title ?? "").trim() || "Station task";
+    const incident = this.#resolveIncidentForPopup(sourceType, sourceId);
 
-    await this.#runStationRollCheck({
-      stationId,
-      sourceType,
-      sourceId,
-      title,
-      recommendedSkill,
-      event,
-    });
+    try {
+      if (incident) {
+        await this.#attemptIncidentResolution(incident, event, stationId);
+        return;
+      }
+
+      await this.#runStationRollCheck({
+        stationId,
+        sourceType,
+        sourceId,
+        title,
+        recommendedSkill,
+        event,
+      });
+    } finally {
+      button.disabled = false;
+      delete button.dataset.rollCheckInProgress;
+    }
   }
 
   async #runStationRollCheck({ stationId, sourceType, sourceId, title, recommendedSkill, event = null, shipContext = null }) {
@@ -833,6 +851,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       publicSummary: toText(sourceRecord.publicSummary, "No public details yet."),
       publicOutcome: toText(sourceRecord.publicOutcome, "Outcome still uncertain."),
       severityText: toSeverityText(sourceRecord.severity),
+      status: String(sourceRecord.status ?? "open").trim().toLowerCase() || "open",
       statusText: toStatusText(sourceRecord.status),
       recommendedStation: recommendedStation || "",
       recommendedStationLabel: stationLabelsById[recommendedStation] ?? "Any station",
@@ -846,6 +865,11 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
   }
 
   async #attemptIncidentResolution(popupIncident, clickEvent = null, selectedStationId = null) {
+    if (String(popupIncident?.status ?? "open").trim().toLowerCase() === "resolved") {
+      ui.notifications?.info("This incident is already resolved.");
+      return;
+    }
+
     const dc = Number(popupIncident?.dc);
     if (!Number.isFinite(dc) || dc <= 0) {
       ui.notifications?.warn("This incident does not have a valid DC yet. Ask the GM to set one first.");
