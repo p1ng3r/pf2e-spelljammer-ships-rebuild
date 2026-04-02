@@ -1,12 +1,20 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views.
+Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present.
 
 ## Current Branch Focus
-Deliver Arcflight log panel MVP: surface bounded Arcflight log entries directly in UI so recent outcomes/follow-up incident spawns are readable without console inspection.
+Deliver Arcflight resolution-summary MVP: keep Arcflight incident resolution readable in active play by writing one bounded recent-log summary per resolved incident with clear outcome/effect text.
 
 ## Completed So Far
+- Arcflight resolution-summary MVP pass added:
+  - Arcflight outcome execution now builds a single clean resolution summary string for each resolved incident in the style:
+    - `Incident Title — Result Tier — Applied effects (+ follow-up spawn when present).`
+  - Multiple applied effects are combined into one readable line instead of separate effect log rows.
+  - Follow-up template spawns are still executed and now appear inline in the same summary (`Spawned follow-up incident: ...`).
+  - Arcflight outcome effect execution still applies existing effect logic (`adjustResource`, `adjustArcflightValue`, status effects, spawns), but log-writing is consolidated to one bounded entry.
+  - Arcflight log entries now support an optional `publicText` field so GM and player views can read the same result in role-appropriate detail.
+  - Player incident resolution flow now relies on the shared outcome executor for recent-log writing (removing the pre-effect duplicate write), preserving the latest-5 bounded log behavior.
 - Arcflight log panel MVP pass added:
   - Ship Management now shows a compact **Recent Arcflight Activity** panel driven by existing shared-state bounded log entries.
   - Player Arcflight View now shows the same recent activity ordering with player-safe outcome text.
