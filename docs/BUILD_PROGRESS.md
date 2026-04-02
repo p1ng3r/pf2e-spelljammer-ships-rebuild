@@ -1,12 +1,24 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output.
+Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views.
 
 ## Current Branch Focus
-Deliver Arcflight effect execution MVP: after automated incident resolution determines result tier, execute a safe subset of template outcome effects against the shared live ship state.
+Deliver Arcflight log panel MVP: surface bounded Arcflight log entries directly in UI so recent outcomes/follow-up incident spawns are readable without console inspection.
 
 ## Completed So Far
+- Arcflight log panel MVP pass added:
+  - Ship Management now shows a compact **Recent Arcflight Activity** panel driven by existing shared-state bounded log entries.
+  - Player Arcflight View now shows the same recent activity ordering with player-safe outcome text.
+  - Both views now read from the existing shared API/state path (`getArcflightLogEntries` / `travelState.logEntries` fallback), newest-first.
+  - Log rows are intentionally lightweight and readable:
+    - relative ordering (`#1`, `#2`, …)
+    - timestamp label
+    - source title
+    - result label when available
+    - entry text
+  - Empty-state handling added for both views: `No recent Arcflight activity.`
+  - Existing ship-state live refresh behavior continues to drive panel updates without adding new hook complexity.
 - Arcflight effect executor MVP pass added:
   - Added shared-state outcome execution helper:
     - `executeArcflightOutcomeEffects(index, effectContext, options?)`
