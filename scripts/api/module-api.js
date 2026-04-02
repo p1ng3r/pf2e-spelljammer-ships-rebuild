@@ -52,6 +52,7 @@ let shipStateIndex = createEmptyShipStateIndex();
 const SHIP_STATE_UPDATED_HOOK = `${MODULE_ID}.shipStateUpdated`;
 const MODULE_SOCKET_CHANNEL = `module.${MODULE_ID}`;
 const ARCFLIGHT_PLAYER_INCIDENT_ALERT_SOCKET_TYPE = "arcflightPlayerIncidentAlert";
+const SHIP_STATE_SYNC_SOCKET_TYPE = "shipStateSync";
 
 const TRAVEL_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
 
@@ -272,6 +273,48 @@ export function createModuleApi() {
     });
   };
 
+  const broadcastShipStateSync = (shipState, context = {}) => {
+    if (!game.user?.isGM || context?.skipSocketBroadcast) {
+      return;
+    }
+
+    const shipId = String(shipState?.identity?.shipId ?? "").trim();
+    if (!shipId) {
+      return;
+    }
+
+    game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+      type: SHIP_STATE_SYNC_SOCKET_TYPE,
+      senderUserId: game.user?.id ?? null,
+      shipId,
+      shipState,
+    });
+  };
+
+  const applyShipStateSyncFromSocket = (payload = {}) => {
+    if (String(payload?.type ?? "") !== SHIP_STATE_SYNC_SOCKET_TYPE) {
+      return;
+    }
+
+    if (String(payload?.senderUserId ?? "") === String(game.user?.id ?? "")) {
+      return;
+    }
+
+    const shipId = String(payload?.shipId ?? payload?.shipState?.identity?.shipId ?? "").trim();
+    const syncedShipState = payload?.shipState && typeof payload.shipState === "object" ? payload.shipState : null;
+    if (!shipId || !syncedShipState) {
+      return;
+    }
+
+    const nextShipState = setShipState(shipStateIndex, syncedShipState, { shipId });
+    notifyShipStateUpdated(nextShipState, {
+      source: "socket.shipStateSync",
+      skipSocketBroadcast: true,
+      skipIncidentAlerts: true,
+      receivedFromUserId: payload?.senderUserId ?? null,
+    });
+  };
+
   const notifyPlayerIncidentAlertFromSocket = (payload = {}) => {
     if (game.user?.isGM) {
       return;
@@ -316,10 +359,19 @@ export function createModuleApi() {
     });
   };
 
-  game.socket?.off(MODULE_SOCKET_CHANNEL, notifyPlayerIncidentAlertFromSocket);
-  game.socket?.on(MODULE_SOCKET_CHANNEL, notifyPlayerIncidentAlertFromSocket);
+  const handleModuleSocketMessage = (payload = {}) => {
+    applyShipStateSyncFromSocket(payload);
+    notifyPlayerIncidentAlertFromSocket(payload);
+  };
+
+  game.socket?.off(MODULE_SOCKET_CHANNEL, handleModuleSocketMessage);
+  game.socket?.on(MODULE_SOCKET_CHANNEL, handleModuleSocketMessage);
 
   const notifyPlayerIncidentAlerts = (nextShipState) => {
+    if (!game.user?.isGM) {
+      return;
+    }
+
     const shipId = nextShipState?.identity?.shipId ?? null;
     if (!shipId) {
       return;
@@ -362,12 +414,16 @@ export function createModuleApi() {
     alertedIncidentKeysByShipId.set(shipId, alertedKeys);
   };
 
-  const notifyShipStateUpdated = (nextShipState, context = {}) => {
+  function notifyShipStateUpdated(nextShipState, context = {}) {
     if (!nextShipState) {
       return nextShipState;
     }
 
-    notifyPlayerIncidentAlerts(nextShipState);
+    broadcastShipStateSync(nextShipState, context);
+
+    if (!context?.skipIncidentAlerts) {
+      notifyPlayerIncidentAlerts(nextShipState);
+    }
 
     Hooks.callAll(SHIP_STATE_UPDATED_HOOK, {
       shipId: nextShipState.identity?.shipId ?? null,
@@ -377,7 +433,7 @@ export function createModuleApi() {
     });
 
     return nextShipState;
-  };
+  }
 
   const wrapStateMutation = (mutator, context) => (...args) =>
     notifyShipStateUpdated(mutator(...args), context);
