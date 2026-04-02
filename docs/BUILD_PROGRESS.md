@@ -4,9 +4,24 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present. Shared galactic route ETA fields are now wired into authoritative travel state so GM and player views show matching remaining-hex/day estimates from one model. Arcflight pressure-track MVP is now in place so daily advancement can raise pressure, overflow into incidents, and trigger a lightweight hex-completion beat. Arcflight travel content MVP now adds authored per-track overflow incidents plus deterministic hex-beat flavor outcomes so voyages read as distinct moments instead of generic pressure ticks.
 
 ## Current Branch Focus
-Deliver Arcflight travel content MVP: authored pressure overflow incidents by track, deterministic lightweight hex-beat outcome flavor, and clear shared log/readout language for GM and player.
+Deliver Arcflight hotfix stability for player Arcflight incident resolution authority and popup stacking, while preserving current Arcflight UI flow.
 
 ## Completed So Far
+- Arcflight authority + popup hotfix pass added:
+  - Added a GM-authoritative socket relay for player incident resolution:
+    - request type: `arcflightPlayerResolutionRequest`
+    - result type: `arcflightPlayerResolutionResult`
+  - Player clients now roll locally, then request GM-side authoritative mutation/writeback for incident resolution instead of mutating shared state directly.
+  - GM-side authoritative path now applies the full mutation bundle in one relay flow:
+    - `recordStationRollAttempt`
+    - source status/summary update (`event`/`task`/`issue`)
+    - `executeArcflightOutcomeEffects`
+    - shared persistence/broadcast via existing ship-state notification path
+  - Added request-id dedupe/caching on GM socket handling to avoid duplicate resolution application from repeated request delivery.
+  - Added targeted result/ack payloads back to the originating player so the player-side success/failure result popup is restored reliably.
+  - Player incident popup open path now explicitly brings new incident windows to front after render, and the incident app now also defensively calls `bringToFront()` on render for z-order reliability.
+  - Existing popup reuse behavior (`existingApp.bringToFront()`) remains intact.
+
 - Arcflight player UI usability fix pass added:
   - Player Arcflight layout now uses compact card/grid sections with a bounded scrollable app body so core content no longer spills awkwardly off-page on typical screens.
   - Added lightweight inline help markers (`?`) with hover tooltips for key voyage terms: Maintenance Pressure, Encounter Pressure, Voyage Instability, Days per Hex, Current Hex Progress, Route ETA, Posture, and Station Briefings.

@@ -806,7 +806,16 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     }
   }
 
-  async #runStationRollCheck({ stationId, sourceType, sourceId, title, recommendedSkill, event = null, shipContext = null }) {
+  async #runStationRollCheck({
+    stationId,
+    sourceType,
+    sourceId,
+    title,
+    recommendedSkill,
+    event = null,
+    shipContext = null,
+    skipAuthoritativeRecord = false,
+  }) {
     if (!stationId || !sourceType || !sourceId || !recommendedSkill) {
       ui.notifications?.warn("This station briefing does not have a recommended skill to roll yet.");
       return null;
@@ -856,6 +865,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         total: checkResultTotal,
         degree: checkResultDegree,
         shipContext,
+        skipAuthoritativeRecord,
       });
     }
 
@@ -874,6 +884,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       total: extractTotalFromRollData(roll) ?? extractTotalFromRollData(fallbackRollMessage),
       degree: extractDegreeFromRollData(roll) ?? extractDegreeFromRollData(fallbackRollMessage),
       shipContext,
+      skipAuthoritativeRecord,
     });
   }
 
@@ -947,7 +958,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     };
 
     this.#incidentAppsByKey.set(popupKey, popupApp);
-    popupApp.render({ force: true });
+    void Promise.resolve(popupApp.render({ force: true })).then(() => popupApp.bringToFront());
   }
 
   #resolveIncidentForPopup(sourceType, sourceId) {
@@ -1058,6 +1069,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       recommendedSkill: popupIncident.recommendedSkill,
       event: clickEvent,
       shipContext: popupIncident.shipContext,
+      skipAuthoritativeRecord: true,
     });
     if (!rollAttempt || !Number.isFinite(rollAttempt.total)) {
       ui.notifications?.warn("Could not resolve this incident because the roll total was unavailable.");
@@ -1106,7 +1118,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     shipContext,
   }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
-    if (!stateApi) {
+    const arcflightApi = game?.[API_NAMESPACE]?.arcflight ?? null;
+    if (!stateApi || !arcflightApi?.requestPlayerResolution) {
       return;
     }
 
@@ -1122,46 +1135,58 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       status: resultTier === "success" || resultTier === "criticalSuccess" ? "resolved" : "attempted",
     };
 
-    this.#ignoreNextLiveRefreshCount += 1;
-    if (popupIncident.sourceType === "event") {
-      stateApi.updateTravelEvent?.(popupIncident.sourceId, updatePatch, shipContext ?? this.#shipContext);
-    } else if (popupIncident.sourceType === "task") {
-      stateApi.updateTravelTask?.(popupIncident.sourceId, updatePatch, shipContext ?? this.#shipContext);
-    } else if (popupIncident.sourceType === "issue") {
-      stateApi.updateMaintenanceIssue?.(popupIncident.sourceId, updatePatch, shipContext ?? this.#shipContext);
+    const resolutionResult = await arcflightApi.requestPlayerResolution({
+      sourceType: popupIncident.sourceType,
+      sourceId: popupIncident.sourceId,
+      shipContext: shipContext ?? this.#shipContext,
+      title: popupIncident.title,
+      stationId: rollAttempt.stationId,
+      actorId: rollAttempt.actorId,
+      actorName: rollAttempt.actorName,
+      recommendedSkill: rollAttempt.recommendedSkill,
+      rolledTotal: rollAttempt.total,
+      adjustedTotal,
+      dc,
+      resultTier,
+      resultTierLabel,
+      resolutionText,
+      isOffStation,
+      offStationPenalty,
+      recommendedStationId,
+      updatePatch,
+    });
+    if (!resolutionResult?.ok) {
+      ui.notifications?.warn(
+        toText(
+          resolutionResult?.error,
+          "Could not confirm Arcflight incident resolution from GM authority.",
+        ),
+      );
+      return;
     }
 
-    this.#ignoreNextLiveRefreshCount += 1;
-    stateApi.executeArcflightOutcomeEffects?.(
-      {
-        sourceType: popupIncident.sourceType,
-        sourceId: popupIncident.sourceId,
-        resultTier,
-        summaryText: resolutionText,
-        logContext: {
-          stationId: rollAttempt.stationId,
-          actorId: rollAttempt.actorId,
-          actorName: rollAttempt.actorName,
-          skill: rollAttempt.recommendedSkill,
-          total: adjustedTotal,
-        },
-      },
-      shipContext ?? this.#shipContext,
-    );
-
-    this.#renderAfterLocalStateWrite();
+    if (game.user?.isGM) {
+      this.#ignoreNextLiveRefreshCount += 1;
+      this.#renderAfterLocalStateWrite();
+    }
 
     this.#showIncidentResolutionMessage({
       title: popupIncident.title,
-      adjustedTotal,
-      rolledTotal: rollAttempt.total,
-      dc,
-      resultTierLabel,
-      resolutionText,
-      actingStationId: rollAttempt.stationId,
-      recommendedStationId,
-      isOffStation,
-      offStationPenalty,
+      adjustedTotal: Number.isFinite(Number(resolutionResult.adjustedTotal))
+        ? Number(resolutionResult.adjustedTotal)
+        : adjustedTotal,
+      rolledTotal: Number.isFinite(Number(resolutionResult.rolledTotal))
+        ? Number(resolutionResult.rolledTotal)
+        : rollAttempt.total,
+      dc: Number.isFinite(Number(resolutionResult.dc)) ? Number(resolutionResult.dc) : dc,
+      resultTierLabel: toText(resolutionResult.resultTierLabel, resultTierLabel),
+      resolutionText: toText(resolutionResult.resolutionText, resolutionText),
+      actingStationId: String(resolutionResult.actingStationId ?? rollAttempt.stationId).trim().toLowerCase(),
+      recommendedStationId: String(resolutionResult.recommendedStationId ?? recommendedStationId).trim().toLowerCase(),
+      isOffStation: Boolean(resolutionResult.isOffStation ?? isOffStation),
+      offStationPenalty: Number.isFinite(Number(resolutionResult.offStationPenalty))
+        ? Number(resolutionResult.offStationPenalty)
+        : offStationPenalty,
     });
   }
 
@@ -1232,6 +1257,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     total,
     degree,
     shipContext = null,
+    skipAuthoritativeRecord = false,
   }) {
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!stateApi?.recordStationRollAttempt) {
@@ -1249,21 +1275,23 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       degree: degree ?? null,
     };
 
-    this.#ignoreNextLiveRefreshCount += 1;
-    stateApi.recordStationRollAttempt(
-      {
-        stationId: attemptRecord.stationId,
-        sourceType: attemptRecord.sourceType,
-        sourceId: attemptRecord.sourceId,
-        actorId: attemptRecord.actorId,
-        actorName: attemptRecord.actorName,
-        skill: recommendedSkill,
-        total: attemptRecord.total,
-        degree: attemptRecord.degree,
-        createdAt: Date.now(),
-      },
-      shipContext ?? this.#shipContext,
-    );
+    if (!skipAuthoritativeRecord) {
+      this.#ignoreNextLiveRefreshCount += 1;
+      stateApi.recordStationRollAttempt(
+        {
+          stationId: attemptRecord.stationId,
+          sourceType: attemptRecord.sourceType,
+          sourceId: attemptRecord.sourceId,
+          actorId: attemptRecord.actorId,
+          actorName: attemptRecord.actorName,
+          skill: recommendedSkill,
+          total: attemptRecord.total,
+          degree: attemptRecord.degree,
+          createdAt: Date.now(),
+        },
+        shipContext ?? this.#shipContext,
+      );
+    }
 
     return attemptRecord;
   }

@@ -53,6 +53,8 @@ const SHIP_STATE_UPDATED_HOOK = `${MODULE_ID}.shipStateUpdated`;
 const MODULE_SOCKET_CHANNEL = `module.${MODULE_ID}`;
 const ARCFLIGHT_PLAYER_INCIDENT_ALERT_SOCKET_TYPE = "arcflightPlayerIncidentAlert";
 const SHIP_STATE_SYNC_SOCKET_TYPE = "shipStateSync";
+const ARCFLIGHT_PLAYER_RESOLUTION_REQUEST_SOCKET_TYPE = "arcflightPlayerResolutionRequest";
+const ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE = "arcflightPlayerResolutionResult";
 const ACTOR_SHIP_STATE_FLAG_KEY = "shipState";
 
 const TRAVEL_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
@@ -196,6 +198,11 @@ export function createModuleApi() {
   const alertedIncidentKeysByShipId = new Map();
   const receivedIncidentAlertKeysByShipId = new Map();
   const hydrationByShipId = new Map();
+  const pendingArcflightResolutionRequestsById = new Map();
+  const processedArcflightResolutionResultsById = new Map();
+
+  const createSocketRequestId = () =>
+    foundry?.utils?.randomID?.() ?? `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 
   const getShipStateFlagFromActor = (actor) => actor?.getFlag?.(MODULE_ID, ACTOR_SHIP_STATE_FLAG_KEY) ?? null;
 
@@ -457,6 +464,180 @@ export function createModuleApi() {
   const handleModuleSocketMessage = (payload = {}) => {
     applyShipStateSyncFromSocket(payload);
     notifyPlayerIncidentAlertFromSocket(payload);
+    handleArcflightResolutionRequestFromSocket(payload);
+    handleArcflightResolutionResultFromSocket(payload);
+  };
+
+  const applyArcflightPlayerResolutionMutation = ({
+    sourceType,
+    sourceId,
+    shipContext,
+    stationId,
+    actorId,
+    actorName,
+    recommendedSkill,
+    rolledTotal,
+    adjustedTotal,
+    dc,
+    resultTier,
+    resultTierLabel,
+    resolutionText,
+    isOffStation,
+    offStationPenalty,
+  }) => {
+    const attemptSummary = isOffStation
+      ? `${actorName} rolled ${recommendedSkill} ${rolledTotal} (${offStationPenalty} off-station) => ${adjustedTotal} vs DC ${dc}.`
+      : `${actorName} rolled ${recommendedSkill} ${rolledTotal} vs DC ${dc}.`;
+    const resultSummary = `${resultTierLabel}: ${resolutionText}`;
+    const updatePatch = {
+      attemptedByStation: stationId,
+      attemptedSkill: recommendedSkill,
+      lastAttemptSummary: attemptSummary,
+      resultSummary,
+      status: resultTier === "success" || resultTier === "criticalSuccess" ? "resolved" : "attempted",
+    };
+
+    const mutationOptions = shipContext ?? {};
+    let nextShipState = recordStationRollAttempt(
+      shipStateIndex,
+      {
+        stationId,
+        sourceType,
+        sourceId,
+        actorId,
+        actorName,
+        skill: recommendedSkill,
+        total: rolledTotal,
+        degree: null,
+        createdAt: Date.now(),
+      },
+      mutationOptions,
+    );
+
+    if (sourceType === "event") {
+      nextShipState = updateTravelEvent(shipStateIndex, sourceId, updatePatch, mutationOptions);
+    } else if (sourceType === "task") {
+      nextShipState = updateTravelTask(shipStateIndex, sourceId, updatePatch, mutationOptions);
+    } else if (sourceType === "issue") {
+      nextShipState = updateMaintenanceIssue(shipStateIndex, sourceId, updatePatch, mutationOptions);
+    }
+
+    nextShipState = executeArcflightOutcomeEffects(
+      shipStateIndex,
+      {
+        sourceType,
+        sourceId,
+        resultTier,
+        summaryText: resolutionText,
+        logContext: {
+          stationId,
+          actorId,
+          actorName,
+          skill: recommendedSkill,
+          total: adjustedTotal,
+        },
+      },
+      mutationOptions,
+    );
+
+    notifyShipStateUpdated(nextShipState, { source: "socket.arcflightPlayerResolution" });
+    return nextShipState;
+  };
+
+  const handleArcflightResolutionRequestFromSocket = (payload = {}) => {
+    if (!game.user?.isGM) {
+      return;
+    }
+
+    if (String(payload?.type ?? "") !== ARCFLIGHT_PLAYER_RESOLUTION_REQUEST_SOCKET_TYPE) {
+      return;
+    }
+
+    const requestId = String(payload?.requestId ?? "").trim();
+    const requesterUserId = String(payload?.requesterUserId ?? "").trim();
+    const resolution = payload?.resolution && typeof payload.resolution === "object" ? payload.resolution : null;
+    if (!requestId || !requesterUserId || !resolution) {
+      return;
+    }
+
+    const existingResult = processedArcflightResolutionResultsById.get(requestId) ?? null;
+    if (existingResult) {
+      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+        type: ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE,
+        senderUserId: game.user?.id ?? null,
+        requestId,
+        recipientUserId: requesterUserId,
+        resolutionResult: existingResult,
+      });
+      return;
+    }
+
+    try {
+      applyArcflightPlayerResolutionMutation(resolution);
+      const resolutionResult = {
+        ok: true,
+        resultTier: resolution.resultTier,
+        resultTierLabel: resolution.resultTierLabel,
+        resolutionText: resolution.resolutionText,
+        adjustedTotal: resolution.adjustedTotal,
+        rolledTotal: resolution.rolledTotal,
+        dc: resolution.dc,
+        actingStationId: resolution.stationId,
+        recommendedStationId: resolution.recommendedStationId,
+        isOffStation: resolution.isOffStation,
+        offStationPenalty: resolution.offStationPenalty,
+        title: resolution.title,
+      };
+      processedArcflightResolutionResultsById.set(requestId, resolutionResult);
+
+      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+        type: ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE,
+        senderUserId: game.user?.id ?? null,
+        requestId,
+        recipientUserId: requesterUserId,
+        resolutionResult,
+      });
+    } catch (error) {
+      console.error(`${MODULE_ID} | Failed to apply Arcflight player resolution request.`, error);
+      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+        type: ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE,
+        senderUserId: game.user?.id ?? null,
+        requestId,
+        recipientUserId: requesterUserId,
+        resolutionResult: {
+          ok: false,
+          error: error?.message ?? "Failed to resolve Arcflight incident on the GM client.",
+        },
+      });
+    }
+  };
+
+  const handleArcflightResolutionResultFromSocket = (payload = {}) => {
+    if (String(payload?.type ?? "") !== ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE) {
+      return;
+    }
+
+    const recipientUserId = String(payload?.recipientUserId ?? "").trim();
+    if (!recipientUserId || recipientUserId !== String(game.user?.id ?? "")) {
+      return;
+    }
+
+    const requestId = String(payload?.requestId ?? "").trim();
+    if (!requestId) {
+      return;
+    }
+
+    const pending = pendingArcflightResolutionRequestsById.get(requestId) ?? null;
+    if (!pending) {
+      return;
+    }
+
+    pendingArcflightResolutionRequestsById.delete(requestId);
+    if (pending.timeoutId) {
+      clearTimeout(pending.timeoutId);
+    }
+
+    pending.resolve(payload?.resolutionResult ?? { ok: false, error: "Resolution response was empty." });
   };
 
   game.socket?.off(MODULE_SOCKET_CHANNEL, handleModuleSocketMessage);
@@ -630,6 +811,47 @@ export function createModuleApi() {
     }
 
     return updateTravelState(shipStateIndex, { posture }, options);
+  };
+
+  const requestArcflightPlayerResolution = async (resolution = {}) => {
+    if (game.user?.isGM) {
+      applyArcflightPlayerResolutionMutation(resolution);
+      return {
+        ok: true,
+        resultTier: resolution.resultTier,
+        resultTierLabel: resolution.resultTierLabel,
+        resolutionText: resolution.resolutionText,
+        adjustedTotal: resolution.adjustedTotal,
+        rolledTotal: resolution.rolledTotal,
+        dc: resolution.dc,
+        actingStationId: resolution.stationId,
+        recommendedStationId: resolution.recommendedStationId,
+        isOffStation: resolution.isOffStation,
+        offStationPenalty: resolution.offStationPenalty,
+        title: resolution.title,
+      };
+    }
+
+    const requestId = createSocketRequestId();
+
+    return await new Promise((resolve) => {
+      const timeoutId = setTimeout(() => {
+        pendingArcflightResolutionRequestsById.delete(requestId);
+        resolve({
+          ok: false,
+          error: "Timed out waiting for GM Arcflight resolution confirmation.",
+        });
+      }, 15000);
+
+      pendingArcflightResolutionRequestsById.set(requestId, { resolve, timeoutId });
+      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+        type: ARCFLIGHT_PLAYER_RESOLUTION_REQUEST_SOCKET_TYPE,
+        senderUserId: game.user?.id ?? null,
+        requesterUserId: game.user?.id ?? null,
+        requestId,
+        resolution,
+      });
+    });
   };
 
   return {
@@ -810,6 +1032,9 @@ export function createModuleApi() {
       openShipManagementForVehicleActor,
       getPlayerFacingArcflightView,
       openPlayerArcflightView,
+    },
+    arcflight: {
+      requestPlayerResolution: requestArcflightPlayerResolution,
     },
   };
 }

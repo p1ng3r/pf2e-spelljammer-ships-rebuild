@@ -71,6 +71,7 @@ export class PlayerArcflightIncidentApp extends HandlebarsApplicationMixin(Appli
 
   _onRender(context, options) {
     super._onRender(context, options);
+    this.bringToFront();
 
     const attemptButton = this.element.querySelector("[data-player-incident-attempt-check]");
     attemptButton?.addEventListener("click", this.#onAttemptCheckClick.bind(this));
