@@ -382,6 +382,14 @@ export function createModuleApi() {
   const wrapStateMutation = (mutator, context) => (...args) =>
     notifyShipStateUpdated(mutator(...args), context);
 
+  const resetShipStatesWithAlertBaseline = () => {
+    baselinedShipIds.clear();
+    knownUnresolvedIncidentKeysByShipId.clear();
+    alertedIncidentKeysByShipId.clear();
+    receivedIncidentAlertKeysByShipId.clear();
+    return resetShipStates();
+  };
+
   const openShipManagement = () => {
     const app = new ShipManagementApp();
     app.render({ force: true });
@@ -618,7 +626,7 @@ export function createModuleApi() {
 
       getActiveShipId,
       setActiveShipId,
-      resetShipStates,
+      resetShipStates: resetShipStatesWithAlertBaseline,
     },
     actors: {
       resolveActor,
