@@ -180,6 +180,7 @@ function resetShipStates() {
 }
 
 export function createModuleApi() {
+  const baselinedShipIds = new Set();
   const knownUnresolvedIncidentKeysByShipId = new Map();
   const alertedIncidentKeysByShipId = new Map();
   const receivedIncidentAlertKeysByShipId = new Map();
@@ -325,6 +326,12 @@ export function createModuleApi() {
     }
 
     const unresolvedIncidents = collectUnresolvedPlayerIncidentAlerts(nextShipState);
+    if (!baselinedShipIds.has(shipId)) {
+      baselinedShipIds.add(shipId);
+      knownUnresolvedIncidentKeysByShipId.set(shipId, new Set(unresolvedIncidents.map((incident) => incident.key)));
+      return;
+    }
+
     const knownKeys = knownUnresolvedIncidentKeysByShipId.get(shipId) ?? new Set();
     const alertedKeys = alertedIncidentKeysByShipId.get(shipId) ?? new Set();
 
