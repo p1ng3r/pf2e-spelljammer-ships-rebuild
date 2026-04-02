@@ -991,6 +991,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       shipContext ?? this.#shipContext,
     );
 
+    this.#renderAfterLocalStateWrite();
+
     this.#showIncidentResolutionMessage({
       title: popupIncident.title,
       adjustedTotal,
@@ -1048,6 +1050,19 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       ? `Total ${adjustedTotal} (roll ${rolledTotal}, off-station ${offStationPenalty}) vs DC ${dc}`
       : `Total ${adjustedTotal} vs DC ${dc}`;
     ui.notifications?.info(`${title}: ${resultTierLabel}. ${totalSummary}. ${resolutionText}`);
+  }
+
+  #renderAfterLocalStateWrite() {
+    if (!this.rendered) {
+      return;
+    }
+
+    if (this.#refreshTimeoutId) {
+      clearTimeout(this.#refreshTimeoutId);
+      this.#refreshTimeoutId = null;
+    }
+
+    this.render({ force: true });
   }
 
   async #recordStationRollAttempt({
