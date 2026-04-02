@@ -393,6 +393,11 @@ function toVoyageStatus(travelState) {
   const legProgress = Number(travelState?.legProgress ?? 0);
   const legTarget = Math.max(1, Number(travelState?.legProgressMax ?? 1));
   const daysElapsed = Number(travelState?.daysElapsed ?? 0);
+  const spellEngineTier = Math.max(1, Number(travelState?.spellEngineTier ?? 5));
+  const daysPerHex = Math.max(1, Number(travelState?.daysPerHex ?? spellEngineTier));
+  const daysIntoCurrentHex = Math.max(0, Number(travelState?.daysIntoCurrentHex ?? 0));
+  const daysRemainingInCurrentHex = Math.max(0, Number(travelState?.daysRemainingInCurrentHex ?? daysPerHex - daysIntoCurrentHex));
+  const completedHexes = Math.max(0, Number(travelState?.completedHexes ?? 0));
 
   return {
     term: TRAVEL_TERM,
@@ -400,6 +405,11 @@ function toVoyageStatus(travelState) {
     posture,
     currentHex,
     legProgressLabel: `${legProgress} / ${legTarget}`,
+    spellEngineTier,
+    daysPerHex,
+    currentHexProgressLabel: `${daysIntoCurrentHex} / ${daysPerHex}`,
+    daysRemainingInCurrentHex,
+    completedHexes,
     daysElapsed,
     statusText: legProgress >= legTarget ? "Leg complete. Awaiting next heading." : "In transit.",
   };

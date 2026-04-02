@@ -106,6 +106,46 @@ function normalizePositiveNumber(value, fallback) {
   return numericValue;
 }
 
+function normalizeNonNegativeInteger(value, fallback = 0) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    return fallback;
+  }
+
+  return Math.floor(numericValue);
+}
+
+function normalizeSpellEngineTier(value, fallback = 5) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return fallback;
+  }
+
+  return Math.floor(numericValue);
+}
+
+function normalizeGalacticTravelPacing(travelState = {}) {
+  const spellEngineTier = normalizeSpellEngineTier(travelState.spellEngineTier, 5);
+  const daysPerHex = spellEngineTier;
+  let daysIntoCurrentHex = normalizeNonNegativeInteger(travelState.daysIntoCurrentHex, 0);
+  let completedHexes = normalizeNonNegativeInteger(travelState.completedHexes, 0);
+
+  if (daysIntoCurrentHex >= daysPerHex) {
+    completedHexes += Math.floor(daysIntoCurrentHex / daysPerHex);
+    daysIntoCurrentHex %= daysPerHex;
+  }
+
+  const daysRemainingInCurrentHex = Math.max(daysPerHex - daysIntoCurrentHex, 0);
+
+  return {
+    spellEngineTier,
+    daysPerHex,
+    daysIntoCurrentHex,
+    daysRemainingInCurrentHex,
+    completedHexes,
+  };
+}
+
 function normalizeIssueText(value, fallback) {
   const textValue = typeof value === "string" ? value.trim() : "";
   return textValue || fallback;
@@ -1240,6 +1280,11 @@ function createDefaultArcflightState() {
     legProgressMax: 1,
     daysElapsed: 0,
     daysIntoCurrentLeg: 0,
+    spellEngineTier: 5,
+    daysPerHex: 5,
+    daysIntoCurrentHex: 0,
+    daysRemainingInCurrentHex: 5,
+    completedHexes: 0,
     progressPerDay: 1,
     legProgress: 0,
     travelTasks: [],
@@ -1366,6 +1411,11 @@ export function setShipState(index, nextState, { shipId, actorId, setActive = tr
   safeState.identity ??= {};
   safeState.identity.shipId = resolvedShipId;
   safeState.identity.actorId ??= actorId ?? null;
+  safeState.arcflight = {
+    ...createDefaultArcflightState(),
+    ...(safeState.arcflight ?? {}),
+    ...normalizeGalacticTravelPacing(safeState.arcflight ?? {}),
+  };
   safeState.meta ??= {};
   safeState.meta.updatedAt = Date.now();
 
@@ -1447,7 +1497,12 @@ export function updateTravelState(index, updaterOrPartial, options = {}) {
     index,
     (nextState) => {
       const currentTravelState = nextState.arcflight ?? createDefaultArcflightState();
-      nextState.arcflight = applyTravelStatePatch(currentTravelState, updaterOrPartial);
+      const updatedTravelState = applyTravelStatePatch(currentTravelState, updaterOrPartial);
+      nextState.arcflight = {
+        ...createDefaultArcflightState(),
+        ...updatedTravelState,
+        ...normalizeGalacticTravelPacing(updatedTravelState),
+      };
       return nextState;
     },
     options,
@@ -1489,13 +1544,18 @@ export function advanceTravelDay(index, options = {}) {
       ? travelState.progressPerDay
       : 1;
 
-    nextState.arcflight = {
+    const nextTravelState = {
       ...travelState,
       daysElapsed: (travelState.daysElapsed ?? 0) + 1,
       daysIntoCurrentLeg: (travelState.daysIntoCurrentLeg ?? 0) + 1,
+      daysIntoCurrentHex: normalizeNonNegativeInteger(travelState.daysIntoCurrentHex, 0) + 1,
       legProgress: (travelState.legProgress ?? 0) + progressPerDay,
       maintenancePressure: clampPressure((travelState.maintenancePressure ?? 0) + 1),
       encounterPressure: clampPressure((travelState.encounterPressure ?? 0) + 1),
+    };
+    nextState.arcflight = {
+      ...nextTravelState,
+      ...normalizeGalacticTravelPacing(nextTravelState),
     };
 
     return nextState;

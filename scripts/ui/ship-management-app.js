@@ -280,6 +280,11 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const legTarget = parsePositiveNumber(travelState?.legProgressMax, 1);
     const legProgress = Number(travelState?.legProgress ?? 0);
     const legComplete = legTarget > 0 && legProgress >= legTarget;
+    const spellEngineTier = parsePositiveNumber(travelState?.spellEngineTier, 5);
+    const daysPerHex = parsePositiveNumber(travelState?.daysPerHex, spellEngineTier);
+    const daysIntoCurrentHex = Math.max(0, Number(travelState?.daysIntoCurrentHex ?? 0));
+    const daysRemainingInCurrentHex = Math.max(0, Number(travelState?.daysRemainingInCurrentHex ?? (daysPerHex - daysIntoCurrentHex)));
+    const completedHexes = Math.max(0, Number(travelState?.completedHexes ?? 0));
     const maintenanceIssues = stateApi?.getMaintenanceIssues?.({
         includeResolved: this.#showResolvedMaintenanceIssues,
       }) ??
@@ -508,6 +513,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         legTarget,
         legProgress,
         legComplete,
+      },
+      galacticTravelStatus: {
+        spellEngineTier,
+        daysPerHex,
+        currentHexProgressLabel: `${daysIntoCurrentHex} / ${daysPerHex}`,
+        daysRemainingInCurrentHex,
+        completedHexes,
       },
       maintenance: {
         issues: maintenanceIssues.map((issue) => ({
@@ -784,7 +796,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     event.preventDefault();
     const stateApi = game?.[API_NAMESPACE]?.state;
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi?.advanceTravelDay?.();
+      await stateApi?.advanceTravelDay?.(this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -818,26 +830,33 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const destination = String(formData.get("destination") ?? "");
     const legDistanceValue = formData.get("legDistance");
     const legProgressMaxValue = formData.get("legProgressMax");
+    const spellEngineTierValue = formData.get("spellEngineTier");
 
-    const currentTravelState = stateApi.getTravelState?.() ?? {};
+    const currentTravelState = stateApi.getTravelState?.(this.#getViewShipStateOptions()) ?? {};
     const legDistance = parsePositiveNumber(legDistanceValue, currentTravelState.legDistance ?? 1);
     const legProgressMax = parsePositiveNumber(
       legProgressMaxValue,
       currentTravelState.legProgressMax ?? legDistance,
     );
+    const spellEngineTier = parsePositiveNumber(
+      spellEngineTierValue,
+      currentTravelState.spellEngineTier ?? 5,
+    );
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       if (typeof stateApi.setTravelDestination === "function") {
-        await stateApi.setTravelDestination(destination);
+        await stateApi.setTravelDestination(destination, this.#getViewShipStateOptions());
       } else {
-        await stateApi.updateTravelState?.({ destination: destination.trim() || null });
+        await stateApi.updateTravelState?.({ destination: destination.trim() || null }, this.#getViewShipStateOptions());
       }
 
       if (typeof stateApi.setTravelLeg === "function") {
-        await stateApi.setTravelLeg({ legDistance, legProgressMax });
+        await stateApi.setTravelLeg({ legDistance, legProgressMax }, this.#getViewShipStateOptions());
       } else {
-        await stateApi.updateTravelState?.({ legDistance, legProgressMax });
+        await stateApi.updateTravelState?.({ legDistance, legProgressMax }, this.#getViewShipStateOptions());
       }
+
+      await stateApi.updateTravelState?.({ spellEngineTier }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
