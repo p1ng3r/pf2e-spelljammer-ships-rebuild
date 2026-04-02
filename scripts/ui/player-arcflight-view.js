@@ -398,6 +398,17 @@ function toVoyageStatus(travelState) {
   const daysIntoCurrentHex = Math.max(0, Number(travelState?.daysIntoCurrentHex ?? 0));
   const daysRemainingInCurrentHex = Math.max(0, Number(travelState?.daysRemainingInCurrentHex ?? daysPerHex - daysIntoCurrentHex));
   const completedHexes = Math.max(0, Number(travelState?.completedHexes ?? 0));
+  const remainingGalacticHexes = Math.max(0, Number(travelState?.remainingGalacticHexes ?? 0));
+  const estimatedDaysRemaining = Math.max(
+    0,
+    Number(travelState?.estimatedDaysRemaining ?? (remainingGalacticHexes > 0
+      ? ((remainingGalacticHexes - 1) * daysPerHex) + daysRemainingInCurrentHex
+      : 0)),
+  );
+  const etaLabel = String(travelState?.etaLabel ?? "").trim() ||
+    (remainingGalacticHexes > 0
+      ? `${estimatedDaysRemaining} day${estimatedDaysRemaining === 1 ? "" : "s"} remaining`
+      : "Arrived");
 
   return {
     term: TRAVEL_TERM,
@@ -410,6 +421,9 @@ function toVoyageStatus(travelState) {
     currentHexProgressLabel: `${daysIntoCurrentHex} / ${daysPerHex}`,
     daysRemainingInCurrentHex,
     completedHexes,
+    remainingGalacticHexes,
+    estimatedDaysRemaining,
+    etaLabel,
     daysElapsed,
     statusText: legProgress >= legTarget ? "Leg complete. Awaiting next heading." : "In transit.",
   };

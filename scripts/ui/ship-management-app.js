@@ -29,6 +29,15 @@ function parsePositiveNumber(value, fallback) {
   return numericValue;
 }
 
+function parseNonNegativeInteger(value, fallback = 0) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    return fallback;
+  }
+
+  return Math.floor(numericValue);
+}
+
 function parseOptionalDc(value) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue) || numericValue <= 0) {
@@ -285,6 +294,17 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const daysIntoCurrentHex = Math.max(0, Number(travelState?.daysIntoCurrentHex ?? 0));
     const daysRemainingInCurrentHex = Math.max(0, Number(travelState?.daysRemainingInCurrentHex ?? (daysPerHex - daysIntoCurrentHex)));
     const completedHexes = Math.max(0, Number(travelState?.completedHexes ?? 0));
+    const remainingGalacticHexes = Math.max(0, Number(travelState?.remainingGalacticHexes ?? 0));
+    const estimatedDaysRemaining = Math.max(
+      0,
+      Number(travelState?.estimatedDaysRemaining ?? (remainingGalacticHexes > 0
+        ? ((remainingGalacticHexes - 1) * daysPerHex) + daysRemainingInCurrentHex
+        : 0)),
+    );
+    const etaLabel = String(travelState?.etaLabel ?? "").trim() ||
+      (remainingGalacticHexes > 0
+        ? `${estimatedDaysRemaining} day${estimatedDaysRemaining === 1 ? "" : "s"} remaining`
+        : "Arrived");
     const maintenanceIssues = stateApi?.getMaintenanceIssues?.({
         includeResolved: this.#showResolvedMaintenanceIssues,
       }) ??
@@ -520,6 +540,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         currentHexProgressLabel: `${daysIntoCurrentHex} / ${daysPerHex}`,
         daysRemainingInCurrentHex,
         completedHexes,
+        remainingGalacticHexes,
+        estimatedDaysRemaining,
+        etaLabel,
       },
       maintenance: {
         issues: maintenanceIssues.map((issue) => ({
@@ -831,6 +854,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const legDistanceValue = formData.get("legDistance");
     const legProgressMaxValue = formData.get("legProgressMax");
     const spellEngineTierValue = formData.get("spellEngineTier");
+    const remainingGalacticHexesValue = formData.get("remainingGalacticHexes");
 
     const currentTravelState = stateApi.getTravelState?.(this.#getViewShipStateOptions()) ?? {};
     const legDistance = parsePositiveNumber(legDistanceValue, currentTravelState.legDistance ?? 1);
@@ -841,6 +865,10 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const spellEngineTier = parsePositiveNumber(
       spellEngineTierValue,
       currentTravelState.spellEngineTier ?? 5,
+    );
+    const remainingGalacticHexes = parseNonNegativeInteger(
+      remainingGalacticHexesValue,
+      parseNonNegativeInteger(currentTravelState.remainingGalacticHexes, 0),
     );
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
@@ -856,7 +884,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         await stateApi.updateTravelState?.({ legDistance, legProgressMax }, this.#getViewShipStateOptions());
       }
 
-      await stateApi.updateTravelState?.({ spellEngineTier }, this.#getViewShipStateOptions());
+      await stateApi.updateTravelState?.({ spellEngineTier, remainingGalacticHexes }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 

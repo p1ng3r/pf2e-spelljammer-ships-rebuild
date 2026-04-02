@@ -1,12 +1,30 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present.
+Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present. Shared galactic route ETA fields are now wired into authoritative travel state so GM and player views show matching remaining-hex/day estimates from one model.
 
 ## Current Branch Focus
-Deliver Arcflight crew assignment MVP inside the Player Arcflight view: GM-assignment controls + player read-only roster visibility backed by authoritative shared ship-state persistence.
+Deliver Arcflight route ETA MVP for galactic pacing: GM-editable remaining route hexes (including current hex), derived day estimate, and consistent GM/player display updates during day advancement.
 
 ## Completed So Far
+- Arcflight galactic route ETA MVP pass added:
+  - Shared Arcflight travel state now includes:
+    - `remainingGalacticHexes`
+    - `estimatedDaysRemaining`
+    - `etaLabel`
+  - Chosen model is explicit and GM-editable:
+    - `remainingGalacticHexes` means **hexes still to finish including the current in-progress hex**.
+    - ETA formula now follows:
+      - `((remainingGalacticHexes - 1) * daysPerHex) + daysRemainingInCurrentHex`
+  - Day advancement now performs clean route rollover:
+    - when the current hex completes, `remainingGalacticHexes` decrements by 1 (never below 0)
+    - current-hex progress still rolls over through the existing normalized pacing path
+  - Ship Management route form now allows GM editing of remaining galactic hexes.
+  - Ship Management and Player Arcflight both now display:
+    - remaining galactic hexes
+    - ETA days
+    - readable ETA label
+  - Actor-backed shared-state persistence remains authoritative; ETA values derive from the same travel state in both windows.
 - Arcflight crew assignment + persistence visibility MVP pass added:
   - Player Arcflight view now includes a dedicated **Station Assignments** section that lists all rebuild roster stations and current assigned crew actor names from shared ship state.
   - GM users now get inline assignment controls directly in Player Arcflight:

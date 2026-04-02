@@ -129,6 +129,7 @@ function normalizeGalacticTravelPacing(travelState = {}) {
   const daysPerHex = spellEngineTier;
   let daysIntoCurrentHex = normalizeNonNegativeInteger(travelState.daysIntoCurrentHex, 0);
   let completedHexes = normalizeNonNegativeInteger(travelState.completedHexes, 0);
+  const remainingGalacticHexes = normalizeNonNegativeInteger(travelState.remainingGalacticHexes, 0);
 
   if (daysIntoCurrentHex >= daysPerHex) {
     completedHexes += Math.floor(daysIntoCurrentHex / daysPerHex);
@@ -136,6 +137,12 @@ function normalizeGalacticTravelPacing(travelState = {}) {
   }
 
   const daysRemainingInCurrentHex = Math.max(daysPerHex - daysIntoCurrentHex, 0);
+  const estimatedDaysRemaining = remainingGalacticHexes > 0
+    ? Math.max(((remainingGalacticHexes - 1) * daysPerHex) + daysRemainingInCurrentHex, 0)
+    : 0;
+  const etaLabel = remainingGalacticHexes > 0
+    ? `${estimatedDaysRemaining} day${estimatedDaysRemaining === 1 ? "" : "s"} remaining`
+    : "Arrived";
 
   return {
     spellEngineTier,
@@ -143,6 +150,9 @@ function normalizeGalacticTravelPacing(travelState = {}) {
     daysIntoCurrentHex,
     daysRemainingInCurrentHex,
     completedHexes,
+    remainingGalacticHexes,
+    estimatedDaysRemaining,
+    etaLabel,
   };
 }
 
@@ -1285,6 +1295,9 @@ function createDefaultArcflightState() {
     daysIntoCurrentHex: 0,
     daysRemainingInCurrentHex: 5,
     completedHexes: 0,
+    remainingGalacticHexes: 0,
+    estimatedDaysRemaining: 0,
+    etaLabel: "Arrived",
     progressPerDay: 1,
     legProgress: 0,
     travelTasks: [],
@@ -1544,11 +1557,21 @@ export function advanceTravelDay(index, options = {}) {
       ? travelState.progressPerDay
       : 1;
 
+    const currentDaysIntoHex = normalizeNonNegativeInteger(travelState.daysIntoCurrentHex, 0);
+    const currentRemainingGalacticHexes = normalizeNonNegativeInteger(travelState.remainingGalacticHexes, 0);
+    const daysPerHex = normalizeSpellEngineTier(travelState.daysPerHex, normalizeSpellEngineTier(travelState.spellEngineTier, 5));
+    const nextDaysIntoCurrentHex = currentDaysIntoHex + 1;
+    const completedCurrentHex = nextDaysIntoCurrentHex >= daysPerHex;
+    const nextRemainingGalacticHexes = completedCurrentHex && currentRemainingGalacticHexes > 0
+      ? currentRemainingGalacticHexes - 1
+      : currentRemainingGalacticHexes;
+
     const nextTravelState = {
       ...travelState,
       daysElapsed: (travelState.daysElapsed ?? 0) + 1,
       daysIntoCurrentLeg: (travelState.daysIntoCurrentLeg ?? 0) + 1,
-      daysIntoCurrentHex: normalizeNonNegativeInteger(travelState.daysIntoCurrentHex, 0) + 1,
+      daysIntoCurrentHex: nextDaysIntoCurrentHex,
+      remainingGalacticHexes: nextRemainingGalacticHexes,
       legProgress: (travelState.legProgress ?? 0) + progressPerDay,
       maintenancePressure: clampPressure((travelState.maintenancePressure ?? 0) + 1),
       encounterPressure: clampPressure((travelState.encounterPressure ?? 0) + 1),
