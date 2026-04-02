@@ -1,5 +1,5 @@
 <section class="player-arcflight-view-content">
-  <header>
+  <header class="player-arcflight-view-header">
     <h2>{{moduleTitle}}</h2>
     <p>Player Arcflight Status</p>
   </header>
@@ -8,117 +8,152 @@
     <article class="player-arcflight-view-body">
       <h3>{{shipName}}</h3>
 
-      <section>
-        <h4>Current Voyage State</h4>
-        <ul>
-          <li><strong>Status:</strong> {{voyage.statusText}}</li>
-          <li><strong>Arcflight Term:</strong> {{voyage.term}}</li>
-          <li><strong>Destination:</strong> {{voyage.destination}}</li>
-          <li><strong>Current Hex:</strong> {{voyage.currentHex}}</li>
-          <li><strong>Posture:</strong> {{voyage.posture}}</li>
-          <li><strong>Leg Progress:</strong> {{voyage.legProgressLabel}}</li>
-          <li><strong>Spell Engine Tier:</strong> {{voyage.spellEngineTier}}</li>
-          <li><strong>Days per Hex:</strong> {{voyage.daysPerHex}}</li>
-          <li><strong>Current Hex Progress:</strong> {{voyage.currentHexProgressLabel}}</li>
-          <li><strong>Days Remaining:</strong> {{voyage.daysRemainingInCurrentHex}}</li>
-          <li><strong>Completed Hexes:</strong> {{voyage.completedHexes}}</li>
-          <li><strong>Remaining Galactic Hexes:</strong> {{voyage.remainingGalacticHexes}}</li>
-          <li><strong>Route ETA (Days):</strong> {{voyage.estimatedDaysRemaining}}</li>
-          <li><strong>Route ETA:</strong> {{voyage.etaLabel}}</li>
-          <li><strong>Maintenance Pressure:</strong> {{voyage.maintenancePressure}} ({{voyage.maintenancePressureBand}})</li>
-          <li><strong>Encounter Pressure:</strong> {{voyage.encounterPressure}} ({{voyage.encounterPressureBand}})</li>
-          <li><strong>Voyage Instability:</strong> {{voyage.voyageInstability}} ({{voyage.voyageInstabilityBand}})</li>
-          <li><strong>Days Elapsed:</strong> {{voyage.daysElapsed}}</li>
-        </ul>
-      </section>
+      <div class="player-arcflight-grid">
+        <section class="player-arcflight-card player-arcflight-card--voyage">
+          <h4>Current Voyage State</h4>
+          <dl class="player-arcflight-stats-grid">
+            <div>
+              <dt>Status</dt>
+              <dd>{{voyage.statusText}}</dd>
+            </div>
+            <div>
+              <dt>Arcflight Term</dt>
+              <dd>{{voyage.term}}</dd>
+            </div>
+            <div>
+              <dt>Destination</dt>
+              <dd>{{voyage.destination}}</dd>
+            </div>
+            <div>
+              <dt>Current Hex</dt>
+              <dd>{{voyage.currentHex}}</dd>
+            </div>
+            <div>
+              <dt>Posture <span class="player-arcflight-help" title="{{helpTerms.posture}}" aria-label="Posture help">?</span></dt>
+              <dd>{{voyage.posture}}</dd>
+            </div>
+            <div>
+              <dt>Leg Progress</dt>
+              <dd>{{voyage.legProgressLabel}}</dd>
+            </div>
+            <div>
+              <dt>Spell Engine Tier</dt>
+              <dd>{{voyage.spellEngineTier}}</dd>
+            </div>
+            <div>
+              <dt>Days per Hex <span class="player-arcflight-help" title="{{helpTerms.daysPerHex}}" aria-label="Days per Hex help">?</span></dt>
+              <dd>{{voyage.daysPerHex}}</dd>
+            </div>
+            <div>
+              <dt>Current Hex Progress <span class="player-arcflight-help" title="{{helpTerms.currentHexProgress}}" aria-label="Current Hex Progress help">?</span></dt>
+              <dd>{{voyage.currentHexProgressLabel}}</dd>
+            </div>
+            <div>
+              <dt>Days Remaining (Hex)</dt>
+              <dd>{{voyage.daysRemainingInCurrentHex}}</dd>
+            </div>
+            <div>
+              <dt>Completed Hexes</dt>
+              <dd>{{voyage.completedHexes}}</dd>
+            </div>
+            <div>
+              <dt>Remaining Galactic Hexes</dt>
+              <dd>{{voyage.remainingGalacticHexes}}</dd>
+            </div>
+            <div>
+              <dt>Route ETA <span class="player-arcflight-help" title="{{helpTerms.routeEta}}" aria-label="Route ETA help">?</span></dt>
+              <dd>{{voyage.etaLabel}}</dd>
+            </div>
+            <div>
+              <dt>Route ETA (Days)</dt>
+              <dd>{{voyage.estimatedDaysRemaining}}</dd>
+            </div>
+            <div>
+              <dt>Maintenance Pressure <span class="player-arcflight-help" title="{{helpTerms.maintenancePressure}}" aria-label="Maintenance Pressure help">?</span></dt>
+              <dd>{{voyage.maintenancePressure}} ({{voyage.maintenancePressureBand}})</dd>
+            </div>
+            <div>
+              <dt>Encounter Pressure <span class="player-arcflight-help" title="{{helpTerms.encounterPressure}}" aria-label="Encounter Pressure help">?</span></dt>
+              <dd>{{voyage.encounterPressure}} ({{voyage.encounterPressureBand}})</dd>
+            </div>
+            <div>
+              <dt>Voyage Instability <span class="player-arcflight-help" title="{{helpTerms.voyageInstability}}" aria-label="Voyage Instability help">?</span></dt>
+              <dd>{{voyage.voyageInstability}} ({{voyage.voyageInstabilityBand}})</dd>
+            </div>
+            <div>
+              <dt>Days Elapsed</dt>
+              <dd>{{voyage.daysElapsed}}</dd>
+            </div>
+          </dl>
+        </section>
 
-      <section class="arcflight-log-panel">
-        <h4>Recent Arcflight Activity</h4>
-        {{#if arcflightLog.hasEntries}}
-          <ul class="arcflight-log-list">
-            {{#each arcflightLog.entries as |entry|}}
-              <li class="arcflight-log-list__row">
-                <p class="arcflight-log-list__meta">
-                  <strong>{{entry.orderLabel}}</strong>
-                  <span>{{entry.timestampLabel}}</span>
-                  <span>{{entry.sourceTitleLabel}}</span>
-                  {{#if entry.resultLabel}}
-                    <span>{{entry.resultLabel}}</span>
+        <section class="player-arcflight-card">
+          <h4>Station Assignments</h4>
+          <ul class="player-arcflight-list player-arcflight-list--compact">
+            {{#each stationAssignments.rows as |assignment|}}
+              <li data-station-id="{{assignment.stationId}}">
+                <strong>{{assignment.stationLabel}}</strong>
+                <p><strong>Assigned Crew:</strong> {{assignment.assignedActorName}}</p>
+                {{#if @root.isGm}}
+                  {{#if @root.stationAssignments.hasAssignableActors}}
+                    <label>
+                      <span>Assign Character</span>
+                      <select name="stationAssignedActorId">
+                        <option value="">Unassigned</option>
+                        {{#each assignment.actorOptions as |actor|}}
+                          <option value="{{actor.value}}" {{#if actor.selected}}selected{{/if}}>
+                            {{actor.label}}
+                          </option>
+                        {{/each}}
+                      </select>
+                    </label>
+                    <div class="player-arcflight-inline-actions">
+                      <button type="button" data-player-assign-station-actor data-station-id="{{assignment.stationId}}">
+                        Assign / Save
+                      </button>
+                      <button type="button" data-player-clear-station-actor data-station-id="{{assignment.stationId}}">
+                        Clear
+                      </button>
+                    </div>
+                  {{else}}
+                    <p><em>No character actors are available for station assignment.</em></p>
                   {{/if}}
-                </p>
-                <p class="arcflight-log-list__text">{{entry.textLabel}}</p>
+                {{/if}}
               </li>
             {{/each}}
           </ul>
-        {{else}}
-          <p><em>No recent Arcflight activity.</em></p>
-        {{/if}}
-      </section>
+        </section>
+      </div>
 
-      <section>
-        <h4>Station Assignments</h4>
-        <ul>
-          {{#each stationAssignments.rows as |assignment|}}
-            <li data-station-id="{{assignment.stationId}}">
-              <strong>{{assignment.stationLabel}}</strong>
-              <p><strong>Assigned Crew:</strong> {{assignment.assignedActorName}}</p>
-              {{#if @root.isGm}}
-                {{#if @root.stationAssignments.hasAssignableActors}}
-                  <label>
-                    <span>Assign Character</span>
-                    <select name="stationAssignedActorId">
-                      <option value="">Unassigned</option>
-                      {{#each assignment.actorOptions as |actor|}}
-                        <option value="{{actor.value}}" {{#if actor.selected}}selected{{/if}}>
-                          {{actor.label}}
-                        </option>
-                      {{/each}}
-                    </select>
-                  </label>
-                  <div>
-                    <button type="button" data-player-assign-station-actor data-station-id="{{assignment.stationId}}">
-                      Assign / Save
-                    </button>
-                    <button type="button" data-player-clear-station-actor data-station-id="{{assignment.stationId}}">
-                      Clear
-                    </button>
-                  </div>
-                {{else}}
-                  <p><em>No character actors are available for station assignment.</em></p>
-                {{/if}}
-              {{/if}}
-            </li>
-          {{/each}}
-        </ul>
-      </section>
-
-      <section>
-        <h4>Station Briefings</h4>
+      <section class="player-arcflight-card">
+        <h4>Station Briefings <span class="player-arcflight-help" title="{{helpTerms.stationBriefings}}" aria-label="Station Briefings help">?</span></h4>
         {{#if stationPrompts.length}}
-          <ul>
+          <ul class="player-arcflight-list">
             {{#each stationPrompts as |stationPrompt|}}
               <li>
                 <strong>{{stationPrompt.stationLabel}}</strong>
-                <ul>
+                <ul class="player-arcflight-list player-arcflight-list--nested">
                   {{#each stationPrompt.items as |item|}}
-                    <li>
-                      <strong>{{item.title}}</strong>
+                    <li class="player-arcflight-item">
+                      <div class="player-arcflight-item__header">
+                        <strong>{{item.title}}</strong>
+                        <button
+                          type="button"
+                          data-player-station-roll-check
+                          data-station-id="{{stationPrompt.stationId}}"
+                          data-source-type="{{item.sourceType}}"
+                          data-source-id="{{item.sourceId}}"
+                          data-title="{{item.title}}"
+                          data-recommended-skill="{{item.recommendedSkill}}"
+                        >
+                          Respond / Roll
+                        </button>
+                      </div>
                       <p><strong>Type:</strong> {{item.sourceLabel}} · {{item.statusText}} · {{item.urgencyText}}</p>
                       <p><strong>What is happening:</strong> {{item.happeningText}}</p>
                       <p><strong>Why it matters:</strong> {{item.mattersText}}</p>
                       <p><strong>Your station focus:</strong> {{item.roleActionText}}</p>
                       <p><strong>Recommended check:</strong> {{item.recommendedSkillLabel}}</p>
-                      <button
-                        type="button"
-                        data-player-station-roll-check
-                        data-station-id="{{stationPrompt.stationId}}"
-                        data-source-type="{{item.sourceType}}"
-                        data-source-id="{{item.sourceId}}"
-                        data-title="{{item.title}}"
-                        data-recommended-skill="{{item.recommendedSkill}}"
-                      >
-                        Roll Check
-                      </button>
                       {{#if item.hasStationRequest}}
                         <p><strong>Station intent:</strong> {{item.requestStatusText}}{{#if item.requestSummaryText}} · {{item.requestSummaryText}}{{/if}}</p>
                       {{else}}
@@ -142,61 +177,101 @@
         {{/if}}
       </section>
 
-      <section>
-        <h4>Active Situations</h4>
-        {{#if activeSituations.length}}
-          <ul>
-            {{#each activeSituations as |situation|}}
-              <li>
-                <strong>{{situation.title}}</strong>
-                <p><strong>State:</strong> {{situation.statusText}} · {{situation.urgencyText}}</p>
-                <p><strong>Prompt:</strong> {{situation.promptText}}</p>
-                <p><strong>Summary:</strong> {{situation.summaryText}}</p>
-                <button type="button" data-player-open-incident data-source-type="{{situation.sourceType}}" data-source-id="{{situation.sourceId}}">Open</button>
-              </li>
-            {{/each}}
-          </ul>
-        {{else}}
-          <p><em>No active situations right now.</em></p>
-        {{/if}}
-      </section>
+      <div class="player-arcflight-grid player-arcflight-grid--incidents">
+        <section class="player-arcflight-card">
+          <h4>Active Situations</h4>
+          {{#if activeSituations.length}}
+            <ul class="player-arcflight-list">
+              {{#each activeSituations as |situation|}}
+                <li class="player-arcflight-item">
+                  <div class="player-arcflight-item__header">
+                    <strong>{{situation.title}}</strong>
+                    <div class="player-arcflight-inline-actions">
+                      <button type="button" data-player-station-roll-check data-station-id="{{situation.recommendedStation}}" data-source-type="{{situation.sourceType}}" data-source-id="{{situation.sourceId}}" data-title="{{situation.title}}" data-recommended-skill="{{situation.recommendedSkill}}">Respond / Roll</button>
+                      <button type="button" data-player-open-incident data-source-type="{{situation.sourceType}}" data-source-id="{{situation.sourceId}}">Open Resolver</button>
+                    </div>
+                  </div>
+                  <p><strong>State:</strong> {{situation.statusText}} · {{situation.urgencyText}}</p>
+                  <p><strong>Prompt:</strong> {{situation.promptText}}</p>
+                  <p><strong>Summary:</strong> {{situation.summaryText}}</p>
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p><em>No active situations right now.</em></p>
+          {{/if}}
+        </section>
 
-      <section>
-        <h4>Ship Problems</h4>
-        {{#if shipProblems.length}}
-          <ul>
-            {{#each shipProblems as |problem|}}
-              <li>
-                <strong>{{problem.title}}</strong>
-                <p><strong>State:</strong> {{problem.statusText}} · {{problem.urgencyText}}</p>
-                <p><strong>Prompt:</strong> {{problem.promptText}}</p>
-                <p><strong>Summary:</strong> {{problem.summaryText}}</p>
-                <button type="button" data-player-open-incident data-source-type="{{problem.sourceType}}" data-source-id="{{problem.sourceId}}">Open</button>
-              </li>
-            {{/each}}
-          </ul>
-        {{else}}
-          <p><em>No unresolved ship problems right now.</em></p>
-        {{/if}}
-      </section>
+        <section class="player-arcflight-card">
+          <h4>Ship Problems</h4>
+          {{#if shipProblems.length}}
+            <ul class="player-arcflight-list">
+              {{#each shipProblems as |problem|}}
+                <li class="player-arcflight-item">
+                  <div class="player-arcflight-item__header">
+                    <strong>{{problem.title}}</strong>
+                    <div class="player-arcflight-inline-actions">
+                      <button type="button" data-player-station-roll-check data-station-id="{{problem.recommendedStation}}" data-source-type="{{problem.sourceType}}" data-source-id="{{problem.sourceId}}" data-title="{{problem.title}}" data-recommended-skill="{{problem.recommendedSkill}}">Respond / Roll</button>
+                      <button type="button" data-player-open-incident data-source-type="{{problem.sourceType}}" data-source-id="{{problem.sourceId}}">Open Resolver</button>
+                    </div>
+                  </div>
+                  <p><strong>State:</strong> {{problem.statusText}} · {{problem.urgencyText}}</p>
+                  <p><strong>Prompt:</strong> {{problem.promptText}}</p>
+                  <p><strong>Summary:</strong> {{problem.summaryText}}</p>
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p><em>No unresolved ship problems right now.</em></p>
+          {{/if}}
+        </section>
 
-      <section>
-        <h4>Crew Responses Underway</h4>
-        {{#if crewResponses.length}}
-          <ul>
-            {{#each crewResponses as |response|}}
-              <li>
-                <strong>{{response.title}}</strong>
-                <p><strong>State:</strong> {{response.statusText}}</p>
-                <p><strong>Prompt:</strong> {{response.promptText}}</p>
-                <p><strong>Response:</strong> {{response.summaryText}}</p>
-                <p><strong>Risk / Consequence:</strong> {{response.riskText}}</p>
-                <button type="button" data-player-open-incident data-source-type="{{response.sourceType}}" data-source-id="{{response.sourceId}}">Open</button>
+        <section class="player-arcflight-card">
+          <h4>Crew Responses Underway</h4>
+          {{#if crewResponses.length}}
+            <ul class="player-arcflight-list">
+              {{#each crewResponses as |response|}}
+                <li class="player-arcflight-item">
+                  <div class="player-arcflight-item__header">
+                    <strong>{{response.title}}</strong>
+                    <div class="player-arcflight-inline-actions">
+                      <button type="button" data-player-station-roll-check data-station-id="{{response.recommendedStation}}" data-source-type="{{response.sourceType}}" data-source-id="{{response.sourceId}}" data-title="{{response.title}}" data-recommended-skill="{{response.recommendedSkill}}">Respond / Roll</button>
+                      <button type="button" data-player-open-incident data-source-type="{{response.sourceType}}" data-source-id="{{response.sourceId}}">Open Resolver</button>
+                    </div>
+                  </div>
+                  <p><strong>State:</strong> {{response.statusText}}</p>
+                  <p><strong>Prompt:</strong> {{response.promptText}}</p>
+                  <p><strong>Response:</strong> {{response.summaryText}}</p>
+                  <p><strong>Risk / Consequence:</strong> {{response.riskText}}</p>
+                </li>
+              {{/each}}
+            </ul>
+          {{else}}
+            <p><em>No crew responses underway.</em></p>
+          {{/if}}
+        </section>
+      </div>
+
+      <section class="player-arcflight-card arcflight-log-panel">
+        <h4>Recent Arcflight Activity</h4>
+        {{#if arcflightLog.hasEntries}}
+          <ul class="arcflight-log-list">
+            {{#each arcflightLog.entries as |entry|}}
+              <li class="arcflight-log-list__row">
+                <p class="arcflight-log-list__meta">
+                  <strong>{{entry.orderLabel}}</strong>
+                  <span>{{entry.timestampLabel}}</span>
+                  <span>{{entry.sourceTitleLabel}}</span>
+                  {{#if entry.resultLabel}}
+                    <span>{{entry.resultLabel}}</span>
+                  {{/if}}
+                </p>
+                <p class="arcflight-log-list__text">{{entry.textLabel}}</p>
               </li>
             {{/each}}
           </ul>
         {{else}}
-          <p><em>No crew responses underway.</em></p>
+          <p><em>No recent Arcflight activity.</em></p>
         {{/if}}
       </section>
     </article>

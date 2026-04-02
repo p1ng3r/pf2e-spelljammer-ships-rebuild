@@ -7,6 +7,12 @@ Active rebuild in progress. Arcflight now has a small user-facing control slice 
 Deliver Arcflight pressure-track MVP for voyage pressure loop: posture-based daily pressure growth, deterministic overflow incident spawning/reset, and lightweight hex-completion beat logging.
 
 ## Completed So Far
+- Arcflight player UI usability fix pass added:
+  - Player Arcflight layout now uses compact card/grid sections with a bounded scrollable app body so core content no longer spills awkwardly off-page on typical screens.
+  - Added lightweight inline help markers (`?`) with hover tooltips for key voyage terms: Maintenance Pressure, Encounter Pressure, Voyage Instability, Days per Hex, Current Hex Progress, Route ETA, Posture, and Station Briefings.
+  - Incident rows in Active Situations / Ship Problems / Crew Responses now expose a clear **Respond / Roll** action and a clearly-labeled **Open Resolver** action, making the resolution path explicit without changing underlying resolution flow/state logic.
+  - Station Briefings action label now reads **Respond / Roll** for consistency with incident rows and expected player language.
+
 - Arcflight pressure tracks MVP pass added:
   - Shared Arcflight travel state now includes:
     - `maintenancePressure`

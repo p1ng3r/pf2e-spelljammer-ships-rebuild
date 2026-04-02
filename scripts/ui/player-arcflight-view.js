@@ -95,6 +95,17 @@ function mapPrompt(record, stationLabelsById, skillLabelsByValue) {
   return `Any station: ${skillLabel}`;
 }
 
+const PLAYER_ARCFLIGHT_HELP_TERMS = {
+  maintenancePressure: "Slow buildup of ship wear and repair strain.",
+  encounterPressure: "Rising risk of outside hazards or hostile contact.",
+  voyageInstability: "Growing route, navigation, and magical turbulence during travel.",
+  daysPerHex: "How many travel days this ship needs to cross one galactic hex.",
+  currentHexProgress: "How far through the current galactic hex the ship has traveled.",
+  routeEta: "Estimated days remaining on the current route.",
+  posture: "Current travel mode, which affects voyage pressure growth.",
+  stationBriefings: "Station-specific priorities. Use Respond / Roll to attempt resolution.",
+};
+
 function toSourceLabel(source) {
   if (source === "event") {
     return "Situation";
@@ -593,11 +604,14 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         hasAssignableActors: assignableActorOptions.length > 0,
       },
       voyage: toVoyageStatus(travelState),
+      helpTerms: PLAYER_ARCFLIGHT_HELP_TERMS,
       arcflightLog: {
         entries: toArcflightLogEntriesView(arcflightLogEntries, publicOutcomeBySourceKey),
         hasEntries: arcflightLogEntries.length > 0,
       },
       activeSituations: openEvents.map((eventRecord) => ({
+        recommendedStation: String(eventRecord.recommendedStation ?? "").trim().toLowerCase(),
+        recommendedSkill: String(eventRecord.recommendedSkill ?? "").trim().toLowerCase(),
         title: toText(eventRecord.title, "Unnamed situation"),
         statusText: toStatusText(eventRecord.status),
         urgencyText: toUrgencyText(eventRecord.severity),
@@ -607,6 +621,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         sourceId: eventRecord.id ?? "",
       })),
       shipProblems: openIssues.map((issueRecord) => ({
+        recommendedStation: String(issueRecord.recommendedStation ?? "").trim().toLowerCase(),
+        recommendedSkill: String(issueRecord.recommendedSkill ?? "").trim().toLowerCase(),
         title: toText(issueRecord.title, "Unnamed problem"),
         statusText: toStatusText(issueRecord.status),
         urgencyText: toUrgencyText(issueRecord.severity),
@@ -616,6 +632,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
         sourceId: issueRecord.id ?? "",
       })),
       crewResponses: responseTasks.map((taskRecord) => ({
+        recommendedStation: String(taskRecord.recommendedStation ?? "").trim().toLowerCase(),
+        recommendedSkill: String(taskRecord.recommendedSkill ?? "").trim().toLowerCase(),
         title: toText(taskRecord.title, "Unnamed crew response"),
         statusText: toStatusText(taskRecord.status),
         summaryText: toText(taskRecord.publicSummary, "No public details yet."),
