@@ -53,6 +53,7 @@ const SHIP_STATE_UPDATED_HOOK = `${MODULE_ID}.shipStateUpdated`;
 const MODULE_SOCKET_CHANNEL = `module.${MODULE_ID}`;
 const ARCFLIGHT_PLAYER_INCIDENT_ALERT_SOCKET_TYPE = "arcflightPlayerIncidentAlert";
 const SHIP_STATE_SYNC_SOCKET_TYPE = "shipStateSync";
+const ACTOR_SHIP_STATE_FLAG_KEY = "shipState";
 
 const TRAVEL_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
 
@@ -185,6 +186,91 @@ export function createModuleApi() {
   const knownUnresolvedIncidentKeysByShipId = new Map();
   const alertedIncidentKeysByShipId = new Map();
   const receivedIncidentAlertKeysByShipId = new Map();
+  const hydrationByShipId = new Map();
+
+  const getShipStateFlagFromActor = (actor) => actor?.getFlag?.(MODULE_ID, ACTOR_SHIP_STATE_FLAG_KEY) ?? null;
+
+  const persistShipStateToActorFlag = async (shipState, context = {}) => {
+    if (!game.user?.isGM || context?.skipActorPersistence) {
+      return;
+    }
+
+    const actorId = String(shipState?.identity?.actorId ?? "").trim();
+    if (!actorId) {
+      return;
+    }
+
+    const actor = game.actors?.get(actorId) ?? null;
+    if (!actor) {
+      return;
+    }
+
+    try {
+      await actor.setFlag(MODULE_ID, ACTOR_SHIP_STATE_FLAG_KEY, shipState);
+    } catch (error) {
+      console.warn(`${MODULE_ID} | Failed to persist ship state to actor flags for actor "${actorId}".`, error);
+    }
+  };
+
+  const hydrateShipStateFromActorFlag = async (actorOrId, context = {}) => {
+    const actor = resolveActor(actorOrId);
+    if (!actor) {
+      return null;
+    }
+
+    const actorBackedState = getShipStateFlagFromActor(actor);
+    if (!actorBackedState || typeof actorBackedState !== "object") {
+      return null;
+    }
+
+    const shipId = String(
+      context?.shipId ??
+        actorBackedState?.identity?.shipId ??
+        actor.id ??
+        "",
+    ).trim();
+    if (!shipId) {
+      return null;
+    }
+
+    const hydratedState = setShipState(shipStateIndex, actorBackedState, {
+      shipId,
+      actorId: actor.id,
+      setActive: context?.setActive ?? false,
+    });
+
+    if (!hydratedState) {
+      return null;
+    }
+
+    notifyShipStateUpdated(hydratedState, {
+      source: context?.source ?? "actorFlagHydration",
+      skipSocketBroadcast: true,
+      skipIncidentAlerts: true,
+      skipActorPersistence: true,
+    });
+
+    return hydratedState;
+  };
+
+  const hydrateShipStateFromActorFlagOnce = async (actorOrId, context = {}) => {
+    const actor = resolveActor(actorOrId);
+    if (!actor) {
+      return null;
+    }
+
+    const shipId = String(context?.shipId ?? actor.id ?? "").trim();
+    const existingHydration = hydrationByShipId.get(shipId);
+    if (existingHydration) {
+      return existingHydration;
+    }
+
+    const hydrationPromise = hydrateShipStateFromActorFlag(actor, context).finally(() => {
+      hydrationByShipId.delete(shipId);
+    });
+    hydrationByShipId.set(shipId, hydrationPromise);
+    return hydrationPromise;
+  };
 
   const collectUnresolvedPlayerIncidentAlerts = (shipState) => {
     const travelState = shipState?.arcflight ?? null;
@@ -420,6 +506,7 @@ export function createModuleApi() {
     }
 
     broadcastShipStateSync(nextShipState, context);
+    void persistShipStateToActorFlag(nextShipState, context);
 
     if (!context?.skipIncidentAlerts) {
       notifyPlayerIncidentAlerts(nextShipState);
@@ -464,9 +551,15 @@ export function createModuleApi() {
 
   const openPlayerArcflightView = (actorOrOptions) => {
     try {
-      const { actor } = resolveActorOrOptions(actorOrOptions);
-      if (actor) {
-        initializeShipStateForVehicleActor(actor, { setActive: true });
+      const { actor, shipId } = resolveActorOrOptions(actorOrOptions);
+      const fallbackActor = actor ?? (shipId ? resolveActor(shipId) : null);
+      if (fallbackActor && isPf2eVehicleActor(fallbackActor)) {
+        initializeShipStateForVehicleActor(fallbackActor, { setActive: true, shipId });
+        void hydrateShipStateFromActorFlagOnce(fallbackActor, {
+          shipId: shipId ?? fallbackActor.id,
+          setActive: true,
+          source: "openPlayerArcflightView",
+        });
       }
 
       const app = getPlayerFacingArcflightView(actorOrOptions);
@@ -492,6 +585,12 @@ export function createModuleApi() {
     if (options.setActive !== false) {
       setActiveShipId(shipState.identity.shipId);
     }
+
+    void hydrateShipStateFromActorFlagOnce(actor, {
+      shipId: shipState.identity.shipId,
+      setActive: options.setActive !== false,
+      source: "initializeShipStateForVehicleActor",
+    });
 
     return shipState;
   };
@@ -703,6 +802,19 @@ export function attachModuleApi() {
 
   initializeDefaultShipState();
   game[API_NAMESPACE] = api;
+
+  Hooks.on("updateActor", (actor, changed) => {
+    if (!api.actors.isPf2eVehicleActor(actor)) {
+      return;
+    }
+
+    const moduleFlags = changed?.flags?.[MODULE_ID];
+    if (!moduleFlags || !(ACTOR_SHIP_STATE_FLAG_KEY in moduleFlags)) {
+      return;
+    }
+
+    void api.state.initializeShipStateForVehicleActor(actor, { setActive: false });
+  });
 
   return api;
 }
