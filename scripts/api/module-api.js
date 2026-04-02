@@ -50,6 +50,8 @@ import { PlayerArcflightViewApp } from "../ui/player-arcflight-view.js";
 
 let shipStateIndex = createEmptyShipStateIndex();
 const SHIP_STATE_UPDATED_HOOK = `${MODULE_ID}.shipStateUpdated`;
+const MODULE_SOCKET_CHANNEL = `module.${MODULE_ID}`;
+const ARCFLIGHT_PLAYER_INCIDENT_ALERT_SOCKET_TYPE = "arcflightPlayerIncidentAlert";
 
 const TRAVEL_POSTURES = Object.freeze(["cautious", "standard", "hard-push", "silent-running"]);
 
@@ -225,6 +227,10 @@ export function createModuleApi() {
   };
 
   const showPlayerIncidentAlert = (incident) => {
+    if (game.user?.isGM) {
+      return;
+    }
+
     const recommendationLine = incident.recommendedStationLabel && incident.recommendedSkillLabel
       ? `${incident.recommendedStationLabel} · ${incident.recommendedSkillLabel}`
       : incident.recommendedStationLabel
@@ -261,11 +267,37 @@ export function createModuleApi() {
     });
   };
 
-  const notifyPlayerIncidentAlerts = (nextShipState) => {
+  const notifyPlayerIncidentAlertFromSocket = (payload = {}) => {
     if (game.user?.isGM) {
       return;
     }
 
+    if (String(payload?.type ?? "") !== ARCFLIGHT_PLAYER_INCIDENT_ALERT_SOCKET_TYPE) {
+      return;
+    }
+
+    if (String(payload?.senderUserId ?? "") === String(game.user?.id ?? "")) {
+      return;
+    }
+
+    const incident = payload?.incident && typeof payload.incident === "object" ? payload.incident : null;
+    if (!incident) {
+      return;
+    }
+
+    showPlayerIncidentAlert({
+      shipId: incident.shipId ?? null,
+      title: toText(incident.title, "Arcflight Incident"),
+      publicSummary: toText(incident.publicSummary, "Crew attention required."),
+      recommendedStationLabel: toText(incident.recommendedStationLabel, "") || null,
+      recommendedSkillLabel: toText(incident.recommendedSkillLabel, "") || null,
+    });
+  };
+
+  game.socket?.off(MODULE_SOCKET_CHANNEL, notifyPlayerIncidentAlertFromSocket);
+  game.socket?.on(MODULE_SOCKET_CHANNEL, notifyPlayerIncidentAlertFromSocket);
+
+  const notifyPlayerIncidentAlerts = (nextShipState) => {
     const shipId = nextShipState?.identity?.shipId ?? null;
     if (!shipId) {
       return;
@@ -279,6 +311,18 @@ export function createModuleApi() {
       if (knownKeys.has(incident.key) || alertedKeys.has(incident.key)) {
         continue;
       }
+
+      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+        type: ARCFLIGHT_PLAYER_INCIDENT_ALERT_SOCKET_TYPE,
+        senderUserId: game.user?.id ?? null,
+        incident: {
+          shipId: incident.shipId,
+          title: incident.title,
+          publicSummary: incident.publicSummary,
+          recommendedStationLabel: incident.recommendedStationLabel,
+          recommendedSkillLabel: incident.recommendedSkillLabel,
+        },
+      });
 
       showPlayerIncidentAlert(incident);
       alertedKeys.add(incident.key);

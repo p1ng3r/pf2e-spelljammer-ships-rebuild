@@ -10,6 +10,7 @@ Deliver Arcflight player UX consistency: ensure the primary player **Roll Check*
 - Arcflight player incident alert scope fix added:
   - Arcflight incident alerts now run from a module-level ship-state mutation path instead of the Player Arcflight view lifecycle.
   - Players now receive immediate alert notifications for new unresolved player-facing incidents even when the Player Arcflight window is closed.
+  - New incident alerts now broadcast over the module socket channel so player clients receive them when incidents are created from GM-side actions.
   - Alert detection remains bounded to unresolved events/issues/tasks and still uses only player-safe output fields (title, public summary, recommended station/skill labels).
   - Duplicate alert prevention remains in place via per-ship incident-key tracking.
   - Follow-up `spawnTemplate` incident spawns now alert through the same module-level path without requiring the view to be open.
