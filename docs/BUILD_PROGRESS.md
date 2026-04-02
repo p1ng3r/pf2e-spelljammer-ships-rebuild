@@ -1,10 +1,10 @@
 # BUILD_PROGRESS
 
 ## Project Status
-Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present. Shared galactic route ETA fields are now wired into authoritative travel state so GM and player views show matching remaining-hex/day estimates from one model. Arcflight pressure-track MVP is now in place so daily advancement can raise pressure, overflow into incidents, and trigger a lightweight hex-completion beat.
+Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present. Shared galactic route ETA fields are now wired into authoritative travel state so GM and player views show matching remaining-hex/day estimates from one model. Arcflight pressure-track MVP is now in place so daily advancement can raise pressure, overflow into incidents, and trigger a lightweight hex-completion beat. Arcflight travel content MVP now adds authored per-track overflow incidents plus deterministic hex-beat flavor outcomes so voyages read as distinct moments instead of generic pressure ticks.
 
 ## Current Branch Focus
-Deliver Arcflight pressure-track MVP for voyage pressure loop: posture-based daily pressure growth, deterministic overflow incident spawning/reset, and lightweight hex-completion beat logging.
+Deliver Arcflight travel content MVP: authored pressure overflow incidents by track, deterministic lightweight hex-beat outcome flavor, and clear shared log/readout language for GM and player.
 
 ## Completed So Far
 - Arcflight player UI usability fix pass added:
@@ -12,6 +12,18 @@ Deliver Arcflight pressure-track MVP for voyage pressure loop: posture-based dai
   - Added lightweight inline help markers (`?`) with hover tooltips for key voyage terms: Maintenance Pressure, Encounter Pressure, Voyage Instability, Days per Hex, Current Hex Progress, Route ETA, Posture, and Station Briefings.
   - Incident rows in Active Situations / Ship Problems / Crew Responses now expose a clear **Respond / Roll** action and a clearly-labeled **Open Resolver** action, making the resolution path explicit without changing underlying resolution flow/state logic.
   - Station Briefings action label now reads **Respond / Roll** for consistency with incident rows and expected player language.
+
+- Arcflight travel content MVP pass added:
+  - Added small authored Arcflight content sets in `scripts/content/arcflight-templates.js`:
+    - pressure overflow incidents bucketed by track:
+      - maintenance: Coil Drift, Lattice Stress, Cooling Fault, Sail Tear
+      - encounter: Debris Wake, Raider Shadow, Astral Squall, Hazard Marker Ping
+      - instability: Lane Shear, False Current, Aether Echo, Helm Misalignment
+    - hex beat outcomes bucketed by flavor:
+      - favorable, neutral, dangerous
+  - Pressure overflow spawn now selects from the matching authored track bucket deterministically (no random engine added), preserving existing overflow/reset math and one-incident-per-overflow behavior.
+  - Hex completion now selects one authored deterministic beat outcome and logs it with clear title/text while keeping the beat lightweight.
+  - Arcflight overflow + beat log copy now uses clear pressure labels and beat titles so GM and player readouts are easier to parse while still sharing the same authoritative outcomes.
 
 - Arcflight pressure tracks MVP pass added:
   - Shared Arcflight travel state now includes:

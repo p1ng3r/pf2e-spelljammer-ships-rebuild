@@ -1,5 +1,10 @@
 import { STATIONS, TRAVEL_TERM } from "../config/constants.js";
-import { ARCFLIGHT_STARTER_TEMPLATES, ARCFLIGHT_TEMPLATE_TYPES } from "../content/arcflight-templates.js";
+import {
+  ARCFLIGHT_HEX_BEAT_OUTCOMES,
+  ARCFLIGHT_PRESSURE_OVERFLOW_INCIDENTS,
+  ARCFLIGHT_STARTER_TEMPLATES,
+  ARCFLIGHT_TEMPLATE_TYPES,
+} from "../content/arcflight-templates.js";
 
 export const DEFAULT_SHARED_SHIP_ID = "shared-default";
 export const PF2E_CORE_SKILLS = Object.freeze([
@@ -80,44 +85,6 @@ const ARCFLIGHT_POSTURE_PRESSURE_GAIN = Object.freeze({
   "hard-push": { maintenancePressure: 2, encounterPressure: 1, voyageInstability: 1 },
   "silent-running": { maintenancePressure: 1, encounterPressure: 0, voyageInstability: 2 },
 });
-const ARCFLIGHT_PRESSURE_INCIDENT_TEMPLATES = Object.freeze({
-  maintenancePressure: {
-    title: "Arcflight Maintenance Strain",
-    severity: "moderate",
-    source: "pressure-overflow",
-    recommendedStation: "crew-chief",
-    recommendedSkill: "crafting",
-    checkType: "skill",
-    dc: 18,
-    publicSummary: "Rising wear spikes across the ship's critical systems.",
-    publicOutcome: "Unchecked strain could force emergency repairs.",
-  },
-  encounterPressure: {
-    title: "Arcflight Contact Hazard",
-    severity: "moderate",
-    source: "pressure-overflow",
-    eventType: "encounter",
-    recommendedStation: "sightmaster",
-    recommendedSkill: "survival",
-    checkType: "skill",
-    dc: 18,
-    publicSummary: "Traffic and hazards converge on your current route lane.",
-    publicOutcome: "A poor response may escalate into shipwide danger.",
-  },
-  voyageInstability: {
-    title: "Arcflight Lane Instability",
-    severity: "major",
-    source: "pressure-overflow",
-    eventType: "navigation",
-    recommendedStation: "arcpilot",
-    recommendedSkill: "arcana",
-    checkType: "skill",
-    dc: 20,
-    publicSummary: "Arcflight geometry destabilizes around the ship.",
-    publicOutcome: "Navigation errors can trigger severe magical turbulence.",
-  },
-});
-
 
 function cloneData(data) {
   if (typeof globalThis.structuredClone === "function") {
@@ -1338,8 +1305,51 @@ function createStationRequest(requestOrPartial = {}) {
   };
 }
 
+function resolveDeterministicContentIndex(seedValue, itemCount) {
+  if (!Number.isFinite(itemCount) || itemCount <= 0) {
+    return 0;
+  }
+
+  const safeSeedValue = Number.isFinite(seedValue) ? Math.floor(seedValue) : 0;
+  return ((safeSeedValue % itemCount) + itemCount) % itemCount;
+}
+
+function getPressureTrackSeedOffset(pressureKey) {
+  const trackIndex = ARCFLIGHT_PRESSURE_TRACK_KEYS.indexOf(pressureKey);
+  return trackIndex >= 0 ? trackIndex : 0;
+}
+
+function toPressureTrackLabel(pressureKey) {
+  if (pressureKey === "maintenancePressure") {
+    return "Maintenance Pressure";
+  }
+
+  if (pressureKey === "encounterPressure") {
+    return "Encounter Pressure";
+  }
+
+  if (pressureKey === "voyageInstability") {
+    return "Voyage Instability";
+  }
+
+  return normalizeIssueText(pressureKey, "Arcflight Pressure");
+}
+
+function selectPressureOverflowIncidentTemplate(nextTravelState, pressureKey) {
+  const authoredIncidents = ARCFLIGHT_PRESSURE_OVERFLOW_INCIDENTS[pressureKey];
+  if (!Array.isArray(authoredIncidents) || authoredIncidents.length === 0) {
+    return null;
+  }
+
+  const daysElapsed = normalizeNonNegativeInteger(nextTravelState?.daysElapsed, 0);
+  const completedHexes = normalizeNonNegativeInteger(nextTravelState?.completedHexes, 0);
+  const seed = daysElapsed + completedHexes + getPressureTrackSeedOffset(pressureKey);
+  const pickIndex = resolveDeterministicContentIndex(seed, authoredIncidents.length);
+  return authoredIncidents[pickIndex] ?? authoredIncidents[0];
+}
+
 function spawnPressureOverflowIncident(nextTravelState, pressureKey) {
-  const incidentTemplate = ARCFLIGHT_PRESSURE_INCIDENT_TEMPLATES[pressureKey];
+  const incidentTemplate = selectPressureOverflowIncidentTemplate(nextTravelState, pressureKey);
   if (!incidentTemplate) {
     return null;
   }
@@ -1393,9 +1403,21 @@ function applyArcflightHexBeat(nextTravelState, completedCurrentHex) {
     return null;
   }
 
+  const completedHexes = normalizeNonNegativeInteger(nextTravelState.completedHexes, 0);
+  const beatBuckets = ["favorable", "neutral", "dangerous"];
+  const bucketIndex = resolveDeterministicContentIndex(completedHexes - 1, beatBuckets.length);
+  const selectedBucket = beatBuckets[bucketIndex];
+  const bucketOutcomes = ARCFLIGHT_HEX_BEAT_OUTCOMES[selectedBucket] ?? [];
+  const outcomeIndex = resolveDeterministicContentIndex(Math.floor((completedHexes - 1) / beatBuckets.length), bucketOutcomes.length);
+  const selectedOutcome = bucketOutcomes[outcomeIndex] ?? null;
+
   return {
     type: "hex-complete",
-    completedHexes: normalizeNonNegativeInteger(nextTravelState.completedHexes, 0),
+    bucket: selectedBucket,
+    beatTitle: normalizeIssueText(selectedOutcome?.title, "Arcflight Beat"),
+    beatText: normalizeIssueText(selectedOutcome?.text, "The crew records a quiet moment as the hex closes."),
+    publicText: normalizeIssueText(selectedOutcome?.publicText, "The voyage logs another hex completed."),
+    completedHexes,
     remainingGalacticHexes: normalizeNonNegativeInteger(nextTravelState.remainingGalacticHexes, 0),
   };
 }
@@ -1717,15 +1739,15 @@ export function advanceTravelDay(index, options = {}) {
       type: overflowResult.spawnedIncident?.sourceType ?? "event",
       sourceId: overflowResult.spawnedIncident?.sourceId ?? null,
       sourceTitle: overflowResult.spawnedIncident?.title ?? "Arcflight Pressure",
-      text: `${overflowResult.pressureKey} overflowed at ${ARCFLIGHT_PRESSURE_MAX}+ and reset to ${overflowResult.resetValue}.`,
-      publicText: `${overflowResult.pressureKey} surged and forced a new Arcflight incident.`,
+      text: `${toPressureTrackLabel(overflowResult.pressureKey)} overflowed at ${ARCFLIGHT_PRESSURE_MAX}+ and reset to ${overflowResult.resetValue}.`,
+      publicText: `${toPressureTrackLabel(overflowResult.pressureKey)} surged and triggered a new Arcflight incident.`,
     }));
     const hexBeatLogEntry = hexBeatResult
       ? normalizeArcflightLogEntry({
         type: "event",
-        sourceTitle: "Hex Completion",
-        text: `Galactic hex completed. Completed ${hexBeatResult.completedHexes}, remaining ${hexBeatResult.remainingGalacticHexes}.`,
-        publicText: "A galactic hex was completed on this voyage.",
+        sourceTitle: `Hex Beat — ${hexBeatResult.beatTitle}`,
+        text: `${hexBeatResult.beatText} [${hexBeatResult.bucket}] Completed ${hexBeatResult.completedHexes}, remaining ${hexBeatResult.remainingGalacticHexes}.`,
+        publicText: `${hexBeatResult.publicText} Completed ${hexBeatResult.completedHexes}, remaining ${hexBeatResult.remainingGalacticHexes}.`,
       })
       : null;
     nextTravelState.logEntries = trimArcflightLogEntries([
