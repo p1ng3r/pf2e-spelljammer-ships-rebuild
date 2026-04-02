@@ -14,6 +14,7 @@ Deliver Arcflight player UX consistency: ensure the primary player **Roll Check*
   - Alert detection remains bounded to unresolved events/issues/tasks and still uses only player-safe output fields (title, public summary, recommended station/skill labels).
   - Duplicate alert prevention remains in place via per-ship incident-key tracking.
   - Follow-up `spawnTemplate` incident spawns now alert through the same module-level path without requiring the view to be open.
+  - Alert dialog open action now reuses the existing player incident popup flow when source context is available.
 - Arcflight player roll-path UX mismatch fix added:
   - Player Arcflight View station-briefing **Roll Check** now routes through the same incident resolution flow used by the incident popup attempt action when the source incident is available.
   - Main player roll now directly performs end-to-end resolution in one click path:

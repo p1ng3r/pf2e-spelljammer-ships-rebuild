@@ -261,7 +261,10 @@ export function createModuleApi() {
         "<p>Open Arcflight now?</p>",
       yes: {
         label: "Open Arcflight",
-        callback: () => openPlayerArcflightView({ shipId: incident.shipId }),
+        callback: () => {
+          const app = openPlayerArcflightView({ shipId: incident.shipId });
+          app?.openIncidentFromSource?.(incident.sourceType, incident.sourceId);
+        },
       },
       no: { label: "Later" },
     });
@@ -287,6 +290,8 @@ export function createModuleApi() {
 
     showPlayerIncidentAlert({
       shipId: incident.shipId ?? null,
+      sourceType: toText(incident.sourceType, "") || null,
+      sourceId: toText(incident.sourceId, "") || null,
       title: toText(incident.title, "Arcflight Incident"),
       publicSummary: toText(incident.publicSummary, "Crew attention required."),
       recommendedStationLabel: toText(incident.recommendedStationLabel, "") || null,
@@ -317,6 +322,8 @@ export function createModuleApi() {
         senderUserId: game.user?.id ?? null,
         incident: {
           shipId: incident.shipId,
+          sourceType: incident.sourceType,
+          sourceId: incident.sourceId,
           title: incident.title,
           publicSummary: incident.publicSummary,
           recommendedStationLabel: incident.recommendedStationLabel,
