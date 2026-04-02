@@ -162,3 +162,131 @@
   gap: 0.3rem;
   margin-top: 0.2rem;
 }
+
+.player-arcflight-view-app {
+  height: 100%;
+}
+
+.player-arcflight-view-app .window-content {
+  overflow: hidden;
+}
+
+.player-arcflight-view-app .player-arcflight-view-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.player-arcflight-view-app .player-arcflight-view-header p {
+  margin: 0.2rem 0 0.45rem;
+}
+
+.player-arcflight-view-app .player-arcflight-view-body {
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 0.35rem;
+}
+
+.player-arcflight-view-app .player-arcflight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.player-arcflight-view-app .player-arcflight-grid--incidents {
+  margin-top: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.player-arcflight-view-app .player-arcflight-card {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  margin: 0.45rem 0;
+}
+
+.player-arcflight-view-app .player-arcflight-card h4 {
+  margin: 0 0 0.35rem;
+}
+
+.player-arcflight-view-app .player-arcflight-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem 0.7rem;
+  margin: 0;
+}
+
+.player-arcflight-view-app .player-arcflight-stats-grid div {
+  margin: 0;
+}
+
+.player-arcflight-view-app .player-arcflight-stats-grid dt,
+.player-arcflight-view-app .player-arcflight-stats-grid dd {
+  margin: 0;
+}
+
+.player-arcflight-view-app .player-arcflight-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  margin-left: 0.15rem;
+  cursor: help;
+}
+
+.player-arcflight-view-app .player-arcflight-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.player-arcflight-view-app .player-arcflight-list--nested {
+  margin-top: 0.35rem;
+}
+
+.player-arcflight-view-app .player-arcflight-item,
+.player-arcflight-view-app .player-arcflight-list > li {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  padding: 0.35rem 0.4rem;
+}
+
+.player-arcflight-view-app .player-arcflight-item p,
+.player-arcflight-view-app .player-arcflight-list > li p {
+  margin: 0.18rem 0;
+}
+
+.player-arcflight-view-app .player-arcflight-item__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.player-arcflight-view-app .player-arcflight-inline-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.player-arcflight-view-app .arcflight-log-list {
+  margin: 0;
+  padding-left: 1rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+@media (max-width: 700px) {
+  .player-arcflight-view-app .player-arcflight-grid,
+  .player-arcflight-view-app .player-arcflight-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
