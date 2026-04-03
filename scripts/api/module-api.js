@@ -484,55 +484,89 @@ export function createModuleApi() {
     isOffStation,
     offStationPenalty,
   }) => {
+    const sourceRecordLookupOptions = shipContext ?? {};
+    const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
+    const normalizedSourceId = String(sourceId ?? "").trim();
+    const sourceRecord =
+      normalizedSourceType === "event"
+        ? getTravelEvents(shipStateIndex, sourceRecordLookupOptions).find((entry) => entry?.id === normalizedSourceId) ?? null
+        : normalizedSourceType === "task"
+          ? getTravelTasks(shipStateIndex, sourceRecordLookupOptions).find((entry) => entry?.id === normalizedSourceId) ?? null
+          : normalizedSourceType === "issue"
+            ? getMaintenanceIssues(shipStateIndex, sourceRecordLookupOptions).find((entry) => entry?.id === normalizedSourceId) ?? null
+            : null;
+    const resolvedRecommendedSkill = String(recommendedSkill ?? sourceRecord?.recommendedSkill ?? "").trim().toLowerCase();
     const attemptSummary = isOffStation
-      ? `${actorName} rolled ${recommendedSkill} ${rolledTotal} (${offStationPenalty} off-station) => ${adjustedTotal} vs DC ${dc}.`
-      : `${actorName} rolled ${recommendedSkill} ${rolledTotal} vs DC ${dc}.`;
+      ? `${actorName} rolled ${resolvedRecommendedSkill} ${rolledTotal} (${offStationPenalty} off-station) => ${adjustedTotal} vs DC ${dc}.`
+      : `${actorName} rolled ${resolvedRecommendedSkill} ${rolledTotal} vs DC ${dc}.`;
     const resultSummary = `${resultTierLabel}: ${resolutionText}`;
     const updatePatch = {
       attemptedByStation: stationId,
-      attemptedSkill: recommendedSkill,
+      attemptedSkill: resolvedRecommendedSkill,
       lastAttemptSummary: attemptSummary,
       resultSummary,
       status: resultTier === "success" || resultTier === "criticalSuccess" ? "resolved" : "attempted",
     };
 
     const mutationOptions = shipContext ?? {};
+    traceArcflightRelay("gm-record-attempt-before", {
+      sourceType: normalizedSourceType,
+      sourceId: normalizedSourceId,
+      shipId: mutationOptions?.shipId ?? null,
+      actorId: mutationOptions?.actorId ?? null,
+      stationId,
+      actorName,
+      total: rolledTotal,
+      skill: resolvedRecommendedSkill,
+    });
+
     let nextShipState = recordStationRollAttempt(
       shipStateIndex,
       {
         stationId,
-        sourceType,
-        sourceId,
+        sourceType: normalizedSourceType,
+        sourceId: normalizedSourceId,
         actorId,
         actorName,
-        skill: recommendedSkill,
+        skill: resolvedRecommendedSkill,
         total: rolledTotal,
         degree: null,
         createdAt: Date.now(),
       },
       mutationOptions,
     );
+    const stationRollAttemptCount = getStationRollAttempts(shipStateIndex, mutationOptions).length;
+    traceArcflightRelay("gm-record-attempt-after", {
+      sourceType: normalizedSourceType,
+      sourceId: normalizedSourceId,
+      shipId: mutationOptions?.shipId ?? null,
+      actorId: mutationOptions?.actorId ?? null,
+      stationRollAttemptCount,
+    });
+    ui.notifications?.info(
+      `Arcflight GM recorded roll for ${normalizedSourceType || "source"} ${normalizedSourceId || "unknown"} on ship ${mutationOptions?.shipId ?? mutationOptions?.actorId ?? "active"}.`,
+    );
 
-    if (sourceType === "event") {
-      nextShipState = updateTravelEvent(shipStateIndex, sourceId, updatePatch, mutationOptions);
-    } else if (sourceType === "task") {
-      nextShipState = updateTravelTask(shipStateIndex, sourceId, updatePatch, mutationOptions);
-    } else if (sourceType === "issue") {
-      nextShipState = updateMaintenanceIssue(shipStateIndex, sourceId, updatePatch, mutationOptions);
+    if (normalizedSourceType === "event") {
+      nextShipState = updateTravelEvent(shipStateIndex, normalizedSourceId, updatePatch, mutationOptions);
+    } else if (normalizedSourceType === "task") {
+      nextShipState = updateTravelTask(shipStateIndex, normalizedSourceId, updatePatch, mutationOptions);
+    } else if (normalizedSourceType === "issue") {
+      nextShipState = updateMaintenanceIssue(shipStateIndex, normalizedSourceId, updatePatch, mutationOptions);
     }
 
     nextShipState = executeArcflightOutcomeEffects(
       shipStateIndex,
       {
-        sourceType,
-        sourceId,
+        sourceType: normalizedSourceType,
+        sourceId: normalizedSourceId,
         resultTier,
         summaryText: resolutionText,
         logContext: {
           stationId,
           actorId,
           actorName,
-          skill: recommendedSkill,
+          skill: resolvedRecommendedSkill,
           total: adjustedTotal,
         },
       },
@@ -573,6 +607,10 @@ export function createModuleApi() {
       sourceType,
       sourceId,
       shipId,
+      actorId: resolution?.shipContext?.actorId ?? null,
+      stationId: resolution?.stationId ?? null,
+      actorName: resolution?.actorName ?? null,
+      total: resolution?.rolledTotal ?? null,
       senderUserId: senderUserId || null,
       requesterUserId,
     };
@@ -830,6 +868,10 @@ export function createModuleApi() {
         sourceType,
         sourceId,
         shipId,
+        actorId: resolution?.shipContext?.actorId ?? null,
+        stationId: resolution?.stationId ?? null,
+        actorName: resolution?.actorName ?? null,
+        total: resolution?.rolledTotal ?? null,
         senderUserId,
         requesterUserId: senderUserId,
       });
