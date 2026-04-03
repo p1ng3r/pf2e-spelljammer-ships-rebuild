@@ -928,3 +928,15 @@ Keep Arcflight focused and incremental:
 - Popup-on-top reliability hardening:
   - incident popup now uses deferred `bringToFront` on render (animation frame fallback)
   - existing open incident popups now also use deferred focus bring-to-front behavior.
+
+## Arcflight immediate local result + GM confirmation decoupling hotfix pass (2026-04-03)
+- Decoupled player-facing incident result presentation from GM acknowledgement timing.
+- Player now sees the Arcflight incident result dialog immediately after local roll adjudication, before waiting on socket acknowledgement.
+- Immediate result dialog now includes explicit confirmation state text:
+  - `Pending` while waiting on GM acknowledgement.
+- GM-authoritative resolution relay remains unchanged for authoritative writes:
+  - GM still performs mutation/effects/log/state broadcast.
+- Player now receives explicit follow-up confirmation state feedback:
+  - success: GM-confirmed outcome notification
+  - failure/timeout/send failure: visible warning that no authoritative outcome was applied.
+- Result/failure confirmation dialogs now use deferred window bring-to-front behavior to reduce z-order issues with the Arcflight window.
