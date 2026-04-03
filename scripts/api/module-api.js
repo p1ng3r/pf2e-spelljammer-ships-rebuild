@@ -200,6 +200,12 @@ export function createModuleApi() {
   const hydrationByShipId = new Map();
   const pendingArcflightResolutionRequestsById = new Map();
   const processedArcflightResolutionResultsById = new Map();
+  const ARCFLIGHT_RELAY_TRACE_PREFIX = "ARCFLIGHT RELAY";
+
+  const traceArcflightRelay = (phase, details = {}, level = "log") => {
+    const logger = console?.[level] ?? console.log;
+    logger(`${ARCFLIGHT_RELAY_TRACE_PREFIX} | ${phase}`, details);
+  };
 
   const createSocketRequestId = () =>
     foundry?.utils?.randomID?.() ?? `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
@@ -555,25 +561,86 @@ export function createModuleApi() {
 
     const requestId = String(payload?.requestId ?? "").trim();
     const requesterUserId = String(payload?.requesterUserId ?? "").trim();
+    const senderUserId = String(payload?.senderUserId ?? "").trim();
     const resolution = payload?.resolution && typeof payload.resolution === "object" ? payload.resolution : null;
     if (!requestId || !requesterUserId || !resolution) {
       return;
     }
 
-    const existingResult = processedArcflightResolutionResultsById.get(requestId) ?? null;
-    if (existingResult) {
-      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+    const sourceType = String(resolution?.sourceType ?? "").trim().toLowerCase() || null;
+    const sourceId = String(resolution?.sourceId ?? "").trim() || null;
+    const shipId = String(
+      resolution?.shipContext?.shipId ??
+        resolution?.shipContext?.actorId ??
+        resolution?.shipId ??
+        "",
+    ).trim() || null;
+    const recipientUserId = requesterUserId;
+    const traceContext = {
+      requestId,
+      sourceType,
+      sourceId,
+      shipId,
+      senderUserId: senderUserId || null,
+      requesterUserId,
+      recipientUserId,
+    };
+
+    traceArcflightRelay("gm-received-request", traceContext);
+
+    const emitArcflightResolutionResult = (resolutionResult) => {
+      const socketPayload = {
         type: ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE,
         senderUserId: game.user?.id ?? null,
         requestId,
-        recipientUserId: requesterUserId,
-        resolutionResult: existingResult,
-      });
+        recipientUserId,
+        resolutionResult,
+      };
+
+      try {
+        const emitFn = game.socket?.emit;
+        if (typeof emitFn !== "function") {
+          traceArcflightRelay(
+            "gm-emit-result-failed",
+            {
+              ...traceContext,
+              error: "Socket emit function unavailable on GM client.",
+            },
+            "error",
+          );
+          return false;
+        }
+
+        emitFn.call(game.socket, MODULE_SOCKET_CHANNEL, socketPayload);
+        traceArcflightRelay("gm-emitted-result", {
+          ...traceContext,
+          ok: Boolean(resolutionResult?.ok),
+        });
+        return true;
+      } catch (error) {
+        traceArcflightRelay(
+          "gm-emit-result-failed",
+          {
+            ...traceContext,
+            error: error?.message ?? "Unknown socket emit failure while replying to Arcflight relay request.",
+          },
+          "error",
+        );
+        return false;
+      }
+    };
+
+    const existingResult = processedArcflightResolutionResultsById.get(requestId) ?? null;
+    if (existingResult) {
+      traceArcflightRelay("gm-reusing-cached-result", traceContext);
+      emitArcflightResolutionResult(existingResult);
       return;
     }
 
     try {
+      traceArcflightRelay("gm-applying-mutation", traceContext);
       applyArcflightPlayerResolutionMutation(resolution);
+      traceArcflightRelay("gm-applied-mutation", traceContext);
       const resolutionResult = {
         ok: true,
         requestId,
@@ -593,27 +660,15 @@ export function createModuleApi() {
       };
       processedArcflightResolutionResultsById.set(requestId, resolutionResult);
 
-      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
-        type: ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE,
-        senderUserId: game.user?.id ?? null,
-        requestId,
-        recipientUserId: requesterUserId,
-        resolutionResult,
-      });
+      emitArcflightResolutionResult(resolutionResult);
     } catch (error) {
       console.error(`${MODULE_ID} | Failed to apply Arcflight player resolution request.`, error);
-      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
-        type: ARCFLIGHT_PLAYER_RESOLUTION_RESULT_SOCKET_TYPE,
-        senderUserId: game.user?.id ?? null,
+      emitArcflightResolutionResult({
+        ok: false,
         requestId,
-        recipientUserId: requesterUserId,
-        resolutionResult: {
-          ok: false,
-          requestId,
-          sourceType: resolution?.sourceType ?? null,
-          sourceId: resolution?.sourceId ?? null,
-          error: error?.message ?? "Failed to resolve Arcflight incident on the GM client.",
-        },
+        sourceType: resolution?.sourceType ?? null,
+        sourceId: resolution?.sourceId ?? null,
+        error: error?.message ?? "Failed to resolve Arcflight incident on the GM client.",
       });
     }
   };
@@ -644,6 +699,17 @@ export function createModuleApi() {
     }
 
     pending.resolve(payload?.resolutionResult ?? { ok: false, error: "Resolution response was empty." });
+    const resolutionResult = payload?.resolutionResult ?? null;
+    traceArcflightRelay("player-received-result", {
+      requestId,
+      sourceType: String(resolutionResult?.sourceType ?? "").trim().toLowerCase() || null,
+      sourceId: String(resolutionResult?.sourceId ?? "").trim() || null,
+      shipId: null,
+      senderUserId: String(payload?.senderUserId ?? "").trim() || null,
+      requesterUserId: String(game.user?.id ?? "").trim() || null,
+      recipientUserId,
+      ok: Boolean(resolutionResult?.ok),
+    });
   };
 
   game.socket?.off(MODULE_SOCKET_CHANNEL, handleModuleSocketMessage);
@@ -864,12 +930,33 @@ export function createModuleApi() {
     }
 
     const requestId = createSocketRequestId();
+    const sourceType = String(resolution?.sourceType ?? "").trim().toLowerCase() || null;
+    const sourceId = String(resolution?.sourceId ?? "").trim() || null;
+    const shipId = String(
+      resolution?.shipContext?.shipId ??
+        resolution?.shipContext?.actorId ??
+        resolution?.shipId ??
+        "",
+    ).trim() || null;
+    const senderUserId = String(game.user?.id ?? "").trim() || null;
 
     return await new Promise((resolve) => {
       const timeoutId = setTimeout(() => {
         pendingArcflightResolutionRequestsById.delete(requestId);
+        traceArcflightRelay("player-timeout-fired", {
+          requestId,
+          sourceType,
+          sourceId,
+          shipId,
+          senderUserId,
+          requesterUserId: senderUserId,
+          recipientUserId: null,
+        }, "warn");
         resolve({
           ok: false,
+          requestId,
+          sourceType,
+          sourceId,
           error: "Timed out waiting for GM Arcflight resolution confirmation.",
         });
       }, 15000);
@@ -877,10 +964,19 @@ export function createModuleApi() {
       pendingArcflightResolutionRequestsById.set(requestId, { resolve, timeoutId });
 
       try {
+        traceArcflightRelay("player-sent-request", {
+          requestId,
+          sourceType,
+          sourceId,
+          shipId,
+          senderUserId,
+          requesterUserId: senderUserId,
+          recipientUserId: null,
+        });
         game.socket?.emit(MODULE_SOCKET_CHANNEL, {
           type: ARCFLIGHT_PLAYER_RESOLUTION_REQUEST_SOCKET_TYPE,
-          senderUserId: game.user?.id ?? null,
-          requesterUserId: game.user?.id ?? null,
+          senderUserId,
+          requesterUserId: senderUserId,
           requestId,
           resolution,
         });

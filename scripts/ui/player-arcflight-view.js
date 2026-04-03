@@ -161,6 +161,20 @@ function toStationLabel(stationId) {
   return STATIONS.find((station) => station.id === normalizedStationId)?.label ?? toLabel(normalizedStationId);
 }
 
+function bringAppToFrontDeferred(app) {
+  if (!app) {
+    return;
+  }
+
+  app.bringToFront();
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => app.bringToFront());
+    return;
+  }
+
+  setTimeout(() => app.bringToFront(), 0);
+}
+
 function toDegreeSlug(value) {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized.includes("critical") && normalized.includes("success")) {
@@ -933,7 +947,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     const popupKey = `${incident.sourceType}::${incident.sourceId}`;
     const existingApp = this.#incidentAppsByKey.get(popupKey) ?? null;
     if (existingApp?.rendered) {
-      existingApp.bringToFront();
+      bringAppToFrontDeferred(existingApp);
       return;
     }
 
@@ -958,7 +972,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     };
 
     this.#incidentAppsByKey.set(popupKey, popupApp);
-    void Promise.resolve(popupApp.render({ force: true })).then(() => popupApp.bringToFront());
+    void Promise.resolve(popupApp.render({ force: true })).then(() => bringAppToFrontDeferred(popupApp));
   }
 
   #resolveIncidentForPopup(sourceType, sourceId) {
@@ -1166,6 +1180,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
           resolutionResult?.error,
           "Could not confirm Arcflight incident resolution from GM authority.",
         ),
+        requestId: toText(resolutionResult?.requestId, ""),
       });
       return;
     }
@@ -1240,13 +1255,15 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     ui.notifications?.info(`${title}: ${resultTierLabel}. ${totalSummary}. ${resolutionText}`);
   }
 
-  #showIncidentResolutionFailureMessage({ title, reason }) {
+  #showIncidentResolutionFailureMessage({ title, reason, requestId }) {
     const incidentTitle = toText(title, "Arcflight Incident");
     const failureReason = toText(reason, "Could not confirm Arcflight resolution from the GM.");
+    const requestLine = toText(requestId, "") ? `<p><strong>Request ID:</strong> ${requestId}</p>` : "";
     const content =
       `<p><strong>${incidentTitle}</strong></p>` +
       `<p><strong>Resolution failed.</strong></p>` +
       `<p>${failureReason}</p>` +
+      requestLine +
       "<p>No outcome was applied. Please retry or contact the GM.</p>";
 
     const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
@@ -1261,7 +1278,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       return;
     }
 
-    ui.notifications?.error(`${incidentTitle}: Resolution failed. ${failureReason}`);
+    const requestIdSuffix = toText(requestId, "") ? ` [requestId=${requestId}]` : "";
+    ui.notifications?.error(`${incidentTitle}: Resolution failed. ${failureReason}${requestIdSuffix}`);
   }
 
   #renderAfterLocalStateWrite() {

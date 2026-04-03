@@ -911,3 +911,20 @@ Keep Arcflight focused and incremental:
   - no effect execution
   - no follow-up spawning
   - no assist/teamwork expansion.
+
+## Arcflight relay timeout + popup stacking hotfix pass (2026-04-03)
+- Added end-to-end Arcflight resolution relay tracing with a consistent `ARCFLIGHT RELAY` console prefix.
+- New relay traces now cover:
+  - player request send
+  - GM request receive
+  - GM mutation apply + applied
+  - GM result emit success/failure
+  - player result receipt
+  - player timeout firing
+- GM relay handler now uses a single emit helper with explicit emit-failure logging so result replies cannot fail silently.
+- GM duplicate request replay path now traces and re-emits the cached result payload.
+- Player timeout response now includes request/source metadata for easier debugging and failure dialog correlation.
+- Player incident resolution failure dialog now includes `requestId` when available.
+- Popup-on-top reliability hardening:
+  - incident popup now uses deferred `bringToFront` on render (animation frame fallback)
+  - existing open incident popups now also use deferred focus bring-to-front behavior.

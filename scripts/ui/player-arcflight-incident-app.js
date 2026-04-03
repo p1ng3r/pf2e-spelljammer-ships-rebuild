@@ -7,6 +7,20 @@ function toText(value, fallback = "None") {
   return normalized || fallback;
 }
 
+function bringToFrontDeferred(app) {
+  if (!app) {
+    return;
+  }
+
+  app.bringToFront();
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => app.bringToFront());
+    return;
+  }
+
+  setTimeout(() => app.bringToFront(), 0);
+}
+
 export class PlayerArcflightIncidentApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #incident = null;
   #onAttemptCheck = null;
@@ -71,7 +85,7 @@ export class PlayerArcflightIncidentApp extends HandlebarsApplicationMixin(Appli
 
   _onRender(context, options) {
     super._onRender(context, options);
-    this.bringToFront();
+    bringToFrontDeferred(this);
 
     const attemptButton = this.element.querySelector("[data-player-incident-attempt-check]");
     attemptButton?.addEventListener("click", this.#onAttemptCheckClick.bind(this));
