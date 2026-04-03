@@ -1164,18 +1164,6 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       return;
     }
 
-    const attemptSummary = isOffStation
-      ? `${rollAttempt.actorName} rolled ${rollAttempt.recommendedSkill} ${rollAttempt.total} (${offStationPenalty} off-station) => ${adjustedTotal} vs DC ${dc}.`
-      : `${rollAttempt.actorName} rolled ${rollAttempt.recommendedSkill} ${rollAttempt.total} vs DC ${dc}.`;
-    const resultSummary = `${resultTierLabel}: ${resolutionText}`;
-    const updatePatch = {
-      attemptedByStation: rollAttempt.stationId,
-      attemptedSkill: rollAttempt.recommendedSkill,
-      lastAttemptSummary: attemptSummary,
-      resultSummary,
-      status: resultTier === "success" || resultTier === "criticalSuccess" ? "resolved" : "attempted",
-    };
-
     this.#showIncidentResolutionMessage({
       title: popupIncident.title,
       adjustedTotal,
@@ -1190,37 +1178,22 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     });
 
     const relayResult = await arcflightApi.requestPlayerResolution({
-      shipContext: {
-        shipId: String(
-          shipContext?.shipId ??
-            this.#shipContext?.shipId ??
-            stateApi?.getActiveShipState?.()?.identity?.shipId ??
-            "",
-        ).trim() || null,
-        actorId: String(
-          shipContext?.actorId ??
-            this.#shipContext?.actorId ??
-            stateApi?.getActiveShipState?.()?.identity?.actorId ??
-            "",
-        ).trim() || null,
-      },
+      shipId: String(
+        shipContext?.shipId ??
+          this.#shipContext?.shipId ??
+          stateApi?.getActiveShipState?.()?.identity?.shipId ??
+          "",
+      ).trim() || null,
       sourceType: popupIncident.sourceType,
       sourceId: popupIncident.sourceId,
       title: popupIncident.title,
       stationId: rollAttempt.stationId,
       actorId: rollAttempt.actorId,
       actorName: rollAttempt.actorName,
-      recommendedSkill: rollAttempt.recommendedSkill,
-      rolledTotal: rollAttempt.total,
-      adjustedTotal,
-      dc,
+      skill: rollAttempt.recommendedSkill,
+      total: rollAttempt.total,
       resultTier,
       resultTierLabel,
-      resolutionText,
-      isOffStation,
-      offStationPenalty,
-      recommendedStationId,
-      updatePatch,
     });
     if (!relayResult?.ok) {
       this.#showIncidentResolutionFailureMessage({
