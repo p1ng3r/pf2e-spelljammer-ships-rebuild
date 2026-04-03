@@ -161,6 +161,43 @@ function toStationLabel(stationId) {
   return STATIONS.find((station) => station.id === normalizedStationId)?.label ?? toLabel(normalizedStationId);
 }
 
+function bringAppToFrontDeferred(app) {
+  if (!app) {
+    return;
+  }
+
+  app.bringToFront();
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => app.bringToFront());
+    return;
+  }
+
+  setTimeout(() => app.bringToFront(), 0);
+}
+
+function bringMatchingWindowsToFrontDeferred(predicate) {
+  const bringMatchingToFront = () => {
+    const windows = Object.values(ui?.windows ?? {});
+    for (const app of windows) {
+      if (!app || typeof app.bringToFront !== "function") {
+        continue;
+      }
+
+      if (predicate(app)) {
+        app.bringToFront();
+      }
+    }
+  };
+
+  bringMatchingToFront();
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(() => bringMatchingToFront());
+    return;
+  }
+
+  setTimeout(() => bringMatchingToFront(), 0);
+}
+
 function toDegreeSlug(value) {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized.includes("critical") && normalized.includes("success")) {
@@ -933,7 +970,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     const popupKey = `${incident.sourceType}::${incident.sourceId}`;
     const existingApp = this.#incidentAppsByKey.get(popupKey) ?? null;
     if (existingApp?.rendered) {
-      existingApp.bringToFront();
+      bringAppToFrontDeferred(existingApp);
       return;
     }
 
@@ -958,7 +995,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     };
 
     this.#incidentAppsByKey.set(popupKey, popupApp);
-    void Promise.resolve(popupApp.render({ force: true })).then(() => popupApp.bringToFront());
+    void Promise.resolve(popupApp.render({ force: true })).then(() => bringAppToFrontDeferred(popupApp));
   }
 
   #resolveIncidentForPopup(sourceType, sourceId) {
@@ -1139,6 +1176,21 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       status: resultTier === "success" || resultTier === "criticalSuccess" ? "resolved" : "attempted",
     };
 
+    this.#showIncidentResolutionMessage({
+      title: popupIncident.title,
+      adjustedTotal,
+      rolledTotal: rollAttempt.total,
+      dc,
+      resultTierLabel,
+      resolutionText,
+      actingStationId: rollAttempt.stationId,
+      recommendedStationId,
+      isOffStation,
+      offStationPenalty,
+      confirmationState: "pending",
+      confirmationText: "Pending GM confirmation. Authoritative outcome has not been applied yet.",
+    });
+
     const resolutionResult = await arcflightApi.requestPlayerResolution({
       sourceType: popupIncident.sourceType,
       sourceId: popupIncident.sourceId,
@@ -1160,12 +1212,19 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       updatePatch,
     });
     if (!resolutionResult?.ok) {
+      this.#showIncidentResolutionConfirmationUpdate({
+        title: popupIncident?.title,
+        state: "failed",
+        requestId: toText(resolutionResult?.requestId, ""),
+        detail: "GM confirmation failed. No authoritative outcome was applied.",
+      });
       this.#showIncidentResolutionFailureMessage({
         title: popupIncident?.title,
         reason: toText(
           resolutionResult?.error,
           "Could not confirm Arcflight incident resolution from GM authority.",
         ),
+        requestId: toText(resolutionResult?.requestId, ""),
       });
       return;
     }
@@ -1175,24 +1234,15 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       this.#renderAfterLocalStateWrite();
     }
 
-    this.#showIncidentResolutionMessage({
-      title: popupIncident.title,
-      adjustedTotal: Number.isFinite(Number(resolutionResult.adjustedTotal))
-        ? Number(resolutionResult.adjustedTotal)
-        : adjustedTotal,
-      rolledTotal: Number.isFinite(Number(resolutionResult.rolledTotal))
-        ? Number(resolutionResult.rolledTotal)
-        : rollAttempt.total,
-      dc: Number.isFinite(Number(resolutionResult.dc)) ? Number(resolutionResult.dc) : dc,
-      resultTierLabel: toText(resolutionResult.resultTierLabel, resultTierLabel),
-      resolutionText: toText(resolutionResult.resolutionText, resolutionText),
-      actingStationId: String(resolutionResult.actingStationId ?? rollAttempt.stationId).trim().toLowerCase(),
-      recommendedStationId: String(resolutionResult.recommendedStationId ?? recommendedStationId).trim().toLowerCase(),
-      isOffStation: Boolean(resolutionResult.isOffStation ?? isOffStation),
-      offStationPenalty: Number.isFinite(Number(resolutionResult.offStationPenalty))
-        ? Number(resolutionResult.offStationPenalty)
-        : offStationPenalty,
+    this.#showIncidentResolutionConfirmationUpdate({
+      title: popupIncident?.title,
+      state: "confirmed",
+      requestId: toText(resolutionResult?.requestId, ""),
+      detail: "GM confirmation received. Authoritative Arcflight outcome applied.",
     });
+
+    const authoritativeResultLabel = toText(resolutionResult.resultTierLabel, resultTierLabel);
+    ui.notifications?.info(`${popupIncident.title}: ${authoritativeResultLabel}. GM-confirmed outcome applied.`);
   }
 
   #showIncidentResolutionMessage({
@@ -1206,6 +1256,8 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     recommendedStationId,
     isOffStation,
     offStationPenalty,
+    confirmationState = null,
+    confirmationText = "",
   }) {
     const actingStationLabel = toStationLabel(actingStationId);
     const recommendedStationLabel = toStationLabel(recommendedStationId);
@@ -1220,17 +1272,21 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       `<p>${stationLine}</p>` +
       `<p>${totalLine}</p>` +
       `<p><strong>Result:</strong> ${resultTierLabel}</p>` +
+      (toText(confirmationState, "")
+        ? `<p><strong>Confirmation:</strong> ${toLabel(confirmationState)}${toText(confirmationText, "") ? ` — ${confirmationText}` : ""}</p>`
+        : "") +
       `<p>${resolutionText}</p>`;
 
     const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
     if (dialogClass?.prompt) {
-      dialogClass.prompt({
+      void dialogClass.prompt({
         window: { title: `${TRAVEL_TERM} Incident Result` },
         content,
         ok: {
           label: "OK",
         },
       });
+      bringMatchingWindowsToFrontDeferred((app) => String(app?.title ?? "").includes(`${TRAVEL_TERM} Incident Result`));
       return;
     }
 
@@ -1240,28 +1296,68 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     ui.notifications?.info(`${title}: ${resultTierLabel}. ${totalSummary}. ${resolutionText}`);
   }
 
-  #showIncidentResolutionFailureMessage({ title, reason }) {
+  #showIncidentResolutionConfirmationUpdate({ title, state, requestId, detail }) {
+    const incidentTitle = toText(title, "Arcflight Incident");
+    const normalizedState = String(state ?? "").trim().toLowerCase();
+    const requestIdSuffix = toText(requestId, "") ? ` [requestId=${requestId}]` : "";
+
+    if (normalizedState === "confirmed") {
+      ui.notifications?.info(`${incidentTitle}: Confirmed by GM authority.${requestIdSuffix}`);
+      return;
+    }
+
+    if (normalizedState === "failed") {
+      const failureDetail = toText(detail, "GM confirmation failed. No authoritative outcome was applied.");
+      const content =
+        `<p><strong>${incidentTitle}</strong></p>` +
+        "<p><strong>GM confirmation failed.</strong></p>" +
+        `<p>${failureDetail}</p>` +
+        (toText(requestId, "") ? `<p><strong>Request ID:</strong> ${requestId}</p>` : "") +
+        "<p>Your local roll result remains visible, but no authoritative outcome was applied.</p>";
+
+      const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
+      if (dialogClass?.prompt) {
+        void dialogClass.prompt({
+          window: { title: `${TRAVEL_TERM} Incident Result` },
+          content,
+          ok: {
+            label: "OK",
+          },
+        });
+        bringMatchingWindowsToFrontDeferred((app) => String(app?.title ?? "").includes(`${TRAVEL_TERM} Incident Result`));
+        return;
+      }
+
+      ui.notifications?.error(`${incidentTitle}: ${failureDetail}${requestIdSuffix}`);
+    }
+  }
+
+  #showIncidentResolutionFailureMessage({ title, reason, requestId }) {
     const incidentTitle = toText(title, "Arcflight Incident");
     const failureReason = toText(reason, "Could not confirm Arcflight resolution from the GM.");
+    const requestLine = toText(requestId, "") ? `<p><strong>Request ID:</strong> ${requestId}</p>` : "";
     const content =
       `<p><strong>${incidentTitle}</strong></p>` +
       `<p><strong>Resolution failed.</strong></p>` +
       `<p>${failureReason}</p>` +
+      requestLine +
       "<p>No outcome was applied. Please retry or contact the GM.</p>";
 
     const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
     if (dialogClass?.prompt) {
-      dialogClass.prompt({
+      void dialogClass.prompt({
         window: { title: `${TRAVEL_TERM} Incident Result` },
         content,
         ok: {
           label: "OK",
         },
       });
+      bringMatchingWindowsToFrontDeferred((app) => String(app?.title ?? "").includes(`${TRAVEL_TERM} Incident Result`));
       return;
     }
 
-    ui.notifications?.error(`${incidentTitle}: Resolution failed. ${failureReason}`);
+    const requestIdSuffix = toText(requestId, "") ? ` [requestId=${requestId}]` : "";
+    ui.notifications?.error(`${incidentTitle}: Resolution failed. ${failureReason}${requestIdSuffix}`);
   }
 
   #renderAfterLocalStateWrite() {
