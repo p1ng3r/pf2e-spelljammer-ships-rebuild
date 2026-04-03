@@ -7,6 +7,15 @@ Active rebuild in progress. Arcflight now has a small user-facing control slice 
 Deliver Arcflight hotfix stability for player Arcflight incident resolution authority and popup stacking, while preserving current Arcflight UI flow.
 
 ## Completed So Far
+- Arcflight simplification hotfix pass added:
+  - Removed the player↔GM Arcflight acknowledgement round-trip and switched to a one-way player→GM authoritative relay for incident resolution.
+  - Removed the Arcflight relay result socket handling, pending request promise/timeout flow, and cached replay behavior from the module API relay path.
+  - Player incident resolution now always shows the local result popup immediately after the local PF2E roll, then sends a fire-and-forget authoritative relay request to GM.
+  - Relay failure now reports only transport availability issues (no socket / no active GM / emit failure) without blocking or delaying the result popup.
+  - GM relay handling now applies authoritative mutation immediately (`recordStationRollAttempt` + source patch + `executeArcflightOutcomeEffects` + ship-state update notification), with concise error logging on failure.
+  - Popup bring-to-front hardening remains intact for incident/result windows.
+  - Ship Management’s source-keyed latest-roll lookup model remains intact for `(sourceType, sourceId)` captured/applied roll display.
+
 - Arcflight roll-visibility + player-result reliability hotfix pass added:
   - Ship Management captured-roll display no longer assumes station-key lookup by recommended station; latest captured roll is now resolved by `(sourceType, sourceId)` within the currently viewed ship.
   - GM **Apply Latest Roll** actions for tasks/events/issues now pull the newest captured attempt by source, so off-station player resolutions still appear/apply correctly.

@@ -1154,12 +1154,11 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     recommendedStationId,
     shipContext,
   }) {
-    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     const arcflightApi = game?.[API_NAMESPACE]?.arcflight ?? null;
-    if (!stateApi || !arcflightApi?.requestPlayerResolution) {
+    if (!arcflightApi?.requestPlayerResolution) {
       this.#showIncidentResolutionFailureMessage({
         title: popupIncident?.title,
-        reason: "Arcflight resolution API is unavailable on this client. Ask the GM to reload the world.",
+        reason: "Arcflight relay API is unavailable on this client. Ask the GM to reload the world.",
       });
       return;
     }
@@ -1187,11 +1186,9 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       recommendedStationId,
       isOffStation,
       offStationPenalty,
-      confirmationState: "pending",
-      confirmationText: "Pending GM confirmation. Authoritative outcome has not been applied yet.",
     });
 
-    const resolutionResult = await arcflightApi.requestPlayerResolution({
+    const relayResult = await arcflightApi.requestPlayerResolution({
       sourceType: popupIncident.sourceType,
       sourceId: popupIncident.sourceId,
       shipContext: shipContext ?? this.#shipContext,
@@ -1211,38 +1208,17 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       recommendedStationId,
       updatePatch,
     });
-    if (!resolutionResult?.ok) {
-      this.#showIncidentResolutionConfirmationUpdate({
-        title: popupIncident?.title,
-        state: "failed",
-        requestId: toText(resolutionResult?.requestId, ""),
-        detail: "GM confirmation failed. No authoritative outcome was applied.",
-      });
+    if (!relayResult?.ok) {
       this.#showIncidentResolutionFailureMessage({
         title: popupIncident?.title,
         reason: toText(
-          resolutionResult?.error,
-          "Could not confirm Arcflight incident resolution from GM authority.",
+          relayResult?.error,
+          "Could not relay Arcflight incident resolution to GM authority.",
         ),
-        requestId: toText(resolutionResult?.requestId, ""),
+        requestId: toText(relayResult?.requestId, ""),
       });
       return;
     }
-
-    if (game.user?.isGM) {
-      this.#ignoreNextLiveRefreshCount += 1;
-      this.#renderAfterLocalStateWrite();
-    }
-
-    this.#showIncidentResolutionConfirmationUpdate({
-      title: popupIncident?.title,
-      state: "confirmed",
-      requestId: toText(resolutionResult?.requestId, ""),
-      detail: "GM confirmation received. Authoritative Arcflight outcome applied.",
-    });
-
-    const authoritativeResultLabel = toText(resolutionResult.resultTierLabel, resultTierLabel);
-    ui.notifications?.info(`${popupIncident.title}: ${authoritativeResultLabel}. GM-confirmed outcome applied.`);
   }
 
   #showIncidentResolutionMessage({
@@ -1296,45 +1272,9 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     ui.notifications?.info(`${title}: ${resultTierLabel}. ${totalSummary}. ${resolutionText}`);
   }
 
-  #showIncidentResolutionConfirmationUpdate({ title, state, requestId, detail }) {
-    const incidentTitle = toText(title, "Arcflight Incident");
-    const normalizedState = String(state ?? "").trim().toLowerCase();
-    const requestIdSuffix = toText(requestId, "") ? ` [requestId=${requestId}]` : "";
-
-    if (normalizedState === "confirmed") {
-      ui.notifications?.info(`${incidentTitle}: Confirmed by GM authority.${requestIdSuffix}`);
-      return;
-    }
-
-    if (normalizedState === "failed") {
-      const failureDetail = toText(detail, "GM confirmation failed. No authoritative outcome was applied.");
-      const content =
-        `<p><strong>${incidentTitle}</strong></p>` +
-        "<p><strong>GM confirmation failed.</strong></p>" +
-        `<p>${failureDetail}</p>` +
-        (toText(requestId, "") ? `<p><strong>Request ID:</strong> ${requestId}</p>` : "") +
-        "<p>Your local roll result remains visible, but no authoritative outcome was applied.</p>";
-
-      const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
-      if (dialogClass?.prompt) {
-        void dialogClass.prompt({
-          window: { title: `${TRAVEL_TERM} Incident Result` },
-          content,
-          ok: {
-            label: "OK",
-          },
-        });
-        bringMatchingWindowsToFrontDeferred((app) => String(app?.title ?? "").includes(`${TRAVEL_TERM} Incident Result`));
-        return;
-      }
-
-      ui.notifications?.error(`${incidentTitle}: ${failureDetail}${requestIdSuffix}`);
-    }
-  }
-
   #showIncidentResolutionFailureMessage({ title, reason, requestId }) {
     const incidentTitle = toText(title, "Arcflight Incident");
-    const failureReason = toText(reason, "Could not confirm Arcflight resolution from the GM.");
+    const failureReason = toText(reason, "Could not relay Arcflight resolution to the GM.");
     const requestLine = toText(requestId, "") ? `<p><strong>Request ID:</strong> ${requestId}</p>` : "";
     const content =
       `<p><strong>${incidentTitle}</strong></p>` +
