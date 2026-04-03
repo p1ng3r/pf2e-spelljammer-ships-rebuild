@@ -1155,6 +1155,7 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     shipContext,
   }) {
     const arcflightApi = game?.[API_NAMESPACE]?.arcflight ?? null;
+    const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     if (!arcflightApi?.requestPlayerResolution) {
       this.#showIncidentResolutionFailureMessage({
         title: popupIncident?.title,
@@ -1189,9 +1190,22 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     });
 
     const relayResult = await arcflightApi.requestPlayerResolution({
+      shipContext: {
+        shipId: String(
+          shipContext?.shipId ??
+            this.#shipContext?.shipId ??
+            stateApi?.getActiveShipState?.()?.identity?.shipId ??
+            "",
+        ).trim() || null,
+        actorId: String(
+          shipContext?.actorId ??
+            this.#shipContext?.actorId ??
+            stateApi?.getActiveShipState?.()?.identity?.actorId ??
+            "",
+        ).trim() || null,
+      },
       sourceType: popupIncident.sourceType,
       sourceId: popupIncident.sourceId,
-      shipContext: shipContext ?? this.#shipContext,
       title: popupIncident.title,
       stationId: rollAttempt.stationId,
       actorId: rollAttempt.actorId,
