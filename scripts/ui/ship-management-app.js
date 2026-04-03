@@ -306,14 +306,15 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         ? `${estimatedDaysRemaining} day${estimatedDaysRemaining === 1 ? "" : "s"} remaining`
         : "Arrived");
     const maintenanceIssues = stateApi?.getMaintenanceIssues?.({
+        ...viewShipOptions,
         includeResolved: this.#showResolvedMaintenanceIssues,
       }) ??
       (Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : []);
-    const travelTasks = stateApi?.getTravelTasks?.({ includeResolved: this.#showResolvedTravelTasks }) ??
+    const travelTasks = stateApi?.getTravelTasks?.({ ...viewShipOptions, includeResolved: this.#showResolvedTravelTasks }) ??
       (Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : []);
-    const travelEvents = stateApi?.getTravelEvents?.({ includeResolved: this.#showResolvedTravelEvents }) ??
+    const travelEvents = stateApi?.getTravelEvents?.({ ...viewShipOptions, includeResolved: this.#showResolvedTravelEvents }) ??
       (Array.isArray(travelState?.travelEvents) ? travelState.travelEvents : []);
-    const stationRequests = stateApi?.getStationRequests?.({ includeResolved: this.#showResolvedStationRequests }) ??
+    const stationRequests = stateApi?.getStationRequests?.({ ...viewShipOptions, includeResolved: this.#showResolvedStationRequests }) ??
       (Array.isArray(travelState?.stationRequests) ? travelState.stationRequests : []);
     const allMaintenanceIssues = Array.isArray(travelState?.maintenanceIssues) ? travelState.maintenanceIssues : [];
     const allTravelTasks = Array.isArray(travelState?.travelTasks) ? travelState.travelTasks : [];
@@ -833,9 +834,9 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
       if (typeof stateApi.setTravelPosture === "function") {
-        await stateApi.setTravelPosture(posture);
+        await stateApi.setTravelPosture(posture, this.#getViewShipStateOptions());
       } else {
-        await stateApi.updateTravelState?.({ posture });
+        await stateApi.updateTravelState?.({ posture }, this.#getViewShipStateOptions());
       }
     }, event.currentTarget);
   }
@@ -900,7 +901,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       await stateApi.updateTravelState?.({
         legProgress: 0,
         daysIntoCurrentLeg: 0,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -946,7 +947,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         notes,
         publicSummary,
         publicOutcome,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
 
     form.reset();
@@ -992,7 +993,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         publicOutcome,
         source: "manual",
         status: "open",
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
 
     form.reset();
@@ -1009,7 +1010,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.resolveMaintenanceIssue?.(issueId);
+      await stateApi.resolveMaintenanceIssue?.(issueId, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1037,7 +1038,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         summary: lastAttemptSummary || undefined,
         attemptedByStation: attemptedByStation || null,
         attemptedSkill: attemptedSkill || null,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1052,7 +1053,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.resolveTravelTask?.(taskId);
+      await stateApi.resolveTravelTask?.(taskId, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1082,7 +1083,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         publicSummary: publicSummary || null,
         publicOutcome: publicOutcome || null,
         outcomeTag,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1182,7 +1183,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         publicSummary,
         publicOutcome,
         source: "manual",
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
 
     form.reset();
@@ -1212,7 +1213,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         summary: lastAttemptSummary || undefined,
         attemptedByStation: attemptedByStation || null,
         attemptedSkill: attemptedSkill || null,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1227,7 +1228,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.resolveTravelEvent?.(eventId);
+      await stateApi.resolveTravelEvent?.(eventId, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1257,7 +1258,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         publicSummary: publicSummary || null,
         publicOutcome: publicOutcome || null,
         outcomeTag,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1330,7 +1331,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateTravelEvent?.(eventId, {
         dc,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1351,7 +1352,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateTravelTask?.(taskId, {
         dc,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1366,7 +1367,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.createTravelTaskFromEvent?.(eventId);
+      await stateApi.createTravelTaskFromEvent?.(eventId, undefined, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1396,7 +1397,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         publicSummary: publicSummary || null,
         publicOutcome: publicOutcome || null,
         outcomeTag,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1417,7 +1418,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     await this.#rerenderWithPreservedBodyScroll(async () => {
       await stateApi.updateMaintenanceIssue?.(issueId, {
         dc,
-      });
+      }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1660,7 +1661,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const status = String(statusInput?.value ?? "requested").trim().toLowerCase();
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.updateStationRequest?.(requestId, { status });
+      await stateApi.updateStationRequest?.(requestId, { status }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
@@ -1676,7 +1677,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     await this.#rerenderWithPreservedBodyScroll(async () => {
-      await stateApi.updateStationRequest?.(requestId, { status: nextStatus });
+      await stateApi.updateStationRequest?.(requestId, { status: nextStatus }, this.#getViewShipStateOptions());
     }, event.currentTarget);
   }
 
