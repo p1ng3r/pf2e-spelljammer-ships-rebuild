@@ -201,6 +201,29 @@ function toAppliedPlayerRollLine(attempt, skillLabelsByValue) {
   return `Player roll applied: ${actorName} rolled ${skillLabel} ${totalLabel}.`;
 }
 
+function getLatestAttemptBySource(stationRollAttempts, sourceType, sourceId) {
+  const normalizedSourceType = String(sourceType ?? "").trim();
+  const normalizedSourceId = String(sourceId ?? "").trim();
+  if (!normalizedSourceType || !normalizedSourceId) {
+    return null;
+  }
+
+  return stationRollAttempts.reduce((latest, attempt) => {
+    if (
+      String(attempt?.sourceType ?? "").trim() !== normalizedSourceType ||
+      String(attempt?.sourceId ?? "").trim() !== normalizedSourceId
+    ) {
+      return latest;
+    }
+
+    if (!latest || Number(attempt?.createdAt ?? 0) > Number(latest?.createdAt ?? 0)) {
+      return attempt;
+    }
+
+    return latest;
+  }, null);
+}
+
 function appendSummaryLine(existingValue, lineToAppend) {
   const line = String(lineToAppend ?? "").trim();
   if (!line) {
@@ -359,14 +382,13 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const arcflightLogEntries = stateApi?.getArcflightLogEntries?.(viewShipOptions) ??
       (Array.isArray(travelState?.logEntries) ? travelState.logEntries : []);
     const latestAttemptByPromptKey = stationRollAttempts.reduce((accumulator, attempt) => {
-      const stationId = String(attempt?.stationId ?? "").trim();
       const sourceType = String(attempt?.sourceType ?? "").trim();
       const sourceId = String(attempt?.sourceId ?? "").trim();
-      if (!stationId || !sourceType || !sourceId) {
+      if (!sourceType || !sourceId) {
         return accumulator;
       }
 
-      const key = `${stationId}::${sourceType}::${sourceId}`;
+      const key = `${sourceType}::${sourceId}`;
       const prior = accumulator[key] ?? null;
       if (!prior || Number(attempt?.createdAt ?? 0) > Number(prior?.createdAt ?? 0)) {
         accumulator[key] = attempt;
@@ -435,7 +457,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
         toReadableSlugLabel(template?.stationRules?.recommendedSkill),
     }));
     const travelTaskViewModels = travelTasks.map((task) => {
-      const taskAttemptKey = `${String(task.recommendedStation ?? "").trim()}::task::${String(task.id ?? "").trim()}`;
+      const taskAttemptKey = `task::${String(task.id ?? "").trim()}`;
       const capturedRollSummary = toCapturedRollSummary(
         latestAttemptByPromptKey[taskAttemptKey] ?? null,
         stationLabelsById,
@@ -475,8 +497,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       return accumulator;
     }, {});
     const travelEventViewModels = travelEvents.map((travelEvent) => {
-      const eventAttemptKey =
-        `${String(travelEvent.recommendedStation ?? "").trim()}::event::${String(travelEvent.id ?? "").trim()}`;
+      const eventAttemptKey = `event::${String(travelEvent.id ?? "").trim()}`;
       const capturedRollSummary = toCapturedRollSummary(
         latestAttemptByPromptKey[eventAttemptKey] ?? null,
         stationLabelsById,
@@ -548,9 +569,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       maintenance: {
         issues: maintenanceIssues.map((issue) => ({
           capturedRollSummary: toCapturedRollSummary(
-            latestAttemptByPromptKey[
-              `${String(issue.recommendedStation ?? "").trim()}::issue::${String(issue.id ?? "").trim()}`
-            ] ?? null,
+            latestAttemptByPromptKey[`issue::${String(issue.id ?? "").trim()}`] ?? null,
             stationLabelsById,
             skillLabelsByValue,
           ),
@@ -567,9 +586,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
           })),
           outcomeTagLabel: toOutcomeTagLabel(issue.outcomeTag),
           outcomeSummaryLabel: toCapturedRollSummary(
-            latestAttemptByPromptKey[
-              `${String(issue.recommendedStation ?? "").trim()}::issue::${String(issue.id ?? "").trim()}`
-            ] ?? null,
+            latestAttemptByPromptKey[`issue::${String(issue.id ?? "").trim()}`] ?? null,
             stationLabelsById,
             skillLabelsByValue,
           ) ?? toOutcomeSummaryLabel(issue),
@@ -1100,20 +1117,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const viewShipOptions = this.#getViewShipStateOptions();
     const travelTasks = stateApi.getTravelTasks?.({ ...viewShipOptions, includeResolved: true }) ?? [];
     const task = travelTasks.find((entry) => entry?.id === taskId) ?? null;
-    const stationId = String(task?.recommendedStation ?? "").trim();
-    if (!task || !stationId) {
-      ui.notifications?.warn("No recommended station is set for this task.");
+    if (!task) {
       return;
     }
 
-    const latestAttempt = stateApi.getLatestStationRollAttempt?.(
-      {
-        stationId,
-        sourceType: "task",
-        sourceId: taskId,
-      },
-      viewShipOptions,
-    );
+    const stationRollAttempts = stateApi.getStationRollAttempts?.(viewShipOptions) ?? [];
+    const latestAttempt = getLatestAttemptBySource(stationRollAttempts, "task", taskId);
     if (!latestAttempt) {
       ui.notifications?.warn("No captured player roll is available for this task yet.");
       return;
@@ -1129,7 +1138,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       await stateApi.updateTravelTask?.(
         taskId,
         {
-          attemptedByStation: stationId,
+          attemptedByStation: latestAttempt.stationId ?? null,
           attemptedSkill: latestAttempt.skill ?? null,
           lastAttemptSummary: appendSummaryLine(task?.lastAttemptSummary, appliedLine),
           resultSummary: appendSummaryLine(task?.resultSummary, appliedLine),
@@ -1275,20 +1284,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const viewShipOptions = this.#getViewShipStateOptions();
     const travelEvents = stateApi.getTravelEvents?.({ ...viewShipOptions, includeResolved: true }) ?? [];
     const travelEvent = travelEvents.find((entry) => entry?.id === eventId) ?? null;
-    const stationId = String(travelEvent?.recommendedStation ?? "").trim();
-    if (!travelEvent || !stationId) {
-      ui.notifications?.warn("No recommended station is set for this event.");
+    if (!travelEvent) {
       return;
     }
 
-    const latestAttempt = stateApi.getLatestStationRollAttempt?.(
-      {
-        stationId,
-        sourceType: "event",
-        sourceId: eventId,
-      },
-      viewShipOptions,
-    );
+    const stationRollAttempts = stateApi.getStationRollAttempts?.(viewShipOptions) ?? [];
+    const latestAttempt = getLatestAttemptBySource(stationRollAttempts, "event", eventId);
     if (!latestAttempt) {
       ui.notifications?.warn("No captured player roll is available for this event yet.");
       return;
@@ -1304,7 +1305,7 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
       await stateApi.updateTravelEvent?.(
         eventId,
         {
-          attemptedByStation: stationId,
+          attemptedByStation: latestAttempt.stationId ?? null,
           attemptedSkill: latestAttempt.skill ?? null,
           lastAttemptSummary: appendSummaryLine(travelEvent?.lastAttemptSummary, appliedLine),
           resultSummary: appendSummaryLine(travelEvent?.resultSummary, appliedLine),
@@ -1435,20 +1436,12 @@ export class ShipManagementApp extends HandlebarsApplicationMixin(ApplicationV2)
     const viewShipOptions = this.#getViewShipStateOptions();
     const maintenanceIssues = stateApi.getMaintenanceIssues?.({ ...viewShipOptions, includeResolved: true }) ?? [];
     const issue = maintenanceIssues.find((entry) => entry?.id === issueId) ?? null;
-    const stationId = String(issue?.recommendedStation ?? "").trim();
-    if (!issue || !stationId) {
-      ui.notifications?.warn("No recommended station is set for this issue.");
+    if (!issue) {
       return;
     }
 
-    const latestAttempt = stateApi.getLatestStationRollAttempt?.(
-      {
-        stationId,
-        sourceType: "issue",
-        sourceId: issueId,
-      },
-      viewShipOptions,
-    );
+    const stationRollAttempts = stateApi.getStationRollAttempts?.(viewShipOptions) ?? [];
+    const latestAttempt = getLatestAttemptBySource(stationRollAttempts, "issue", issueId);
     if (!latestAttempt) {
       ui.notifications?.warn("No captured player roll is available for this issue yet.");
       return;
