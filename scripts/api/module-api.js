@@ -576,6 +576,9 @@ export function createModuleApi() {
       applyArcflightPlayerResolutionMutation(resolution);
       const resolutionResult = {
         ok: true,
+        requestId,
+        sourceType: resolution.sourceType,
+        sourceId: resolution.sourceId,
         resultTier: resolution.resultTier,
         resultTierLabel: resolution.resultTierLabel,
         resolutionText: resolution.resolutionText,
@@ -606,6 +609,9 @@ export function createModuleApi() {
         recipientUserId: requesterUserId,
         resolutionResult: {
           ok: false,
+          requestId,
+          sourceType: resolution?.sourceType ?? null,
+          sourceId: resolution?.sourceId ?? null,
           error: error?.message ?? "Failed to resolve Arcflight incident on the GM client.",
         },
       });
@@ -818,6 +824,9 @@ export function createModuleApi() {
       applyArcflightPlayerResolutionMutation(resolution);
       return {
         ok: true,
+        requestId: null,
+        sourceType: resolution.sourceType,
+        sourceId: resolution.sourceId,
         resultTier: resolution.resultTier,
         resultTierLabel: resolution.resultTierLabel,
         resolutionText: resolution.resolutionText,
@@ -829,6 +838,28 @@ export function createModuleApi() {
         isOffStation: resolution.isOffStation,
         offStationPenalty: resolution.offStationPenalty,
         title: resolution.title,
+      };
+    }
+
+    const hasConnectedSocket = Boolean(game.socket?.connected);
+    if (!hasConnectedSocket) {
+      return {
+        ok: false,
+        requestId: null,
+        sourceType: resolution.sourceType ?? null,
+        sourceId: resolution.sourceId ?? null,
+        error: "Socket connection is unavailable. Could not reach GM authority for Arcflight resolution.",
+      };
+    }
+
+    const hasActiveGm = Array.from(game.users ?? []).some((user) => user?.isGM && user?.active);
+    if (!hasActiveGm) {
+      return {
+        ok: false,
+        requestId: null,
+        sourceType: resolution.sourceType ?? null,
+        sourceId: resolution.sourceId ?? null,
+        error: "No active GM is connected to confirm Arcflight resolution.",
       };
     }
 
@@ -844,13 +875,26 @@ export function createModuleApi() {
       }, 15000);
 
       pendingArcflightResolutionRequestsById.set(requestId, { resolve, timeoutId });
-      game.socket?.emit(MODULE_SOCKET_CHANNEL, {
-        type: ARCFLIGHT_PLAYER_RESOLUTION_REQUEST_SOCKET_TYPE,
-        senderUserId: game.user?.id ?? null,
-        requesterUserId: game.user?.id ?? null,
-        requestId,
-        resolution,
-      });
+
+      try {
+        game.socket?.emit(MODULE_SOCKET_CHANNEL, {
+          type: ARCFLIGHT_PLAYER_RESOLUTION_REQUEST_SOCKET_TYPE,
+          senderUserId: game.user?.id ?? null,
+          requesterUserId: game.user?.id ?? null,
+          requestId,
+          resolution,
+        });
+      } catch (error) {
+        pendingArcflightResolutionRequestsById.delete(requestId);
+        clearTimeout(timeoutId);
+        resolve({
+          ok: false,
+          requestId,
+          sourceType: resolution.sourceType ?? null,
+          sourceId: resolution.sourceId ?? null,
+          error: error?.message ?? "Failed to send Arcflight resolution request to the GM.",
+        });
+      }
     });
   };
 

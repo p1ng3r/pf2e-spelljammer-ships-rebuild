@@ -1120,6 +1120,10 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
     const stateApi = game?.[API_NAMESPACE]?.state ?? null;
     const arcflightApi = game?.[API_NAMESPACE]?.arcflight ?? null;
     if (!stateApi || !arcflightApi?.requestPlayerResolution) {
+      this.#showIncidentResolutionFailureMessage({
+        title: popupIncident?.title,
+        reason: "Arcflight resolution API is unavailable on this client. Ask the GM to reload the world.",
+      });
       return;
     }
 
@@ -1156,12 +1160,13 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       updatePatch,
     });
     if (!resolutionResult?.ok) {
-      ui.notifications?.warn(
-        toText(
+      this.#showIncidentResolutionFailureMessage({
+        title: popupIncident?.title,
+        reason: toText(
           resolutionResult?.error,
           "Could not confirm Arcflight incident resolution from GM authority.",
         ),
-      );
+      });
       return;
     }
 
@@ -1233,6 +1238,30 @@ export class PlayerArcflightViewApp extends HandlebarsApplicationMixin(Applicati
       ? `Total ${adjustedTotal} (roll ${rolledTotal}, off-station ${offStationPenalty}) vs DC ${dc}`
       : `Total ${adjustedTotal} vs DC ${dc}`;
     ui.notifications?.info(`${title}: ${resultTierLabel}. ${totalSummary}. ${resolutionText}`);
+  }
+
+  #showIncidentResolutionFailureMessage({ title, reason }) {
+    const incidentTitle = toText(title, "Arcflight Incident");
+    const failureReason = toText(reason, "Could not confirm Arcflight resolution from the GM.");
+    const content =
+      `<p><strong>${incidentTitle}</strong></p>` +
+      `<p><strong>Resolution failed.</strong></p>` +
+      `<p>${failureReason}</p>` +
+      "<p>No outcome was applied. Please retry or contact the GM.</p>";
+
+    const dialogClass = foundry?.applications?.api?.DialogV2 ?? null;
+    if (dialogClass?.prompt) {
+      dialogClass.prompt({
+        window: { title: `${TRAVEL_TERM} Incident Result` },
+        content,
+        ok: {
+          label: "OK",
+        },
+      });
+      return;
+    }
+
+    ui.notifications?.error(`${incidentTitle}: Resolution failed. ${failureReason}`);
   }
 
   #renderAfterLocalStateWrite() {
