@@ -577,6 +577,101 @@ export function createModuleApi() {
     return nextShipState;
   };
 
+  const recordArcflightPendingPlayerRoll = ({
+    shipId,
+    sourceType,
+    sourceId,
+    stationId,
+    actorId,
+    actorName,
+    skill,
+    total,
+    resultTier,
+    resultTierLabel,
+    title,
+  }) => {
+    const normalizedSourceType = String(sourceType ?? "").trim().toLowerCase();
+    const normalizedSourceId = String(sourceId ?? "").trim();
+    const normalizedShipId = String(shipId ?? "").trim();
+    const normalizedStationId = String(stationId ?? "").trim().toLowerCase();
+    const normalizedSkill = String(skill ?? "").trim().toLowerCase();
+    const normalizedActorName = toText(actorName, "Unknown Actor");
+    const normalizedResultTier = String(resultTier ?? "").trim();
+    const normalizedResultTierLabel = toText(resultTierLabel, toLabel(normalizedResultTier, "Unknown"));
+    const numericTotal = Number(total);
+    const totalLabel = Number.isFinite(numericTotal) ? Math.floor(numericTotal) : "?";
+
+    if (!normalizedSourceType || !normalizedSourceId || !normalizedShipId || !normalizedStationId || !normalizedSkill) {
+      traceArcflightRelay(
+        "gm-record-pending-roll-skipped-invalid",
+        {
+          shipId: normalizedShipId || null,
+          sourceType: normalizedSourceType || null,
+          sourceId: normalizedSourceId || null,
+          stationId: normalizedStationId || null,
+          skill: normalizedSkill || null,
+        },
+        "warn",
+      );
+      return null;
+    }
+
+    const mutationOptions = { shipId: normalizedShipId };
+    const pendingSummary = `Pending Player Roll: ${normalizedActorName} (${normalizedStationId}) rolled ${normalizedSkill} ${totalLabel} (${normalizedResultTierLabel}).`;
+    const updatePatch = {
+      attemptedByStation: normalizedStationId,
+      attemptedSkill: normalizedSkill,
+      lastAttemptSummary: pendingSummary,
+    };
+
+    traceArcflightRelay("gm-record-pending-roll-before", {
+      shipId: normalizedShipId,
+      sourceType: normalizedSourceType,
+      sourceId: normalizedSourceId,
+      stationId: normalizedStationId,
+      actorId: actorId ?? null,
+      actorName: normalizedActorName,
+      skill: normalizedSkill,
+      total: totalLabel,
+      resultTier: normalizedResultTier || null,
+      title: toText(title, "Arcflight Incident"),
+    });
+
+    let nextShipState = recordStationRollAttempt(
+      shipStateIndex,
+      {
+        stationId: normalizedStationId,
+        sourceType: normalizedSourceType,
+        sourceId: normalizedSourceId,
+        actorId: actorId ?? null,
+        actorName: normalizedActorName,
+        skill: normalizedSkill,
+        total: Number.isFinite(numericTotal) ? numericTotal : null,
+        degree: normalizedResultTier || null,
+        createdAt: Date.now(),
+      },
+      mutationOptions,
+    );
+
+    if (normalizedSourceType === "event") {
+      nextShipState = updateTravelEvent(shipStateIndex, normalizedSourceId, updatePatch, mutationOptions);
+    } else if (normalizedSourceType === "task") {
+      nextShipState = updateTravelTask(shipStateIndex, normalizedSourceId, updatePatch, mutationOptions);
+    } else if (normalizedSourceType === "issue") {
+      nextShipState = updateMaintenanceIssue(shipStateIndex, normalizedSourceId, updatePatch, mutationOptions);
+    }
+
+    const stationRollAttemptCount = getStationRollAttempts(shipStateIndex, mutationOptions).length;
+    traceArcflightRelay("gm-record-pending-roll-after", {
+      shipId: normalizedShipId,
+      sourceType: normalizedSourceType,
+      sourceId: normalizedSourceId,
+      stationRollAttemptCount,
+    });
+
+    return notifyShipStateUpdated(nextShipState, { source: "socket.arcflightPlayerResolution.pendingRoll" });
+  };
+
   const handleArcflightResolutionRequestFromSocket = (payload = {}) => {
     if (!game.user?.isGM) {
       return;
@@ -596,21 +691,16 @@ export function createModuleApi() {
 
     const sourceType = String(resolution?.sourceType ?? "").trim().toLowerCase() || null;
     const sourceId = String(resolution?.sourceId ?? "").trim() || null;
-    const shipId = String(
-      resolution?.shipContext?.shipId ??
-        resolution?.shipContext?.actorId ??
-        resolution?.shipId ??
-        "",
-    ).trim() || null;
+    const shipId = String(resolution?.shipId ?? "").trim() || null;
     const traceContext = {
       requestId,
       sourceType,
       sourceId,
       shipId,
-      actorId: resolution?.shipContext?.actorId ?? null,
+      actorId: resolution?.actorId ?? null,
       stationId: resolution?.stationId ?? null,
       actorName: resolution?.actorName ?? null,
-      total: resolution?.rolledTotal ?? null,
+      total: resolution?.total ?? null,
       senderUserId: senderUserId || null,
       requesterUserId,
     };
@@ -618,16 +708,16 @@ export function createModuleApi() {
     traceArcflightRelay("gm-received-request", traceContext);
 
     try {
-      traceArcflightRelay("gm-applying-mutation", traceContext);
-      applyArcflightPlayerResolutionMutation(resolution);
-      traceArcflightRelay("gm-applied-mutation", traceContext);
+      traceArcflightRelay("gm-recording-pending-roll", traceContext);
+      recordArcflightPendingPlayerRoll(resolution);
+      traceArcflightRelay("gm-recorded-pending-roll", traceContext);
     } catch (error) {
       console.error(`${MODULE_ID} | Failed to apply Arcflight player resolution request.`, error);
       traceArcflightRelay(
-        "gm-mutation-failed",
+        "gm-pending-roll-failed",
         {
           ...traceContext,
-          error: error?.message ?? "Failed to resolve Arcflight incident on the GM client.",
+          error: error?.message ?? "Failed to record Arcflight incident roll on the GM client.",
         },
         "error",
       );
@@ -809,7 +899,7 @@ export function createModuleApi() {
 
   const requestArcflightPlayerResolution = async (resolution = {}) => {
     if (game.user?.isGM) {
-      applyArcflightPlayerResolutionMutation(resolution);
+      recordArcflightPendingPlayerRoll(resolution);
       return {
         ok: true,
         requestId: null,
@@ -817,14 +907,6 @@ export function createModuleApi() {
         sourceId: resolution.sourceId,
         resultTier: resolution.resultTier,
         resultTierLabel: resolution.resultTierLabel,
-        resolutionText: resolution.resolutionText,
-        adjustedTotal: resolution.adjustedTotal,
-        rolledTotal: resolution.rolledTotal,
-        dc: resolution.dc,
-        actingStationId: resolution.stationId,
-        recommendedStationId: resolution.recommendedStationId,
-        isOffStation: resolution.isOffStation,
-        offStationPenalty: resolution.offStationPenalty,
         title: resolution.title,
       };
     }
@@ -854,13 +936,21 @@ export function createModuleApi() {
     const requestId = foundry?.utils?.randomID?.() ?? `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
     const sourceType = String(resolution?.sourceType ?? "").trim().toLowerCase() || null;
     const sourceId = String(resolution?.sourceId ?? "").trim() || null;
-    const shipId = String(
-      resolution?.shipContext?.shipId ??
-        resolution?.shipContext?.actorId ??
-        resolution?.shipId ??
-        "",
-    ).trim() || null;
+    const shipId = String(resolution?.shipId ?? "").trim() || null;
     const senderUserId = String(game.user?.id ?? "").trim() || null;
+    const relayPayload = {
+      shipId,
+      sourceType,
+      sourceId,
+      stationId: String(resolution?.stationId ?? "").trim().toLowerCase() || null,
+      actorId: String(resolution?.actorId ?? "").trim() || null,
+      actorName: toText(resolution?.actorName, "Unknown Actor"),
+      skill: String(resolution?.skill ?? "").trim().toLowerCase() || null,
+      total: Number.isFinite(Number(resolution?.total)) ? Number(resolution.total) : null,
+      resultTier: String(resolution?.resultTier ?? "").trim() || null,
+      resultTierLabel: toText(resolution?.resultTierLabel, toLabel(resolution?.resultTier, "Unknown")),
+      title: toText(resolution?.title, "Arcflight Incident"),
+    };
 
     try {
       traceArcflightRelay("player-sent-request", {
@@ -868,10 +958,10 @@ export function createModuleApi() {
         sourceType,
         sourceId,
         shipId,
-        actorId: resolution?.shipContext?.actorId ?? null,
-        stationId: resolution?.stationId ?? null,
-        actorName: resolution?.actorName ?? null,
-        total: resolution?.rolledTotal ?? null,
+        actorId: relayPayload.actorId,
+        stationId: relayPayload.stationId,
+        actorName: relayPayload.actorName,
+        total: relayPayload.total,
         senderUserId,
         requesterUserId: senderUserId,
       });
@@ -880,7 +970,7 @@ export function createModuleApi() {
         senderUserId,
         requesterUserId: senderUserId,
         requestId,
-        resolution,
+        resolution: relayPayload,
       });
       return {
         ok: true,

@@ -4,9 +4,17 @@
 Active rebuild in progress. Arcflight now has a small user-facing control slice in the Ship Management app while remaining intentionally lightweight, with explicit player-safe public briefing fields for GM-controlled player output. Recent Arcflight activity is now visible in-app through a compact log panel in both GM and player Arcflight views, and incident resolution now writes a single readable summary line that includes result tier/effects/follow-up spawn notes when present. Shared galactic route ETA fields are now wired into authoritative travel state so GM and player views show matching remaining-hex/day estimates from one model. Arcflight pressure-track MVP is now in place so daily advancement can raise pressure, overflow into incidents, and trigger a lightweight hex-completion beat. Arcflight travel content MVP now adds authored per-track overflow incidents plus deterministic hex-beat flavor outcomes so voyages read as distinct moments instead of generic pressure ticks.
 
 ## Current Branch Focus
-Deliver Arcflight hotfix stability for player Arcflight incident resolution authority and popup stacking, while preserving current Arcflight UI flow.
+Deliver Arcflight hotfix stability for player-roll capture reliability by splitting Arcflight local result display from GM-side authoritative capture.
 
 ## Completed So Far
+- Arcflight player-roll capture-only hotfix pass added:
+  - Split player→GM Arcflight relay handling away from the over-coupled full mutation bundle.
+  - Added a GM-side pending-roll capture path that records the station roll attempt and updates source attempt fields without running `executeArcflightOutcomeEffects`.
+  - Relay payload is now explicit and minimal (`shipId`, `sourceType`, `sourceId`, `stationId`, `actorId`, `actorName`, `skill`, `total`, `resultTier`, `resultTierLabel`, `title`) instead of sending larger bundled mutation data.
+  - Player incident result popup remains immediate/local after the PF2E roll; relay send is fire-and-forget capture to GM authority.
+  - Ship Management rows now show a clearly-labeled **Pending Player Roll** line (station / skill / total / result tier) for matching events/tasks/issues.
+  - Existing GM **Apply Latest Roll** controls remain available as the manual bridge for later outcome/effect application.
+
 - Arcflight simplification hotfix pass added:
   - Removed the player↔GM Arcflight acknowledgement round-trip and switched to a one-way player→GM authoritative relay for incident resolution.
   - Removed the Arcflight relay result socket handling, pending request promise/timeout flow, and cached replay behavior from the module API relay path.

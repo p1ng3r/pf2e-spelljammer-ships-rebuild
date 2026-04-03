@@ -311,6 +311,9 @@
                   <p><strong>Attempted:</strong> {{#if task.attemptedByStationLabel}}{{task.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if task.attemptedSkill}}{{task.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>DC:</strong> {{#if task.dcLabel}}{{task.dcLabel}}{{else}}Not set{{/if}}</p>
                 </div>
+                {{#if task.pendingPlayerRoll}}
+                  <p class="travel-record-row__summary"><strong>Pending Player Roll:</strong> {{task.pendingPlayerRoll.stationLabel}} / {{task.pendingPlayerRoll.skillLabel}} / {{task.pendingPlayerRoll.totalLabel}} / {{task.pendingPlayerRoll.resultTierLabel}}</p>
+                {{/if}}
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{task.outcomeSummaryLabel}}</p>
                 <p class="travel-record-row__summary"><strong>Players See:</strong> {{#if task.publicSummary}}{{task.publicSummary}}{{else}}No public details yet.{{/if}} / {{#if task.publicOutcome}}{{task.publicOutcome}}{{else}}Outcome still uncertain.{{/if}}</p>
                 <div class="travel-task-attempt-controls">
@@ -517,6 +520,9 @@
                   <p><strong>Recommended:</strong> {{#if issue.recommendedStationLabel}}{{issue.recommendedStationLabel}}{{else}}Unassigned{{/if}} / {{#if issue.recommendedSkill}}{{issue.recommendedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>DC:</strong> {{#if issue.dcLabel}}{{issue.dcLabel}}{{else}}Not set{{/if}}</p>
                 </div>
+                {{#if issue.pendingPlayerRoll}}
+                  <p class="travel-record-row__summary"><strong>Pending Player Roll:</strong> {{issue.pendingPlayerRoll.stationLabel}} / {{issue.pendingPlayerRoll.skillLabel}} / {{issue.pendingPlayerRoll.totalLabel}} / {{issue.pendingPlayerRoll.resultTierLabel}}</p>
+                {{/if}}
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{issue.outcomeSummaryLabel}}</p>
                 <p class="travel-record-row__summary"><strong>Players See:</strong> {{#if issue.publicSummary}}{{issue.publicSummary}}{{else}}No public details yet.{{/if}} / {{#if issue.publicOutcome}}{{issue.publicOutcome}}{{else}}Outcome still uncertain.{{/if}}</p>
                 <label>
@@ -697,6 +703,9 @@
                   <p><strong>Attempted:</strong> {{#if event.attemptedByStationLabel}}{{event.attemptedByStationLabel}}{{else}}Unassigned{{/if}} / {{#if event.attemptedSkill}}{{event.attemptedSkillLabel}}{{else}}No skill set{{/if}}</p>
                   <p><strong>Linked Task:</strong> {{#if event.hasLinkedTask}}{{#if event.linkedTaskTitle}}{{event.linkedTaskTitle}}{{else}}<code>{{event.linkedTaskId}}</code>{{/if}}{{else}}None{{/if}}</p>
                 </div>
+                {{#if event.pendingPlayerRoll}}
+                  <p class="travel-record-row__summary"><strong>Pending Player Roll:</strong> {{event.pendingPlayerRoll.stationLabel}} / {{event.pendingPlayerRoll.skillLabel}} / {{event.pendingPlayerRoll.totalLabel}} / {{event.pendingPlayerRoll.resultTierLabel}}</p>
+                {{/if}}
                 <p class="travel-record-row__summary"><strong>Attempt Summary:</strong> {{event.attemptSummaryLabel}}</p>
                 <p class="travel-record-row__summary"><strong>Outcome:</strong> {{event.outcomeSummaryLabel}}</p>
                 <p class="travel-record-row__summary"><strong>Players See:</strong> {{#if event.publicSummary}}{{event.publicSummary}}{{else}}No public details yet.{{/if}} / {{#if event.publicOutcome}}{{event.publicOutcome}}{{else}}Outcome still uncertain.{{/if}}</p>
